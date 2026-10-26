@@ -1,4 +1,4 @@
-"""Agent tests use a scripted fake client, never the real Meta API."""
+"""Agent tests use a scripted fake client, never a real provider."""
 
 from __future__ import annotations
 
@@ -169,17 +169,13 @@ def test_agent_stops_after_five_tool_rounds(engine) -> None:
     assert len(result.tool_calls) == 5
 
 
-def test_missing_model_api_key_has_a_clear_error(monkeypatch) -> None:
-    monkeypatch.delenv("MODEL_API_KEY", raising=False)
-    monkeypatch.setattr("koumba.llm.load_dotenv", lambda *args, **kwargs: None)
-
+def test_missing_model_api_key_has_a_clear_error(llm_env) -> None:
     with pytest.raises(MissingAPIKeyError, match="MODEL_API_KEY"):
         ModelClient()
 
 
-def test_blank_model_api_key_counts_as_missing(monkeypatch) -> None:
+def test_blank_model_api_key_counts_as_missing(llm_env, monkeypatch) -> None:
     monkeypatch.setenv("MODEL_API_KEY", "   ")
-    monkeypatch.setattr("koumba.llm.load_dotenv", lambda *args, **kwargs: None)
 
     with pytest.raises(MissingAPIKeyError, match="MODEL_API_KEY"):
         ModelClient()
@@ -204,8 +200,7 @@ class _FakeOpenAI:
         self.chat = SimpleNamespace(completions=self.completions)
 
 
-def test_model_client_retries_once_and_passes_the_timeout(monkeypatch) -> None:
-    monkeypatch.delenv("KOUMBA_MODEL", raising=False)
+def test_model_client_retries_once_and_passes_the_timeout(llm_env) -> None:
     fake = _FakeOpenAI()
     client = ModelClient(
         api_key="test-key",

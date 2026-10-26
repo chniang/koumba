@@ -20,3 +20,22 @@ def engine() -> RouteEngine:
     network = Network.from_data(data)
     place_index = PlaceIndex.from_data(data)
     return RouteEngine(network, place_index)
+
+
+_LLM_ENV_VARS = (
+    "MODEL_API_KEY",
+    "KOUMBA_BASE_URL",
+    "KOUMBA_API_KEY_ENV",
+    "KOUMBA_MODEL",
+    "BASETEN_API_KEY",
+    "FIREWORKS_API_KEY",
+)
+
+
+@pytest.fixture
+def llm_env(monkeypatch) -> None:
+    """Isolate provider tests from the developer's environment and .env."""
+
+    for name in _LLM_ENV_VARS:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr("koumba.llm.load_dotenv", lambda *args, **kwargs: None)

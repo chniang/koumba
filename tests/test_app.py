@@ -3,22 +3,53 @@
 from __future__ import annotations
 
 
-def test_app_builds_without_api_key(monkeypatch) -> None:
-    monkeypatch.delenv("MODEL_API_KEY", raising=False)
-
+def test_app_builds_without_api_key(llm_env) -> None:
     import koumba.app as app
-
-    monkeypatch.setattr(app, "_api_key_configured", lambda: False)
 
     demo = app.build_app()
 
     assert demo is not None
 
 
-def test_respond_without_key_shows_a_clear_message(monkeypatch) -> None:
+def test_provider_banner_names_the_configured_provider(
+    llm_env,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv(
+        "KOUMBA_BASE_URL",
+        "https://api.fireworks.ai/inference/v1",
+    )
+    monkeypatch.setenv(
+        "KOUMBA_MODEL",
+        "accounts/fireworks/models/muse-spark-open",
+    )
+    monkeypatch.setenv("KOUMBA_API_KEY_ENV", "FIREWORKS_API_KEY")
+    monkeypatch.setenv("FIREWORKS_API_KEY", "fake-fireworks-key")
+
     import koumba.app as app
 
-    monkeypatch.setattr(app, "_api_key_configured", lambda: False)
+    text, is_warning = app._provider_banner()
+
+    assert not is_warning
+    assert "Fireworks" in text
+    assert "accounts/fireworks/models/muse-spark-open" in text
+
+
+def test_provider_banner_warns_when_the_key_is_missing(llm_env) -> None:
+    import koumba.app as app
+
+    text, is_warning = app._provider_banner()
+
+    assert is_warning
+    assert "Meta Model API key not configured" in text
+    assert "MODEL_API_KEY" in text
+
+
+def test_respond_without_key_shows_a_clear_message(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
 
     def should_not_run():
         raise AssertionError("the agent must not start without a key")
@@ -29,7 +60,26 @@ def test_respond_without_key_shows_a_clear_message(monkeypatch) -> None:
 
     assert message == ""
     assert history[-1]["role"] == "assistant"
-    assert "Meta API key not configured" in history[-1]["content"]
+    assert "Meta Model API key not configured" in history[-1]["content"]
+    assert "MODEL_API_KEY" in history[-1]["content"]
+
+
+def test_missing_key_message_names_the_custom_provider(
+    llm_env,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv(
+        "KOUMBA_BASE_URL",
+        "https://api.fireworks.ai/inference/v1",
+    )
+    monkeypatch.setenv("KOUMBA_API_KEY_ENV", "FIREWORKS_API_KEY")
+
+    import koumba.app as app
+
+    message = app._missing_key_message()
+
+    assert "Fireworks key not configured" in message
+    assert "FIREWORKS_API_KEY" in message
 
 
 def test_trip_cards_include_the_useful_fields() -> None:

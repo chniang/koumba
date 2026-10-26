@@ -16,11 +16,10 @@ from typing import Any
 os.environ.setdefault("GRADIO_ANALYTICS_ENABLED", "False")
 
 import gradio as gr
-from dotenv import load_dotenv
 
 from .agent import Agent
 from .data import load_data
-from .llm import ModelClient
+from .llm import ModelClient, ProviderConfig, api_key_configured, load_config
 from .network import Network
 from .places import PlaceIndex
 from .router import RouteEngine
@@ -69,17 +68,54 @@ CSS = """
   padding: 10px 12px;
   border-radius: 10px;
 }
+.provider {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1e3a8a;
+  padding: 10px 12px;
+  border-radius: 10px;
+}
 @media (max-width: 640px) {
   .trip-grid { grid-template-columns: 1fr; }
 }
 """
 
 
-def _api_key_configured() -> bool:
-    """Check the environment without ever printing or storing the key."""
+def _provider_config() -> ProviderConfig:
+    return load_config()
 
-    load_dotenv()
-    return bool(os.environ.get("MODEL_API_KEY"))
+
+def _api_key_configured() -> bool:
+    """Check the configured key env var without printing the key."""
+
+    return api_key_configured(_provider_config())
+
+
+def _missing_key_message() -> str:
+    config = _provider_config()
+    return (
+        f"{config.provider} key not configured. Add "
+        f"{config.api_key_env} to your environment or .env file, then try "
+        "again."
+    )
+
+
+def _provider_banner() -> tuple[str, bool]:
+    """Return the banner text and whether it is a warning."""
+
+    config = _provider_config()
+    if api_key_configured(config):
+        return (
+            f"**Provider:** {config.provider} \u00b7 "
+            f"**Model:** `{config.model}`",
+            False,
+        )
+    return (
+        f"### {config.provider} key not configured\n"
+        f"Add `{config.api_key_env}` to a local `.env` file "
+        "(see `.env.example`) and restart the app.",
+        True,
+    )
 
 
 @lru_cache(maxsize=1)
@@ -194,10 +230,7 @@ def _respond(message_text: str, history):
         current.append(
             {
                 "role": "assistant",
-                "content": (
-                    "Meta API key not configured. Add MODEL_API_KEY to your "
-                    "environment or .env file, then try again."
-                ),
+                "content": _missing_key_message(),
             }
         )
         return current, "", _trip_cards(None), []
@@ -233,13 +266,11 @@ def build_app() -> gr.Blocks:
             "Your Dakar bus assistant. Ask in Wolof, French, or English."
         )
 
-        if not _api_key_configured():
-            gr.Markdown(
-                "### Meta API key not configured\n"
-                "Add `MODEL_API_KEY` to a local `.env` file (see `.env.example`) "
-                "and restart the app.",
-                elem_classes=["banner"],
-            )
+        banner_text, is_warning = _provider_banner()
+        gr.Markdown(
+            banner_text,
+            elem_classes=["banner" if is_warning else "provider"],
+        )
 
         with gr.Row():
             with gr.Column(scale=3):

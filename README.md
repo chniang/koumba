@@ -17,13 +17,14 @@ This repository contains:
 - `koumba/router.py` - Dijkstra with at most two transfers, direct preference,
   detour control, and distinct line combinations.
 - `koumba/cli.py` - the readable command line output.
-- `koumba/llm.py` - a small OpenAI-SDK wrapper for the Meta Model API.
+- `koumba/llm.py` - a small OpenAI-SDK wrapper with configurable base URL,
+  key env var, and model.
 - `koumba/tools.py` - JSON tool schemas and handlers for place resolution and
   trip search.
 - `koumba/agent.py` - the Muse Spark tool-calling loop.
-- `koumba/app.py` - the Gradio demo UI.
-- `.env.example` - the two settings the app needs, with no real key.
-- `tests/` - route tests, tool tests, and fake-client agent tests.
+- `koumba/app.py` - the Gradio demo UI with a provider banner.
+- `.env.example` - provider presets and key placeholders, with no real key.
+- `tests/` - route, tool, agent, provider, and app tests.
 
 ## Pre-existing
 
@@ -51,17 +52,21 @@ pip install -r requirements.txt
 ```
 
 For the agent and the app, copy `.env.example` to `.env` and fill in your own
-key:
+key. The default preset is the Meta Model API:
 
 ```powershell
 Copy-Item .env.example .env
 # Then edit .env:
-# MODEL_API_KEY=...
+# KOUMBA_BASE_URL=https://api.meta.ai/v1
+# KOUMBA_API_KEY_ENV=MODEL_API_KEY
 # KOUMBA_MODEL=muse-spark-1.3
+# MODEL_API_KEY=...
 ```
 
-`.env` is git-ignored. Never commit a real key. The route engine and CLI work
-without a key; only the agent and the Gradio app need one.
+`.env.example` also contains commented presets for Baseten and Fireworks.
+Baseten still needs its OpenAI-compatible base URL pasted from the Baseten
+docs (marked TODO). `.env` is git-ignored. Never commit a real key. The route
+engine and CLI work without a key; only the agent and the Gradio app need one.
 
 ## Usage
 
@@ -109,8 +114,9 @@ print(result.language, result.origin, result.destination)
 print(result.trips)
 ```
 
-This example uses the real API only when `MODEL_API_KEY` is set. The test
-suite uses a scripted fake client instead and never calls the Meta API.
+This example uses the real provider only when the configured key env var is
+set. The default is `MODEL_API_KEY`. The test suite uses a scripted fake client
+instead and never calls a real provider.
 
 ### Gradio app
 
@@ -120,10 +126,11 @@ python -m koumba.app
 
 The app has a “Where are you going?” text box, Wolof and French example
 buttons, a chat area, mobile-friendly trip cards, and a “How Koumba thought”
-accordion with the tool calls. If `MODEL_API_KEY` is missing, it shows the
-banner “Meta API key not configured” instead of crashing. Importing
-`koumba.app` or calling `build_app()` only builds the UI; it does not start a
-server.
+accordion with the tool calls. Its banner names the configured provider and
+model, such as “Provider: Fireworks”; if the configured key env var is
+missing, it shows a warning such as “Meta Model API key not configured”
+instead of crashing. Importing `koumba.app` or calling `build_app()` only
+builds the UI; it does not start a server.
 
 ## Data source and cache
 
@@ -185,13 +192,23 @@ coordinates.
 
 ## Agent and tools
 
-`ModelClient` uses the OpenAI SDK with:
+`ModelClient` uses the OpenAI SDK with these settings from `.env` or the
+environment:
 
-- base URL `https://api.meta.ai/v1`
-- `MODEL_API_KEY` from the environment or `.env`
-- `KOUMBA_MODEL`, defaulting to `muse-spark-1.3`
+- `KOUMBA_BASE_URL` - OpenAI-compatible base URL, default
+  `https://api.meta.ai/v1`
+- `KOUMBA_API_KEY_ENV` - name of the variable holding the key, default
+  `MODEL_API_KEY`
+- `KOUMBA_MODEL` - model name, default `muse-spark-1.3`
 - a 30-second timeout and one retry
-- a clear `MissingAPIKeyError` when no key is configured
+- a clear `MissingAPIKeyError` naming the configured key env var
+
+The `.env.example` presets cover the Meta Model API, Baseten
+(`meta-models/muse-spark-open-1026`, base URL TODO), and Fireworks
+(`https://api.fireworks.ai/inference/v1`,
+`accounts/fireworks/models/muse-spark-open`). The app banner derives the
+provider name from the base URL and model so a switch does not need code
+changes.
 
 The two tools are:
 
@@ -229,12 +246,15 @@ a small keyword heuristic; the model still writes the reply.
   not repair the underlying data.
 - Place matching is deliberately conservative. An unusual spelling may return
   no match rather than a wrong stop.
-- The agent loop is tested with a scripted fake client. Live Muse Spark
-  behavior is untested until the Meta account is active.
+- The agent loop is tested with a scripted fake client. It has not been tested
+  against a live provider.
+- The Baseten preset leaves the base URL as a TODO until it is copied from the
+  Baseten docs.
 - The language badge uses a small heuristic and can mislabel very short or
   heavily mixed messages.
 - No local machine-learning model is downloaded and there is no Streamlit app.
-  The optional agent uses the Meta Model API only when a key is configured.
+  The optional agent calls the configured OpenAI-compatible provider only when
+  its key env var is set.
 
 ## Tests
 
@@ -248,15 +268,16 @@ tests cover Sahm to Malika (no downtown/Palais shortcut), Ouakam to Palais,
 Parcelles Assainies to UCAD, and Guediawaye to Palais. Tool tests check the
 JSON shapes and error paths. Agent tests use a scripted `FakeClient` to cover
 a Wolof request with a real engine call, an unknown place with suggestions,
-the five-round limit, and the missing-key error. App tests build the UI
-without a key and check the trip-card fields. The tests never call the Meta
-API.
+the five-round limit, and the missing-key error. Provider tests check the
+defaults, the Fireworks settings, Baseten detection, a custom key env var, and
+the SDK base URL/model plumbing. App tests build the UI, check the provider
+banner, and check the trip-card fields. The tests never call a real provider.
 
 ## Project layout
 
 ```text
 koumba/       package code
-tests/        route, tool, agent, and app tests
+tests/        route, tool, agent, provider, and app tests
 data_cache/   downloaded CSVs (ignored by git)
 .env.example  configuration template (the real .env is ignored)
 ```
