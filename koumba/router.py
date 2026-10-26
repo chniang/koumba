@@ -240,6 +240,7 @@ class RouteEngine:
         origin: str,
         destination: str,
         max_trips: int = 3,
+        operator: str | None = None,
     ) -> list[Trip]:
         max_trips = max(1, max_trips)
         origin_matches = self.place_index.match(origin)
@@ -281,6 +282,7 @@ class RouteEngine:
             origin_is_downtown=origin_is_downtown,
             destination_is_downtown=destination_is_downtown,
             max_trips=max_trips,
+            operator=operator,
         )
         if not trips:
             raise NoRouteFoundError(
@@ -335,6 +337,7 @@ class RouteEngine:
         origin_is_downtown: bool,
         destination_is_downtown: bool,
         max_trips: int,
+        operator: str | None = None,
     ) -> list[Trip]:
         queue: list[tuple[tuple[int, float], int, _Label]] = []
         counter = itertools.count()
@@ -344,6 +347,8 @@ class RouteEngine:
 
         for stop, access in origin_points.items():
             for node in self.network.nodes_at_stop(stop):
+                if operator is not None and node.line[0] != operator:
+                    continue
                 access_step = _Step(
                     kind="access",
                     from_stop=access.walk.from_place,
@@ -420,6 +425,8 @@ class RouteEngine:
                     if label.transfers >= MAX_TRANSFERS:
                         continue
                     if not label.rode_since_transfer:
+                        continue
+                    if operator is not None and edge.target.line[0] != operator:
                         continue
                     if edge.target.line in label.combo:
                         continue
