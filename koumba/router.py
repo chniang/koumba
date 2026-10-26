@@ -25,6 +25,7 @@ from .places import (
     PlaceCandidate,
     PlaceIndex,
     normalize_name,
+    prefer_exact_matches,
     representative_coordinates,
 )
 
@@ -243,11 +244,17 @@ class RouteEngine:
         operator: str | None = None,
     ) -> list[Trip]:
         max_trips = max(1, max_trips)
-        origin_matches = self.place_index.match(origin)
+        origin_matches = prefer_exact_matches(
+            self.place_index.match(origin),
+            origin,
+        )
         if not origin_matches:
             raise PlaceNotFoundError(origin, self.place_index.suggestions(origin))
 
-        destination_matches = self.place_index.match(destination)
+        destination_matches = prefer_exact_matches(
+            self.place_index.match(destination),
+            destination,
+        )
         if not destination_matches:
             raise PlaceNotFoundError(
                 destination, self.place_index.suggestions(destination)

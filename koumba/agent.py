@@ -14,10 +14,12 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .places import PlaceIndex
+from .phrases import spoken_answer
 from .router import RouteEngine
 from .tools import TOOL_SCHEMAS, execute_tool
 
 MAX_TOOL_ROUNDS = 5
+MAX_HISTORY_MESSAGES = 6
 
 SYSTEM_PROMPT = """You are Koumba, a bus assistant for Dakar.
 
@@ -33,10 +35,15 @@ line, a stop, or a route. The tools are:
   route engine. Leave operator empty unless the user asks for a specific bus
   company.
 
-If a place is ambiguous, ask one short question and show the best choices.
+Use the conversation history to understand follow-up answers. If the user
+answers a clarification with just a place name, reuse the earlier origin or
+destination.
+
 If a tool returns an error, explain it briefly and ask the user to clarify.
-Answer briefly in the user's language. When trips are available, mention the
-operator, line, boarding stop, alighting stop, direction, and minutes."""
+Answer in the user's language using at most two short sentences. Never repeat
+the user's sentence. Never list every trip in text; the app shows trip cards.
+If a place is genuinely ambiguous, ask one short clarification question.
+Otherwise give only the key boarding and alighting instruction."""
 
 _FALLBACK_REPLIES = {
     "Wolof": "Baal ma, tool bi jotul. Jéemaat.",
@@ -49,12 +56,15 @@ _WOLOF_PHRASES = (
     "maa ngi",
     "bëgg",
     "begg",
+    "beugg",
+    "nekk",
     "jërëjëf",
     "jerejef",
     "fan la",
     "naka nga",
 )
 _WOLOF_WORDS = {
+    "dama",
     "dem",
     "fii",
     "ci",
@@ -67,6 +77,15 @@ _WOLOF_WORDS = {
     "yow",
     "naka",
     "leen",
+    "nekk",
+    "beugg",
+    "bëgg",
+    "bëgga",
+    "jël",
+    "jëm",
+    "wàcci",
+    "duggu",
+    "nga",
 }
 
 _FRENCH_PHRASES = (
@@ -131,6 +150,42 @@ class AgentResult:
     trips: list[dict[str, Any]] | None = None
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     rounds: int = 0
+    spoken: str = ""
+
+
+def _clean_history(history: Any) -> list[dict[str, str]]:
+    """Keep the last six text-only user and assistant messages."""
+
+    if not isinstance(history, (list, tuple)):
+        return []
+
+    cleaned: list[dict[str, str]] = []
+    for item in history:
+        if not isinstance(item, dict):
+            continue
+        role = item.get("role")
+        content = item.get("content")
+        if role not in {"user", "assistant"}:
+            continue
+        if not isinstance(content, str):
+            continue
+        content = content.strip()
+        if not content:
+            continue
+        cleaned.append({"role": role, "content": content})
+    return cleaned[-MAX_HISTORY_MESSAGES:]
+
+
+def _history_language(history: list[dict[str, str]]) -> str:
+    """Use the most recent user language when the current text has none."""
+
+    for item in reversed(history):
+        if item["role"] != "user":
+            continue
+        language = detect_language(item["content"])
+        if language != "Unknown":
+            return language
+    return "Unknown"
 
 
 def detect_language(text: str) -> str:
@@ -232,11 +287,42 @@ class Agent:
         self.place_index = place_index or engine.place_index
         self.max_tool_rounds = max(1, max_tool_rounds)
 
-    def run(self, user_text: str) -> AgentResult:
+    def _result(
+        self,
+        *,
+        reply: str,
+        language: str,
+        origin: str | None,
+        destination: str | None,
+        trips: list[dict[str, Any]] | None,
+        tool_calls: list[dict[str, Any]],
+        rounds: int,
+    ) -> AgentResult:
+        best_trip = trips[0] if trips else None
+        return AgentResult(
+            reply=reply,
+            language=language,
+            spoken=spoken_answer(best_trip, language, origin),
+            origin=origin,
+            destination=destination,
+            trips=trips,
+            tool_calls=tool_calls,
+            rounds=rounds,
+        )
+
+    def run(
+        self,
+        user_text: str,
+        history: list[dict[str, Any]] | None = None,
+    ) -> AgentResult:
         text = (user_text or "").strip()
+        memory = _clean_history(history)
         language = detect_language(text)
+        if language == "Unknown":
+            language = _history_language(memory)
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": SYSTEM_PROMPT},
+            *memory,
             {"role": "user", "content": text},
         ]
 
@@ -257,7 +343,7 @@ class Agent:
                 )
                 message = _response_message(response)
             except Exception:
-                return AgentResult(
+                return self._result(
                     reply=_FALLBACK_REPLIES.get(
                         language, _FALLBACK_REPLIES["Unknown"]
                     ),
@@ -277,7 +363,7 @@ class Agent:
                     reply = _FALLBACK_REPLIES.get(
                         language, _FALLBACK_REPLIES["Unknown"]
                     )
-                return AgentResult(
+                return self._result(
                     reply=reply,
                     language=language,
                     origin=origin,
@@ -337,7 +423,7 @@ class Agent:
                     }
                 )
 
-        return AgentResult(
+        return self._result(
             reply=_FALLBACK_REPLIES.get(language, _FALLBACK_REPLIES["Unknown"]),
             language=language,
             origin=origin,

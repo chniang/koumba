@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from koumba.agent import Agent
+from koumba.agent import Agent, detect_language
 from koumba.llm import MissingAPIKeyError, ModelClient
 
 
@@ -102,6 +102,8 @@ def test_wolof_request_runs_the_real_engine_and_returns_trips(engine) -> None:
     }
     assert result.tool_calls[0]["name"] == "find_trips"
     assert result.tool_calls[0]["result"]["trips"] == result.trips
+    assert result.spoken.startswith("Ci Sahm, duggu ci Tata 38 bi jëm")
+    assert result.spoken.endswith("minit.")
     assert client.call_count == 2
 
     # The second model call must contain the real tool output.
@@ -167,6 +169,93 @@ def test_agent_stops_after_five_tool_rounds(engine) -> None:
     assert result.rounds == 5
     assert result.reply
     assert len(result.tool_calls) == 5
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "dama nekk medina beugg dem yoff",
+        "maa ngi Sahm begg naa dem Malika",
+        "dama bëgga dem",
+        "fan la",
+        "nekk",
+        "beugg",
+        "dama",
+        "dem",
+        "bëgga",
+    ],
+)
+def test_informal_wolof_is_detected(text: str) -> None:
+    assert detect_language(text) == "Wolof"
+
+
+def test_history_keeps_the_last_six_text_messages_only(engine) -> None:
+    client = FakeClient([_response("Short answer.")])
+    agent = Agent(client, engine)
+    history = [
+        {"role": "system", "content": "drop the system message"},
+        {"role": "user", "content": "old 1"},
+        {"role": "assistant", "content": "old 2"},
+        {"role": "tool", "content": "drop the tool message"},
+        {"role": "user", "content": "old 3"},
+        {"role": "assistant", "content": "old 4"},
+        {"role": "user", "content": "old 5"},
+        {"role": "assistant", "content": "old 6"},
+        {"role": "user", "content": "old 7"},
+        {"role": "assistant", "content": "old 8"},
+        {"role": "user", "content": None},
+        {"role": "assistant", "content": ["not", "text"]},
+    ]
+
+    agent.run("Grand Yoff", history=history)
+
+    messages = client.calls[0]["messages"]
+    assert messages[0]["role"] == "system"
+    assert messages[1:-1] == [
+        {"role": "user", "content": "old 3"},
+        {"role": "assistant", "content": "old 4"},
+        {"role": "user", "content": "old 5"},
+        {"role": "assistant", "content": "old 6"},
+        {"role": "user", "content": "old 7"},
+        {"role": "assistant", "content": "old 8"},
+    ]
+    assert messages[-1] == {"role": "user", "content": "Grand Yoff"}
+
+
+def test_follow_up_uses_history_and_keeps_the_earlier_language(engine) -> None:
+    client = FakeClient(
+        [
+            _response(
+                tool_calls=[
+                    _tool_call(
+                        "call_1",
+                        "find_trips",
+                        {"origin": "Sahm", "destination": "Grand Yoff"},
+                    )
+                ]
+            ),
+            _response("Voici une réponse longue que l'interface remplacera."),
+        ]
+    )
+    history = [
+        {
+            "role": "user",
+            "content": "Maa ngi Sahm, bëgg naa dem Yoff-Village walla Grand Yoff?",
+        },
+        {"role": "assistant", "content": "Yoff-Village walla Grand Yoff ?"},
+    ]
+    agent = Agent(client, engine)
+
+    result = agent.run("Grand Yoff", history=history)
+
+    first_messages = client.calls[0]["messages"]
+    assert first_messages[1:3] == history
+    assert first_messages[-1] == {"role": "user", "content": "Grand Yoff"}
+    assert result.language == "Wolof"
+    assert result.destination == "Grand Yoff"
+    assert result.trips
+    assert result.spoken.startswith("Ci Sahm, duggu ci Tata 38")
+    assert result.spoken.endswith("minit.")
 
 
 def test_missing_model_api_key_has_a_clear_error(llm_env) -> None:

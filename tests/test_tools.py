@@ -28,6 +28,32 @@ def test_resolve_place_returns_scored_candidates(engine) -> None:
     assert all(candidate["score"] >= 80 for candidate in result["candidates"])
 
 
+def test_resolve_place_lists_exact_matches_first(engine) -> None:
+    result = execute_tool(
+        "resolve_place",
+        {"query": "Yoff"},
+        engine,
+        engine.place_index,
+    )
+
+    candidates = result["candidates"]
+    assert candidates[0]["name"] == "Yoff"
+    assert candidates[0]["normalized"] == "yoff"
+    assert any(
+        candidate["normalized"] == "grand yoff"
+        for candidate in candidates
+    )
+
+    accented = execute_tool(
+        "resolve_place",
+        {"query": "medina"},
+        engine,
+        engine.place_index,
+    )
+    assert accented["candidates"][0]["normalized"] == "medina"
+    assert accented["candidates"][0]["name"] == "Médina"
+
+
 def test_resolve_place_unknown_returns_suggestions(engine) -> None:
     result = execute_tool(
         "resolve_place",

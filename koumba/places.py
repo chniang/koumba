@@ -292,6 +292,29 @@ class PlaceIndex:
         return [(item.name, item.score) for item in self._scored(query)[:limit]]
 
 
+def prefer_exact_matches(
+    candidates: list[PlaceCandidate],
+    query: str,
+) -> list[PlaceCandidate]:
+    """Keep only exact normalized matches when the user's name is known.
+
+    Fuzzy matching is useful for typos and for neighbourhood names, but it
+    must not turn an exact stop such as "Yoff" into a longer stop such as
+    "Grand Yoff".  The exact candidate still carries its spelling variants in
+    ``stop_names``, so the router can use those variants as the same place.
+    """
+
+    query_norm = normalize_name(query)
+    if not query_norm:
+        return candidates
+    exact = [
+        candidate
+        for candidate in candidates
+        if candidate.normalized == query_norm
+    ]
+    return exact or candidates
+
+
 def representative_coordinates(
     candidates: list[PlaceCandidate],
 ) -> tuple[float, float] | None:

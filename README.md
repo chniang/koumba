@@ -21,7 +21,10 @@ This repository contains:
   key env var, and model.
 - `koumba/tools.py` - JSON tool schemas and handlers for place resolution and
   trip search.
-- `koumba/agent.py` - the Muse Spark tool-calling loop.
+- `koumba/agent.py` - the Muse Spark tool-calling loop with short conversation
+  memory.
+- `koumba/phrases.py` - deterministic short spoken answers in Wolof, French,
+  and English.
 - `koumba/app.py` - the Gradio demo UI with a provider banner.
 - `.env.example` - provider presets and key placeholders, with no real key.
 - `tests/` - route, tool, agent, provider, and app tests.
@@ -109,10 +112,18 @@ engine = RouteEngine(Network.from_data(data), PlaceIndex.from_data(data))
 agent = Agent(ModelClient(), engine)
 
 result = agent.run("Maa ngi Sahm, bëgg naa dem Malika")
+print(result.spoken)
 print(result.reply)
 print(result.language, result.origin, result.destination)
 print(result.trips)
 ```
+
+`Agent.run(user_text, history=None)` accepts earlier turns as a list of
+`{"role": "user"|"assistant", "content": str}` messages. It keeps the last six
+text messages as context, ignores tool messages, and sends them before the new
+user message. The Gradio app passes its chat history automatically. The short
+`spoken` answer is generated from the best trip, so a follow-up such as
+"Grand Yoff" can reuse the earlier origin.
 
 This example uses the real provider only when the configured key env var is
 set. The default is `MODEL_API_KEY`. The test suite uses a scripted fake client
@@ -162,9 +173,12 @@ stop the route search; those segments simply have an unknown distance.
 5. `cli.py` turns the result into plain-English legs and walks.
 6. `tools.py` exposes `resolve_place` and `find_trips` as JSON tools and turns
    route errors into JSON errors.
-7. `agent.py` sends the user message to the model, runs requested tools
-   against the real engine, and repeats for at most five tool rounds.
-8. `app.py` renders the chat, trip cards, and tool-call accordion.
+7. `agent.py` sends the last six history messages and the new user message to
+   the model, runs requested tools against the real engine, and repeats for at
+   most five tool rounds.
+8. `phrases.py` turns the best trip into a short deterministic spoken answer
+   and can build the validated Wolof clarification question.
+9. `app.py` renders the chat, trip cards, and the current turn's tool calls.
 
 Ride time uses 250 m/min (15 km/h); a segment with a missing coordinate uses
 3 minutes as a fallback. Transfers add a 6-minute wait, and walking uses
@@ -179,7 +193,9 @@ coordinates.
   combination.
 - The search first visits access stops within 700 m of the origin and last
   visits egress stops within 700 m of the destination. Exact normalized stop
-  names board at the stop itself.
+  names board at the stop itself. If a query exactly matches a known stop or
+  place, fuzzy candidates are discarded so "Yoff" cannot become "Grand Yoff";
+  spelling variants of the exact name remain available.
 - A trip is marked as a detour when its total distance is more than 1.8 times
   the straight-line distance between the origin and destination. Detours are
   rejected when a non-detour alternative exists.
@@ -220,10 +236,18 @@ The two tools are:
 
 The agent system prompt tells Muse Spark to understand Wolof, French, English,
 and mixed speech; to use the tools; never to invent a line or stop; to ask a
-short question when a place is ambiguous; and to answer briefly in the user’s
-language. Each result contains `reply`, `language`, `origin`, `destination`,
+short question only when a place is genuinely ambiguous; never to repeat the
+user or list every trip in text; and to answer in at most two short sentences.
+Each result contains `reply`, `language`, `spoken`, `origin`, `destination`,
 `trips`, `tool_calls`, and the number of `rounds` used. The language badge is
-a small keyword heuristic; the model still writes the reply.
+a small keyword heuristic that also recognizes informal Wolof forms such as
+`dama`, `nekk`, `beugg`, `bëgga`, `fan la`, and `dem`.
+
+The app shows the deterministic `spoken` sentence for the best trip instead of
+the model's longer reply. It appends only the model's clarification question
+when one was asked. Bus names are shortened for speech (`Tata 38`,
+`Dem Dikk 7`) and minutes are rounded to the nearest five. The accordion shows
+only the tool calls from the current turn and clears on the next message.
 
 ## Assumptions
 
@@ -265,13 +289,17 @@ python -m pytest -s
 The suite contains synthetic unit tests for direct trips, transfers, transfer
 rejection, detour rejection, and unknown places. The real-data integration
 tests cover Sahm to Malika (no downtown/Palais shortcut), Ouakam to Palais,
-Parcelles Assainies to UCAD, and Guediawaye to Palais. Tool tests check the
-JSON shapes and error paths. Agent tests use a scripted `FakeClient` to cover
-a Wolof request with a real engine call, an unknown place with suggestions,
-the five-round limit, and the missing-key error. Provider tests check the
-defaults, the Fireworks settings, Baseten detection, a custom key env var, and
-the SDK base URL/model plumbing. App tests build the UI, check the provider
-banner, and check the trip-card fields. The tests never call a real provider.
+Parcelles Assainies to UCAD, Guediawaye to Palais, and exact Yoff/Médina
+matching. Tool tests check the JSON shapes, exact-first place candidates, and
+error paths. Agent tests use a scripted `FakeClient` to cover a Wolof request
+with a real engine call, history limits, a follow-up answer, informal Wolof
+detection, the five-round limit, and the missing-key error. Phrase tests check
+the validated Wolof templates, short bus names, minute rounding, and chat
+composition. Provider tests check the defaults, the Fireworks settings,
+Baseten detection, a custom key env var, and the SDK base URL/model plumbing.
+App tests build the UI, check the provider banner, verify history passing and
+the spoken chat message, and check that the thinking panel only shows the
+current turn. The tests never call a real provider.
 
 ## Project layout
 

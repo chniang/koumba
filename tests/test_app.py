@@ -2,6 +2,18 @@
 
 from __future__ import annotations
 
+from koumba.agent import AgentResult
+
+
+class _FakeAgent:
+    def __init__(self, results: list[AgentResult]) -> None:
+        self.results = list(results)
+        self.calls: list[tuple[str, list[dict] | None]] = []
+
+    def run(self, text: str, history=None) -> AgentResult:
+        self.calls.append((text, history))
+        return self.results.pop(0)
+
 
 def test_app_builds_without_api_key(llm_env) -> None:
     import koumba.app as app
@@ -80,6 +92,81 @@ def test_missing_key_message_names_the_custom_provider(
 
     assert "Fireworks key not configured" in message
     assert "FIREWORKS_API_KEY" in message
+
+
+def test_respond_passes_history_and_uses_the_spoken_answer(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    spoken = (
+        "Ci Sahm, duggu ci Tata 38 bi jëm Cité des Enseignants, wàcci "
+        "Grand Yoff. Lu tollu ci 45 minit."
+    )
+    tool_calls = [{"round": 1, "name": "find_trips"}]
+    result = AgentResult(
+        reply="This is the long model answer. Yoff-Village walla Grand Yoff?",
+        language="Wolof",
+        spoken=spoken,
+        trips=[],
+        tool_calls=tool_calls,
+    )
+    fake = _FakeAgent([result])
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_agent", lambda: fake)
+    history = [
+        {"role": "user", "content": "Maa ngi Sahm"},
+        {"role": "assistant", "content": "Yoff-Village walla Grand Yoff ?"},
+    ]
+
+    chatbot, message, _trips, thoughts = app._respond("Grand Yoff", history)
+
+    assert message == ""
+    assert fake.calls == [("Grand Yoff", history)]
+    assert chatbot[-1] == {
+        "role": "assistant",
+        "content": f"{spoken} Yoff-Village walla Grand Yoff?",
+    }
+    assert thoughts == tool_calls
+
+
+def test_thinking_panel_refreshes_with_only_the_current_turn(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    first_calls = [{"round": 1, "name": "resolve_place"}]
+    fake = _FakeAgent(
+        [
+            AgentResult(
+                reply="First turn",
+                language="Wolof",
+                tool_calls=first_calls,
+            ),
+            AgentResult(
+                reply="Second turn",
+                language="Wolof",
+                tool_calls=[],
+            ),
+        ]
+    )
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_agent", lambda: fake)
+
+    history, _message, _trips, first_thoughts = app._respond(
+        "Maa ngi Sahm",
+        [],
+    )
+    _history, _message, _trips, second_thoughts = app._respond(
+        "Grand Yoff",
+        history,
+    )
+
+    assert first_thoughts == first_calls
+    assert second_thoughts == []
+    assert len(fake.calls) == 2
 
 
 def test_trip_cards_include_the_useful_fields() -> None:

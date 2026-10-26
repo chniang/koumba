@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from .places import PlaceIndex
+from .places import PlaceIndex, normalize_name
 from .router import NoRouteFoundError, PlaceNotFoundError, RouteEngine, Trip
 
 OPERATORS = ("Dakar Dem Dikk", "Tata AFTU")
@@ -163,6 +163,12 @@ def resolve_place(
             "message": f"I could not find {query!r} in the Dakar stop data.",
             "suggestions": _suggestions(place_index.suggestions(query)),
         }
+
+    query_norm = normalize_name(query)
+    matches = sorted(
+        matches,
+        key=lambda candidate: candidate.normalized != query_norm,
+    )
 
     return {
         "query": query,

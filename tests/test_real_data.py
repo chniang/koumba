@@ -6,7 +6,11 @@ import pytest
 
 from koumba.data import load_data
 from koumba.network import Network
-from koumba.places import PlaceIndex, normalize_name
+from koumba.places import (
+    PlaceIndex,
+    normalize_name,
+    prefer_exact_matches,
+)
 from koumba.router import RouteEngine, Trip
 
 
@@ -64,6 +68,33 @@ def test_rond_point_sahm_matches_only_the_sahm_stop(data) -> None:
 
     # The old loose matcher also returned unrelated "Rond-Point ..." stops.
     assert [candidate.name for candidate in matches] == ["Sahm"]
+
+
+def test_exact_yoff_match_does_not_route_via_a_longer_name(
+    engine: RouteEngine,
+) -> None:
+    matches = engine.place_index.match("Yoff")
+
+    assert any(candidate.normalized == "yoff" for candidate in matches)
+    assert any(candidate.normalized == "grand yoff" for candidate in matches)
+    exact = prefer_exact_matches(matches, "Yoff")
+    assert [candidate.normalized for candidate in exact] == ["yoff"]
+
+    trips = engine.find_trips("Yoff", "Palais", max_trips=1)
+
+    assert trips
+    assert normalize_name(trips[0].legs[0].board_stop) == "yoff"
+
+
+def test_accent_insensitive_medina_is_an_exact_match(
+    engine: RouteEngine,
+) -> None:
+    matches = engine.place_index.match("medina")
+
+    exact = prefer_exact_matches(matches, "medina")
+
+    assert [candidate.normalized for candidate in exact] == ["medina"]
+    assert exact[0].name == "Médina"
 
 
 def test_rond_point_sahm_to_malika_avoids_palais(engine: RouteEngine) -> None:

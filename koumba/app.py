@@ -21,6 +21,7 @@ from .agent import Agent
 from .data import load_data
 from .llm import ModelClient, ProviderConfig, api_key_configured, load_config
 from .network import Network
+from .phrases import compose_chat_message
 from .places import PlaceIndex
 from .router import RouteEngine
 
@@ -220,7 +221,8 @@ def _respond(message_text: str, history):
     """Handle one chat submission and return the four UI values."""
 
     text = (message_text or "").strip()
-    current = _history_as_dicts(history)
+    previous = _history_as_dicts(history)
+    current = list(previous)
     if not text:
         return current, "", gr.update(), gr.update()
 
@@ -236,7 +238,7 @@ def _respond(message_text: str, history):
         return current, "", _trip_cards(None), []
 
     try:
-        result = _agent().run(text)
+        result = _agent().run(text, previous)
     except Exception as exc:
         current.append(
             {
@@ -247,9 +249,14 @@ def _respond(message_text: str, history):
                 ),
             }
         )
-        return current, "", _trip_cards(None), [{"error": str(exc)}]
+        return current, "", _trip_cards(None), []
 
-    current.append({"role": "assistant", "content": result.reply})
+    current.append(
+        {
+            "role": "assistant",
+            "content": compose_chat_message(result.spoken, result.reply),
+        }
+    )
     return current, "", _trip_cards(result.trips), result.tool_calls
 
 
