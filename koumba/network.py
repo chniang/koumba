@@ -294,7 +294,7 @@ class Network:
     # Loading the real data.
     # ------------------------------------------------------------------
     @classmethod
-    def from_data(cls, data) -> "Network":
+    def from_data(cls, data, corrections_path=None) -> "Network":
         termini: dict[LineKey, tuple[str | None, str | None]] = {}
         for row in data.lignes.itertuples(index=False):
             key = (str(row.compagnie), str(row.ligne))
@@ -320,6 +320,23 @@ class Network:
                     terminus_b=terminus_b,
                 )
             )
+
+        # Field corrections are layered on top of the downloaded itinerary
+        # before coordinates and graph nodes are built.
+        from .corrections import apply_corrections, load_corrections
+
+        known_stops = {
+            str(row.arret) for row in data.arrets.itertuples(index=False)
+        }
+        known_stops.update(
+            stop for line in lines for stop in line.stops
+        )
+        corrected = apply_corrections(
+            lines,
+            load_corrections(corrections_path),
+            known_stops,
+        )
+        lines = corrected.lines
 
         stop_coords: dict[str, tuple[float, float]] = {}
         stop_confidence: dict[str, str] = {}

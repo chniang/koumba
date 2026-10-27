@@ -278,7 +278,9 @@ def test_official_place_name_is_used_in_the_spoken_answer(engine) -> None:
     result = agent.run("Maa ngi medina, bëgg naa dem Yoff")
 
     assert result.origin == "Médina"
-    assert result.spoken.startswith("Yaangi Médina, duggal ci Tata 3")
+    assert result.spoken.startswith(
+        "Yaangi Médina, doxal ba Avenue Blaise Diagne, duggal ci Tata 3"
+    )
     assert result.trips[0]["legs"][0]["board_stop"] == "Avenue Blaise Diagne"
 
 
@@ -307,6 +309,7 @@ def test_bus_check_yes_uses_the_short_spoken_answer(engine) -> None:
     result = agent.run("Maa ngi Sahm, Tata 38 bi dafay dem PAI?")
 
     assert result.tool_calls[0]["result"]["serves_trip"] is True
+    assert result.bus_check["trip"]["legs"][0]["line"] == "Ligne 38"
     assert result.spoken.startswith("Waaw, Tata 38 bi dafay dem PAI.")
     assert result.spoken.endswith("minit.")
 
@@ -338,6 +341,7 @@ def test_bus_check_no_speaks_the_alternative(engine) -> None:
     assert result.spoken.startswith("Déedéet, Tata 38 bi du dem Malika.")
     assert "Tata 80" in result.spoken
     assert "Malika. Lu tollu ci" in result.spoken
+    assert result.bus_check["best_alternative"]["legs"]
 
 
 def test_missing_model_api_key_has_a_clear_error(llm_env) -> None:

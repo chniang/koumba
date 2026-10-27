@@ -160,6 +160,7 @@ def test_check_bus_line_yes_returns_board_and_alight(engine) -> None:
     assert result["alight_stop"] == "PAI"
     assert result["direction"]
     assert result["minutes"] > 0
+    assert result["trip"]["legs"][0]["board_stop"] == "SAHM"
 
 
 def test_check_bus_line_no_returns_alternative_and_part_way(engine) -> None:

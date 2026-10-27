@@ -11,6 +11,8 @@ import math
 import re
 from typing import Any
 
+from .places import normalize_name
+
 SUPPORTED_LANGUAGES = ("Wolof", "French", "English")
 
 
@@ -72,6 +74,41 @@ def _leg_speech(leg: dict[str, Any]) -> tuple[str, str, str] | None:
     return bus, direction, alight
 
 
+def _walk_to_first_stop(
+    trip: dict[str, Any],
+    first_leg: dict[str, Any],
+    origin_text: str,
+) -> str | None:
+    """Return the boarding stop when the user must walk at least a minute."""
+
+    board_stop = _leg_value(first_leg, "board_stop")
+    if not board_stop:
+        return None
+    if normalize_name(board_stop) == normalize_name(origin_text):
+        return None
+
+    walks = trip.get("walks")
+    if not isinstance(walks, list):
+        return None
+    for walk in walks:
+        if not isinstance(walk, dict) or walk.get("kind") != "access":
+            continue
+        try:
+            after_leg = int(walk.get("after_leg") or 0)
+            minutes = float(walk.get("minutes") or 0)
+        except (TypeError, ValueError):
+            continue
+        if after_leg != 0:
+            continue
+        if minutes < 1:
+            continue
+        to_place = str(walk.get("to_place") or "").strip()
+        if to_place and normalize_name(to_place) != normalize_name(board_stop):
+            continue
+        return board_stop
+    return None
+
+
 def spoken_answer(
     trip: dict[str, Any] | None,
     language: str,
@@ -102,18 +139,24 @@ def spoken_answer(
 
     minutes = round_minutes(trip.get("total_minutes"))
     selected = _language_name(language)
+    board_stop = _walk_to_first_stop(trip, legs[0], origin_text)
 
     if selected == "Wolof":
         first_bus, first_direction, first_alight = speech[0]
+        if board_stop:
+            opening = (
+                f"Yaangi {origin_text}, doxal ba {board_stop}, "
+                f"duggal ci {first_bus} bi jëm "
+            )
+        else:
+            opening = f"Yaangi {origin_text}, duggal ci {first_bus} bi jëm "
         if len(speech) == 1:
             sentence = (
-                f"Yaangi {origin_text}, duggal ci {first_bus} bi jëm "
-                f"{first_direction}, wàcci {first_alight}."
+                f"{opening}{first_direction}, wàcci {first_alight}."
             )
         else:
             sentence = (
-                f"Yaangi {origin_text}, duggal ci {first_bus} bi jëm "
-                f"{first_direction}, wàcci {first_alight}"
+                f"{opening}{first_direction}, wàcci {first_alight}"
             )
             for bus, direction, alight in speech[1:]:
                 sentence += (
@@ -124,16 +167,21 @@ def spoken_answer(
 
     if selected == "French":
         first_bus, first_direction, first_alight = speech[0]
-        if len(speech) == 1:
-            sentence = (
-                f"À {origin_text}, prends le {first_bus} direction "
-                f"{first_direction}, descends à {first_alight}."
+        if board_stop:
+            opening = (
+                f"Tu es à {origin_text} : marche jusqu'à {board_stop}, "
+                f"prends le {first_bus} direction {first_direction}, "
+                f"descends à {first_alight}"
             )
         else:
-            sentence = (
+            opening = (
                 f"À {origin_text}, prends le {first_bus} direction "
                 f"{first_direction}, descends à {first_alight}"
             )
+        if len(speech) == 1:
+            sentence = f"{opening}."
+        else:
+            sentence = opening
             for bus, direction, alight in speech[1:]:
                 sentence += (
                     f", puis prends le {bus} direction {direction}, "
@@ -143,16 +191,21 @@ def spoken_answer(
         return f"{sentence} Environ {minutes} minutes."
 
     first_bus, first_direction, first_alight = speech[0]
-    if len(speech) == 1:
-        sentence = (
-            f"From {origin_text}, take {first_bus} toward "
-            f"{first_direction}, get off at {first_alight}."
+    if board_stop:
+        opening = (
+            f"You are at {origin_text}: walk to {board_stop}, take "
+            f"{first_bus} toward {first_direction}, get off at "
+            f"{first_alight}"
         )
     else:
-        sentence = (
+        opening = (
             f"From {origin_text}, take {first_bus} toward "
             f"{first_direction}, get off at {first_alight}"
         )
+    if len(speech) == 1:
+        sentence = f"{opening}."
+    else:
+        sentence = opening
         for bus, direction, alight in speech[1:]:
             sentence += (
                 f", then take {bus} toward {direction}, get off at {alight}"

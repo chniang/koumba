@@ -28,6 +28,15 @@ from .router import RouteEngine
 EXAMPLE_WOLOF = "Maa ngi Sahm, bëgg naa dem Malika"
 EXAMPLE_FRENCH = "Je suis à Ouakam, je vais au Palais"
 
+HONEST_NOTE_EN = (
+    "Routes based on official AFTU / Dakar Dem Dikk data and field "
+    "corrections. Check with the apprenti."
+)
+HONEST_NOTE_FR = (
+    "Itinéraires basés sur les données officielles AFTU / Dakar Dem Dikk et "
+    "des corrections de terrain. Vérifie avec l'apprenti."
+)
+
 CSS = """
 .gradio-container { max-width: 1100px !important; margin: 0 auto; }
 .trip-grid {
@@ -56,6 +65,12 @@ CSS = """
 .leg { border-top: 1px solid #f1f5f9; padding-top: 8px; margin-top: 8px; }
 .line { font-weight: 650; }
 .muted { color: #64748b; font-size: 13px; margin-top: 2px; }
+.honest-note {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.35;
+  margin-top: 8px;
+}
 .empty {
   color: #64748b;
   padding: 12px;
@@ -139,15 +154,33 @@ def _minutes(value: Any) -> str:
         return "unknown time"
 
 
-def _trip_cards(trips: list[dict[str, Any]] | None) -> str:
+def _honest_note(language: str | None) -> str:
+    lowered = (language or "").strip().lower()
+    if lowered in {"french", "français", "francais"}:
+        return HONEST_NOTE_FR
+    return HONEST_NOTE_EN
+
+
+def _trip_cards(
+    trips: list[dict[str, Any]] | None,
+    language: str = "English",
+    part_way: bool = False,
+) -> str:
     """Render the trips as simple mobile-friendly cards."""
 
+    note = f"<div class='honest-note'>{_honest_note(language)}</div>"
     if not trips:
         return (
             "<div class='empty'>No trip cards yet. Ask Koumba where you "
             "are and where you want to go.</div>"
+            f"{note}"
         )
 
+    part_way_pill = (
+        "<span class='pill'>Part of the way with this bus</span>"
+        if part_way
+        else ""
+    )
     cards: list[str] = []
     for index, trip in enumerate(trips, start=1):
         legs_html: list[str] = []
@@ -188,13 +221,40 @@ def _trip_cards(trips: list[dict[str, Any]] | None) -> str:
             f"<div class='trip-head'>Trip {index}"
             f"<span class='pill'>{_plural(transfers, 'transfer')}</span>"
             f"<span class='pill'>about {_minutes(trip.get('total_minutes'))}</span>"
+            f"{part_way_pill}"
             "</div>"
             f"{''.join(legs_html)}"
             f"{walk_html}"
             "</div>"
         )
 
-    return "<div class='trip-grid'>" + "".join(cards) + "</div>"
+    return (
+        "<div class='trip-grid'>"
+        + "".join(cards)
+        + "</div>"
+        + note
+    )
+
+
+def _cards_for_result(result: Any) -> str:
+    """Pick cards from a bus check first, then from normal trip findings."""
+
+    check = getattr(result, "bus_check", None)
+    language = getattr(result, "language", "English")
+    if isinstance(check, dict):
+        if check.get("serves_trip") is True:
+            trip = check.get("trip")
+            return _trip_cards(
+                [trip] if isinstance(trip, dict) else [],
+                language,
+            )
+        alternative = check.get("best_alternative")
+        return _trip_cards(
+            [alternative] if isinstance(alternative, dict) else [],
+            language,
+            part_way=bool(check.get("can_help_part_way")),
+        )
+    return _trip_cards(getattr(result, "trips", None), language)
 
 
 def _history_as_dicts(history) -> list[dict[str, Any]]:
@@ -260,7 +320,7 @@ def _respond(message_text: str, history, image_path: str | None = None):
     return (
         current,
         "",
-        _trip_cards(result.trips),
+        _cards_for_result(result),
         result.tool_calls,
         None,
     )

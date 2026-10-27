@@ -523,6 +523,7 @@ def check_bus_line(
             "alight_stop": leg.alight_stop,
             "direction": leg.direction,
             "minutes": _round(direct.total_minutes),
+            "trip": _trip_to_dict(direct),
         }
 
     try:

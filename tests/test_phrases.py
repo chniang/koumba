@@ -28,8 +28,30 @@ def _leg(
     }
 
 
-def _trip(legs: list[dict], minutes: float) -> dict:
-    return {"total_minutes": minutes, "legs": legs}
+def _trip(
+    legs: list[dict],
+    minutes: float,
+    walks: list[dict] | None = None,
+) -> dict:
+    return {
+        "total_minutes": minutes,
+        "legs": legs,
+        "walks": walks or [],
+    }
+
+
+def _access_walk(
+    from_place: str,
+    to_place: str,
+    minutes: float,
+) -> dict:
+    return {
+        "kind": "access",
+        "from_place": from_place,
+        "to_place": to_place,
+        "minutes": minutes,
+        "after_leg": 0,
+    }
 
 
 def test_direct_wolof_answer_matches_the_validated_template() -> None:
@@ -50,6 +72,96 @@ def test_direct_wolof_answer_matches_the_validated_template() -> None:
         "Yaangi Sahm, duggal ci Tata 38 bi jëm Cité des Enseignants, wàcci "
         "Grand Yoff. Lu tollu ci 45 minit."
     )
+
+
+def test_direct_answer_mentions_the_walk_to_the_first_stop() -> None:
+    trip = _trip(
+        [
+            _leg(
+                "Tata AFTU",
+                "Ligne 3",
+                "Avenue Blaise Diagne",
+                "Yoff-Village",
+                "Yoff-Village",
+            )
+        ],
+        46.8,
+        [_access_walk("Médina", "Avenue Blaise Diagne", 1.9)],
+    )
+
+    assert spoken_answer(trip, "Wolof", "Médina") == (
+        "Yaangi Médina, doxal ba Avenue Blaise Diagne, duggal ci Tata 3 bi "
+        "jëm Yoff-Village, wàcci Yoff-Village. Lu tollu ci 45 minit."
+    )
+    assert spoken_answer(trip, "French", "Médina") == (
+        "Tu es à Médina : marche jusqu'à Avenue Blaise Diagne, prends le "
+        "Tata 3 direction Yoff-Village, descends à Yoff-Village. Environ "
+        "45 minutes."
+    )
+    assert spoken_answer(trip, "English", "Médina") == (
+        "You are at Médina: walk to Avenue Blaise Diagne, take Tata 3 toward "
+        "Yoff-Village, get off at Yoff-Village. About 45 minutes."
+    )
+
+
+def test_transfer_answer_mentions_the_walk_to_the_first_stop() -> None:
+    trip = _trip(
+        [
+            _leg(
+                "Tata AFTU",
+                "Ligne 3",
+                "Avenue Blaise Diagne",
+                "PAI",
+                "Cité des Enseignants",
+            ),
+            _leg("Tata AFTU", "Ligne 80", "PAI", "Malika", "Darou Thioub"),
+        ],
+        80,
+        [_access_walk("Médina", "Avenue Blaise Diagne", 2)],
+    )
+
+    assert spoken_answer(trip, "Wolof", "Médina") == (
+        "Yaangi Médina, doxal ba Avenue Blaise Diagne, duggal ci Tata 3 bi "
+        "jëm Cité des Enseignants, wàcci PAI, nga jël Tata 80 bi jëm Darou "
+        "Thioub, wàcci Malika. Lu tollu ci 80 minit."
+    )
+
+
+def test_short_or_same_name_walk_is_not_spoken() -> None:
+    short_walk = _trip(
+        [
+            _leg(
+                "Tata AFTU",
+                "Ligne 3",
+                "Avenue Blaise Diagne",
+                "Yoff-Village",
+                "Yoff-Village",
+            )
+        ],
+        46.8,
+        [_access_walk("Médina", "Avenue Blaise Diagne", 0.8)],
+    )
+    same_name = _trip(
+        [
+            _leg(
+                "Tata AFTU",
+                "Ligne 3",
+                "Médina",
+                "Yoff-Village",
+                "Yoff-Village",
+            )
+        ],
+        46.8,
+        [_access_walk("Médina", "Médina", 2)],
+    )
+
+    assert "doxal ba" not in spoken_answer(short_walk, "Wolof", "Médina")
+    assert "marche jusqu'à" not in spoken_answer(
+        short_walk,
+        "French",
+        "Médina",
+    )
+    assert "doxal ba" not in spoken_answer(same_name, "Wolof", "Médina")
 
 
 def test_one_transfer_wolof_answer_matches_the_validated_template() -> None:
@@ -193,6 +305,39 @@ def test_bus_check_no_adds_the_best_alternative() -> None:
     )
     assert bus_check_spoken(check, "English", "Malika").startswith(
         "No, Tata 38 does not go to Malika."
+    )
+
+
+def test_bus_check_no_alternative_mentions_the_first_walk() -> None:
+    check = {
+        "serves_trip": False,
+        "operator": "Tata AFTU",
+        "line": "Ligne 5",
+    }
+    alternative = _trip(
+        [
+            _leg(
+                "Tata AFTU",
+                "Ligne 3",
+                "Avenue Blaise Diagne",
+                "Yoff-Village",
+                "Yoff-Village",
+            )
+        ],
+        46.8,
+        [_access_walk("Médina", "Avenue Blaise Diagne", 1.9)],
+    )
+
+    assert bus_check_spoken(
+        check,
+        "Wolof",
+        "Yoff",
+        alternative,
+        "Médina",
+    ) == (
+        "Déedéet, Tata 5 bi du dem Yoff. Yaangi Médina, doxal ba Avenue "
+        "Blaise Diagne, duggal ci Tata 3 bi jëm Yoff-Village, wàcci "
+        "Yoff-Village. Lu tollu ci 45 minit."
     )
 
 

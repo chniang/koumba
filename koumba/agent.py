@@ -161,6 +161,7 @@ class AgentResult:
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     rounds: int = 0
     spoken: str = ""
+    bus_check: dict[str, Any] | None = None
 
 
 def _clean_history(history: Any) -> list[dict[str, str]]:
@@ -338,6 +339,7 @@ class Agent:
             trips=trips,
             tool_calls=tool_calls,
             rounds=rounds,
+            bus_check=bus_check,
         )
 
     def run(

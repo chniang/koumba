@@ -15,6 +15,8 @@ This repository contains:
   for stops and neighbourhoods.
 - `koumba/network.py` - the `(line, direction, stop)` graph, including
   same-name and 300 m walking transfers.
+- `koumba/corrections.py` - loads and applies reviewed field corrections to
+  line itineraries.
 - `koumba/router.py` - Dijkstra with at most two transfers, direct preference,
   detour control, and distinct line combinations.
 - `koumba/cli.py` - the readable command line output.
@@ -27,10 +29,11 @@ This repository contains:
 - `koumba/vision.py` - in-memory image resize and JPEG/base64 encoding.
 - `koumba/phrases.py` - deterministic short spoken answers in Wolof, French,
   and English.
-- `koumba/app.py` - the Gradio demo UI with a provider banner and bus-photo
-  input.
+- `koumba/app.py` - the Gradio demo UI with a provider banner, bus-photo
+  input, bus-check cards, and the honest data note.
+- `data/corrections.json` - human-reviewed field corrections. It starts empty.
 - `.env.example` - provider presets and key placeholders, with no real key.
-- `tests/` - route, tool, agent, provider, and app tests.
+- `tests/` - route, correction, tool, agent, provider, vision, and app tests.
 
 ## Pre-existing
 
@@ -155,7 +158,14 @@ The app has a “Where are you going?” text box, an optional “Photo of the b
 (optional)” upload/camera box, Wolof and French example buttons, a chat area,
 mobile-friendly trip cards, and a “How Koumba thought” accordion with the tool
 calls. Photos are not stored. The app resizes the photo and sends it only for
-the current turn, then clears the image input.
+the current turn, then clears the image input. After a bus photo,
+`check_bus_line` fills the cards with the direct trip or with the best
+alternative; a partial alternative is labelled “Part of the way with this
+bus”.
+
+Small text under the cards says: “Routes based on official AFTU / Dakar Dem
+Dikk data and field corrections. Check with the apprenti.” French turns show
+the equivalent French note.
 
 Its banner names the configured provider and model, such as “Provider:
 Fireworks”; if the configured key env var is missing, it shows a warning such as
@@ -177,15 +187,68 @@ Files are cached in `data_cache/` and reused without downloading again. Set
 `KOUMBA_DATA_DIR` to use a different cache folder. Missing coordinates do not
 stop the route search; those segments simply have an unknown distance.
 
+## Field corrections
+
+`data/corrections.json` holds small itinerary fixes from a Dakar rider. It is
+layered on top of the downloaded CSVs when the network is built, before nodes
+and coordinates are prepared. The file starts as an empty list.
+
+Supported operations are:
+
+```json
+[
+  {
+    "op": "remove_stop",
+    "operator": "Tata AFTU",
+    "line": "Ligne 5",
+    "stop": "Rue 39",
+    "reason": "The bus no longer serves this stop."
+  },
+  {
+    "op": "replace_stop",
+    "operator": "Tata AFTU",
+    "line": "Ligne 3",
+    "stop": "Avenue Cheikh Antadiop",
+    "by": "Avenue Cheikh Anta Diop",
+    "reason": "Correct the street spelling."
+  },
+  {
+    "op": "insert_stop_after",
+    "operator": "Tata AFTU",
+    "line": "Ligne 12",
+    "after": "Palais 1",
+    "stop": "Example stop",
+    "reason": "The bus stops here before turning."
+  },
+  {
+    "op": "truncate_after",
+    "operator": "Tata AFTU",
+    "line": "Ligne 5",
+    "stop": "Petersen",
+    "reason": "The bus leaves this street after this stop."
+  }
+]
+```
+
+Every entry needs a `reason`. A correction is skipped with a clear warning if
+its line or stop is unknown, its fields are incomplete, its operation is
+unsupported, or it would leave a line with fewer than two stops. The loader
+never crashes on a bad correction. At startup the console prints:
+
+```text
+[corrections] 2 applied, 1 skipped
+```
+
 ## Architecture
 
 1. `data.py` loads and validates the four CSV tables.
 2. `places.py` normalizes names (accents, punctuation, common abbreviations)
    and returns *all* plausible stop and place candidates with scores.
-3. `network.py` builds a directed graph. A node is a line, a direction, and a
-   stop position. Ride edges connect consecutive stops in both directions.
-   Transfer edges connect different lines at the same normalized stop name,
-   or at stops within 300 m of each other.
+3. `network.py` applies `data/corrections.json`, then builds a directed graph.
+   A node is a line, a direction, and a stop position. Ride edges connect
+   consecutive stops in both directions. Transfer edges connect different
+   lines at the same normalized stop name, or at stops within 300 m of each
+   other.
 4. `router.py` runs Dijkstra over `(node, transfers used)` states. Each label
    remembers the line combination and the steps taken. The search keeps a
    small set of labels per state and never rides the same line twice. An
@@ -200,9 +263,10 @@ stop the route search; those segments simply have an unknown distance.
    limits the longest side to 1024 px, and encodes JPEG quality 85 as a base64
    data URL without saving a copy.
 9. `phrases.py` turns the best trip or bus check into a short deterministic
-   spoken answer and can build the validated Wolof clarification question.
-10. `app.py` renders the chat, trip cards, bus-photo input, and the current
-    turn's tool calls.
+   spoken answer, including a walk to the first boarding stop, and can build
+   the validated Wolof clarification question.
+10. `app.py` renders the chat, trip cards, bus-photo input, the check-bus
+    cards, the honest data note, and the current turn's tool calls.
 
 Ride time uses 250 m/min (15 km/h); a segment with a missing coordinate uses
 3 minutes as a fallback. Every bus leg is billed for at least 2 minutes.
@@ -267,9 +331,9 @@ The four tools are:
   and line spellings are normalized (`Tata`, `L38`).
 - `check_bus_line(operator, line, origin, destination)` - reports whether the
   requested bus serves the trip directly. A direct answer includes the
-  `board_stop`, `alight_stop`, `direction`, and `minutes`; a negative answer
-  includes the best normal `best_alternative` and whether the requested bus can
-  help part of the way.
+  `board_stop`, `alight_stop`, `direction`, `minutes`, and full `trip`; a
+  negative answer includes the best normal `best_alternative` and whether the
+  requested bus can help part of the way.
 - `line_info(operator, line)` - returns the ordered stops, both termini, and
   the stop sequence in each direction. Unknown lines return `line_not_found`
   with the closest line names.
@@ -285,7 +349,7 @@ unreadable instead of guessing, and use `line_info` when the destination is
 unknown.
 
 Each result contains `reply`, `language`, `spoken`, `origin`, `destination`,
-`trips`, `tool_calls`, and the number of `rounds` used. `origin` and
+`trips`, `tool_calls`, `bus_check`, and the number of `rounds` used. `origin` and
 `destination` use the official dataset spelling, such as `Médina` for
 `medina`. The language badge is a small keyword heuristic that also recognizes
 informal Wolof forms such as `dama`, `nekk`, `beugg`, `bëgga`, `fan la`, and
@@ -306,7 +370,19 @@ Déedéet, Tata 38 bi du dem Malika. Yaangi Sahm, duggal ci Tata 38 ...
 ```
 
 Normal trip answers use the validated `Yaangi ...` direct/transfer templates.
-French and English bus-check answers follow the same direct/alternative shape.
+When the first leg needs a walk of at least one minute to a differently named
+stop, the answer includes it:
+
+```text
+Yaangi Médina, doxal ba Avenue Blaise Diagne, duggal ci Tata 3 bi jëm ...
+Tu es à Médina : marche jusqu'à Avenue Blaise Diagne, prends le Tata 3 ...
+You are at Médina: walk to Avenue Blaise Diagne, take Tata 3 ...
+```
+
+The same walk wording is used inside the transfer template and inside the “no,
+take this instead” bus-check alternative. A walk under one minute, or a board
+stop with the same name as the origin, is not mentioned. French and English
+bus-check answers follow the same direct/alternative shape.
 
 ## Assumptions
 
@@ -333,6 +409,9 @@ French and English bus-check answers follow the same direct/alternative shape.
   not repair the underlying data.
 - Place matching is deliberately conservative. An unusual spelling may return
   no match rather than a wrong stop.
+- Field corrections are only as reliable as their review. Invalid corrections
+  are skipped with a warning, but a wrong accepted correction still changes the
+  itinerary.
 - The agent loop and vision content are tested with a scripted fake client.
   They have not been tested against a live provider or live camera images.
 - Photo quality depends on the model; glare, motion blur, or an unreadable
@@ -353,29 +432,34 @@ python -m pytest -s
 
 The suite contains synthetic unit tests for direct trips, transfers, transfer
 rejection, detour rejection, score-based direct promotion, the two-minute
-minimum bus leg, nearby-stop access, and unknown places. The real-data
-integration tests cover Sahm to Malika (38 then 80), Médina to Yoff (direct
-nearby boarding), Ouakam to Palais, Parcelles Assainies to UCAD, Guediawaye to
-Palais, and exact Yoff/Médina matching without Grand Yoff. Tool tests check the
-JSON shapes, exact-first place candidates, bus yes/no answers, closest-line
-errors, line information, normalization, and error paths. Agent tests use a
-scripted `FakeClient` to cover a Wolof request with a real engine call, official
-origin spelling, bus-check speech, history limits, a follow-up answer, informal
-Wolof detection, the five-round limit, and the missing-key error. Vision tests
-create a synthetic Pillow image and check resize, JPEG/base64 encoding, and the
-agent content part. Phrase tests check the validated `Yaangi` and bus-check
-templates, short bus names, minute rounding, and chat composition. Provider
-tests check the defaults, the Fireworks settings, Baseten detection, a custom
-key env var, and the SDK base URL/model plumbing. App tests build the UI, check
-the provider banner, verify history and photo passing, five-output handlers,
-photo clearing, the spoken chat message, and that the thinking panel only shows
-the current turn. The tests never call a real provider.
+minimum bus leg, nearby-stop access, and unknown places. Correction tests cover
+all four operations, the empty repository file, unknown lines/stops, missing
+reasons, unsupported operations, and a correction applied while a network is
+built. The real-data integration tests cover Sahm to Malika (38 then 80),
+MǸdina to Yoff (direct nearby boarding), Ouakam to Palais, Parcelles Assainies
+to UCAD, Guediawaye to Palais, and exact Yoff/MǸdina matching without Grand
+Yoff. Tool tests check the JSON shapes, exact-first place candidates, bus
+yes/no answers, closest-line errors, line information, normalization, and error
+paths. Agent tests use a scripted `FakeClient` to cover a Wolof request with a
+real engine call, official origin spelling, bus-check speech and cards data,
+history limits, a follow-up answer, informal Wolof detection, the five-round
+limit, and the missing-key error. Vision tests create a synthetic Pillow image
+and check resize, JPEG/base64 encoding, and the agent content part. Phrase tests
+check the validated `Yaangi` and bus-check templates, the first-stop walk
+wording, short bus names, minute rounding, and chat composition. Provider tests
+check the defaults, the Fireworks settings, Baseten detection, a custom key env
+var, and the SDK base URL/model plumbing. App tests build the UI, check the
+provider banner, verify history and photo passing, five-output handlers, photo
+clearing, bus-photo cards, the partial-route label, both honest notes, the
+spoken chat message, and that the thinking panel only shows the current turn.
+The tests never call a real provider.
 
 ## Project layout
 
 ```text
 koumba/       package code
-tests/        route, tool, agent, provider, and app tests
+data/         human-reviewed corrections.json
+tests/        route, correction, tool, agent, provider, vision, and app tests
 data_cache/   downloaded CSVs (ignored by git)
 .env.example  configuration template (the real .env is ignored)
 ```

@@ -171,6 +171,131 @@ def test_respond_passes_the_bus_photo_and_clears_it(
     assert image is None
 
 
+def test_bus_photo_direct_check_shows_the_trip_card(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    trip = {
+        "transfers": 0,
+        "total_minutes": 46.8,
+        "legs": [
+            {
+                "operator": "Tata AFTU",
+                "line": "Ligne 3",
+                "board_stop": "Avenue Blaise Diagne",
+                "alight_stop": "Yoff-Village",
+                "direction": "Yoff-Village",
+                "num_stops": 11,
+                "minutes": 39.1,
+            }
+        ],
+        "walks": [],
+    }
+    result = AgentResult(
+        reply="Waaw, Tata 3.",
+        language="Wolof",
+        spoken="Waaw, Tata 3 bi dafay dem Yoff-Village.",
+        bus_check={
+            "serves_trip": True,
+            "operator": "Tata AFTU",
+            "line": "Ligne 3",
+            "trip": trip,
+        },
+    )
+    fake = _FakeAgent([result])
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_agent", lambda: fake)
+
+    _chatbot, _message, cards, _thoughts, image = app._respond(
+        "Is this my bus?",
+        [],
+        "C:/tmp/bus.jpg",
+    )
+
+    assert "Tata AFTU Ligne 3" in cards
+    assert "Avenue Blaise Diagne" in cards
+    assert app.HONEST_NOTE_EN in cards
+    assert image is None
+
+
+def test_bus_photo_negative_check_shows_the_alternative_card(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    alternative = {
+        "transfers": 0,
+        "total_minutes": 40,
+        "legs": [
+            {
+                "operator": "Dakar Dem Dikk",
+                "line": "Ligne 7",
+                "board_stop": "Ouakam",
+                "alight_stop": "Palais 2",
+                "direction": "Palais 2",
+                "num_stops": 7,
+                "minutes": 40,
+            }
+        ],
+        "walks": [],
+    }
+    result = AgentResult(
+        reply="Déedéet, Tata 5.",
+        language="Wolof",
+        spoken="Déedéet, Tata 5 bi du dem Palais.",
+        bus_check={
+            "serves_trip": False,
+            "operator": "Tata AFTU",
+            "line": "Ligne 5",
+            "best_alternative": alternative,
+            "can_help_part_way": True,
+        },
+    )
+    fake = _FakeAgent([result])
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_agent", lambda: fake)
+
+    _chatbot, _message, cards, _thoughts, _image = app._respond(
+        "Is this my bus?",
+        [],
+        "C:/tmp/bus.jpg",
+    )
+
+    assert "Dakar Dem Dikk Ligne 7" in cards
+    assert "Part of the way with this bus" in cards
+    assert app.HONEST_NOTE_EN in cards
+
+
+def test_trip_cards_use_the_french_honest_note(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    fake = _FakeAgent(
+        [
+            AgentResult(
+                reply="Voici la ligne 7.",
+                language="French",
+                spoken="À Ouakam, prends le Dem Dikk 7.",
+            )
+        ]
+    )
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_agent", lambda: fake)
+
+    _chatbot, _message, cards, _thoughts, _image = app._respond(
+        "Je suis à Ouakam, je vais au Palais",
+        [],
+    )
+
+    assert app.HONEST_NOTE_FR in cards
+    assert app.HONEST_NOTE_EN not in cards
+
+
 def test_thinking_panel_refreshes_with_only_the_current_turn(
     llm_env,
     monkeypatch,
@@ -237,3 +362,7 @@ def test_trip_cards_include_the_useful_fields() -> None:
     assert "Ouakam" in html
     assert "Palais 2" in html
     assert "40 min" in html
+    assert (
+        "Routes based on official AFTU / Dakar Dem Dikk data and field "
+        "corrections. Check with the apprenti."
+    ) in html
