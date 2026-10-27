@@ -1,8 +1,9 @@
 """Short, deterministic spoken answers for the best Koumba trip.
 
-The Wolof templates in this module were supplied by the project owner for a
-native-speaker review.  Keep their wording and punctuation unchanged.  The
-UI uses these sentences instead of the model's longer explanation.
+The templates were reviewed by a native speaker.  They deliberately contain no
+travel-time estimate: Dakar traffic makes minutes misleading in speech.  The
+UI uses these sentences instead of the model's longer explanation, while the
+route JSON keeps minutes for ranking and card hints.
 """
 
 from __future__ import annotations
@@ -137,7 +138,6 @@ def spoken_answer(
     if not origin_text:
         return ""
 
-    minutes = round_minutes(trip.get("total_minutes"))
     selected = _language_name(language)
     board_stop = _walk_to_first_stop(trip, legs[0], origin_text)
 
@@ -163,7 +163,7 @@ def spoken_answer(
                     f", nga jël {bus} bi jëm {direction}, wàcci {alight}"
                 )
             sentence += "."
-        return f"{sentence} Lu tollu ci {minutes} minit."
+        return sentence
 
     if selected == "French":
         first_bus, first_direction, first_alight = speech[0]
@@ -188,7 +188,7 @@ def spoken_answer(
                     f"descends à {alight}"
                 )
             sentence += "."
-        return f"{sentence} Environ {minutes} minutes."
+        return sentence
 
     first_bus, first_direction, first_alight = speech[0]
     if board_stop:
@@ -211,7 +211,7 @@ def spoken_answer(
                 f", then take {bus} toward {direction}, get off at {alight}"
             )
         sentence += "."
-    return f"{sentence} About {minutes} minutes."
+    return sentence
 
 
 def bus_check_spoken(
@@ -239,22 +239,21 @@ def bus_check_spoken(
     selected = _language_name(language)
     if serves:
         alight = str(check.get("alight_stop") or "").strip()
-        minutes = round_minutes(check.get("minutes"))
         if not alight:
             return ""
         if selected == "Wolof":
             return (
                 f"Waaw, {bus} bi dafay dem {destination_text}. "
-                f"Duggal ci, wàcci {alight}. Lu tollu ci {minutes} minit."
+                f"Duggal ci, wàcci {alight}."
             )
         if selected == "French":
             return (
                 f"Oui, le {bus} va à {destination_text}. Monte et descends "
-                f"à {alight}. Environ {minutes} minutes."
+                f"à {alight}."
             )
         return (
             f"Yes, {bus} goes to {destination_text}. Board it and get off "
-            f"at {alight}. About {minutes} minutes."
+            f"at {alight}."
         )
 
     if selected == "Wolof":

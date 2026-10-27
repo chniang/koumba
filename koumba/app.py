@@ -7,6 +7,7 @@ never calls the model.
 
 from __future__ import annotations
 
+import math
 import os
 from functools import lru_cache
 from html import escape
@@ -19,6 +20,7 @@ import gradio as gr
 
 from .agent import Agent
 from .data import load_data
+from .listen import prepare_audio, transcribe
 from .llm import ModelClient, ProviderConfig, api_key_configured, load_config
 from .network import Network
 from .phrases import compose_chat_message
@@ -64,7 +66,9 @@ CSS = """
 }
 .leg { border-top: 1px solid #f1f5f9; padding-top: 8px; margin-top: 8px; }
 .line { font-weight: 650; }
+.stops { font-weight: 700; font-size: 14px; margin-top: 4px; }
 .muted { color: #64748b; font-size: 13px; margin-top: 2px; }
+.time-hint { font-size: 12px; }
 .honest-note {
   color: #64748b;
   font-size: 12px;
@@ -135,16 +139,26 @@ def _provider_banner() -> tuple[str, bool]:
 
 
 @lru_cache(maxsize=1)
+def _client() -> ModelClient:
+    return ModelClient()
+
+
+@lru_cache(maxsize=1)
 def _agent() -> Agent:
     data = load_data()
     network = Network.from_data(data)
     place_index = PlaceIndex.from_data(data)
     engine = RouteEngine(network, place_index)
-    return Agent(ModelClient(), engine, place_index)
+    return Agent(_client(), engine, place_index)
 
 
 def _plural(count: int, word: str) -> str:
     return f"{count} {word}" if count == 1 else f"{count} {word}s"
+
+
+def _is_french(language: str | None) -> bool:
+    lowered = (language or "").strip().lower()
+    return lowered in {"french", "français", "francais"}
 
 
 def _minutes(value: Any) -> str:
@@ -154,9 +168,33 @@ def _minutes(value: Any) -> str:
         return "unknown time"
 
 
+def _stop_count(value: Any, language: str | None) -> str:
+    try:
+        count = max(0, int(value or 0))
+    except (TypeError, ValueError):
+        count = 0
+    if _is_french(language):
+        return f"{count} arrêt" if count == 1 else f"{count} arrêts"
+    return f"{count} stop" if count == 1 else f"{count} stops"
+
+
+def _time_hint(value: Any, language: str | None) -> str:
+    try:
+        minutes = float(value)
+    except (TypeError, ValueError):
+        return ""
+    if not math.isfinite(minutes) or minutes <= 0:
+        return ""
+    suffix = (
+        "hors embouteillages"
+        if _is_french(language)
+        else "without traffic"
+    )
+    return f"~{minutes:.0f} min {suffix}"
+
+
 def _honest_note(language: str | None) -> str:
-    lowered = (language or "").strip().lower()
-    if lowered in {"french", "français", "francais"}:
+    if _is_french(language):
         return HONEST_NOTE_FR
     return HONEST_NOTE_EN
 
@@ -190,14 +228,13 @@ def _trip_cards(
             board = escape(str(leg.get("board_stop", "")))
             alight = escape(str(leg.get("alight_stop", "")))
             direction = escape(str(leg.get("direction", "")))
-            stops = _plural(int(leg.get("num_stops", 0)), "stop")
-            minutes = _minutes(leg.get("minutes"))
+            stops = _stop_count(leg.get("num_stops"), language)
             legs_html.append(
                 "<div class='leg'>"
                 f"<div class='line'>{operator} {line}</div>"
                 f"<div>{board} &rarr; {alight}</div>"
-                f"<div class='muted'>towards {direction} &middot; "
-                f"{stops} &middot; {minutes}</div>"
+                f"<div class='stops'>{stops}</div>"
+                f"<div class='muted'>towards {direction}</div>"
                 "</div>"
             )
 
@@ -216,13 +253,19 @@ def _trip_cards(
         )
 
         transfers = int(trip.get("transfers", 0))
+        time_hint = _time_hint(trip.get("total_minutes"), language)
+        time_html = (
+            f"<div class='muted time-hint'>{time_hint}</div>"
+            if time_hint
+            else ""
+        )
         cards.append(
             "<div class='trip-card'>"
             f"<div class='trip-head'>Trip {index}"
             f"<span class='pill'>{_plural(transfers, 'transfer')}</span>"
-            f"<span class='pill'>about {_minutes(trip.get('total_minutes'))}</span>"
             f"{part_way_pill}"
             "</div>"
+            f"{time_html}"
             f"{''.join(legs_html)}"
             f"{walk_html}"
             "</div>"
@@ -326,8 +369,134 @@ def _respond(message_text: str, history, image_path: str | None = None):
     )
 
 
+def _audio_present(audio: Any) -> bool:
+    if not isinstance(audio, (tuple, list)) or len(audio) != 2:
+        return False
+    _sample_rate, samples = audio
+    if samples is None:
+        return False
+    try:
+        return len(samples) > 0
+    except TypeError:
+        return False
+
+
+def _transcribe_audio(audio: Any) -> dict[str, str]:
+    sample_rate, samples = audio
+    wav_bytes = prepare_audio(sample_rate, samples)
+    return transcribe(_client(), wav_bytes)
+
+
+def _transcription_error(exc: Exception) -> str:
+    message = str(exc or "").strip()
+    if isinstance(exc, ValueError) and "too short" in message.lower():
+        return message
+    return (
+        "I could not transcribe that recording. Please try again or type your "
+        "message."
+    )
+
+
+def _respond_with_audio(
+    message_text: str,
+    history,
+    image_path: str | None = None,
+    audio: Any = None,
+):
+    """Handle text, or transcribe a recording through the normal chat flow."""
+
+    if not _audio_present(audio):
+        chatbot, message, cards, thoughts, image = _respond(
+            message_text,
+            history,
+            image_path,
+        )
+        return chatbot, message, cards, thoughts, image, None
+
+    previous = _history_as_dicts(history)
+    current = list(previous)
+    if not _api_key_configured():
+        current.append(
+            {"role": "assistant", "content": _missing_key_message()}
+        )
+        return (
+            current,
+            message_text or "",
+            _trip_cards(None),
+            [],
+            image_path,
+            None,
+        )
+
+    try:
+        transcription = _transcribe_audio(audio)
+    except Exception as exc:
+        current.append(
+            {"role": "assistant", "content": _transcription_error(exc)}
+        )
+        return (
+            current,
+            message_text or "",
+            _trip_cards(None),
+            [],
+            image_path,
+            None,
+        )
+
+    text = str(transcription.get("text") or "").strip()
+    if not text:
+        current.append(
+            {
+                "role": "assistant",
+                "content": (
+                    "I could not hear any words in that recording. Please try "
+                    "again or type your message."
+                ),
+            }
+        )
+        return (
+            current,
+            message_text or "",
+            _trip_cards(None),
+            [],
+            image_path,
+            None,
+        )
+
+    current.append({"role": "user", "content": f"🎤 {text}"})
+    try:
+        result = _agent().run(text, previous, image_path)
+    except Exception as exc:
+        current.append(
+            {
+                "role": "assistant",
+                "content": f"Koumba could not start the route engine. {exc}",
+            }
+        )
+        return current, "", _trip_cards(None), [], None, None
+
+    current.append(
+        {
+            "role": "assistant",
+            "content": compose_chat_message(result.spoken, result.reply),
+        }
+    )
+    return (
+        current,
+        "",
+        _cards_for_result(result),
+        result.tool_calls,
+        None,
+        None,
+    )
+
+
 def _clear():
     return [], "", _trip_cards(None), [], None
+
+
+def _clear_voice():
+    return (*_clear(), None)
 
 
 def build_app() -> gr.Blocks:
@@ -361,6 +530,12 @@ def build_app() -> gr.Blocks:
                     ),
                     lines=2,
                 )
+                audio = gr.Audio(
+                    sources=["microphone", "upload"],
+                    type="numpy",
+                    label="Speak to Koumba (Wolof, French, English)",
+                )
+                gr.Markdown("Voice recordings are not stored.")
                 image = gr.Image(
                     label="Photo of the bus (optional)",
                     type="filepath",
@@ -386,28 +561,38 @@ def build_app() -> gr.Blocks:
                 with gr.Accordion("How Koumba thought", open=False):
                     thoughts = gr.JSON(value=[], label="Tool calls")
 
-        outputs = [chatbot, message, trips, thoughts, image]
+        voice_outputs = [chatbot, message, trips, thoughts, image, audio]
         send.click(
-            _respond,
-            inputs=[message, chatbot, image],
-            outputs=outputs,
+            _respond_with_audio,
+            inputs=[message, chatbot, image, audio],
+            outputs=voice_outputs,
         )
         message.submit(
-            _respond,
-            inputs=[message, chatbot, image],
-            outputs=outputs,
+            _respond_with_audio,
+            inputs=[message, chatbot, image, audio],
+            outputs=voice_outputs,
         )
         example_wolof.click(
-            lambda history: _respond(EXAMPLE_WOLOF, history),
-            inputs=[chatbot],
-            outputs=outputs,
+            lambda history, audio: _respond_with_audio(
+                EXAMPLE_WOLOF,
+                history,
+                None,
+                audio,
+            ),
+            inputs=[chatbot, audio],
+            outputs=voice_outputs,
         )
         example_french.click(
-            lambda history: _respond(EXAMPLE_FRENCH, history),
-            inputs=[chatbot],
-            outputs=outputs,
+            lambda history, audio: _respond_with_audio(
+                EXAMPLE_FRENCH,
+                history,
+                None,
+                audio,
+            ),
+            inputs=[chatbot, audio],
+            outputs=voice_outputs,
         )
-        clear.click(_clear, outputs=outputs)
+        clear.click(_clear_voice, outputs=voice_outputs)
 
     return demo
 

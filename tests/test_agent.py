@@ -103,7 +103,7 @@ def test_wolof_request_runs_the_real_engine_and_returns_trips(engine) -> None:
     assert result.tool_calls[0]["name"] == "find_trips"
     assert result.tool_calls[0]["result"]["trips"] == result.trips
     assert result.spoken.startswith("Yaangi Sahm, duggal ci Tata 38 bi jëm")
-    assert result.spoken.endswith("minit.")
+    assert result.spoken.endswith("wàcci Malika.")
     assert client.call_count == 2
 
     # The second model call must contain the real tool output.
@@ -255,7 +255,7 @@ def test_follow_up_uses_history_and_keeps_the_earlier_language(engine) -> None:
     assert result.destination == "Grand Yoff"
     assert result.trips
     assert result.spoken.startswith("Yaangi Sahm, duggal ci Tata 38")
-    assert result.spoken.endswith("minit.")
+    assert result.spoken.endswith(".")
 
 
 def test_official_place_name_is_used_in_the_spoken_answer(engine) -> None:
@@ -310,8 +310,9 @@ def test_bus_check_yes_uses_the_short_spoken_answer(engine) -> None:
 
     assert result.tool_calls[0]["result"]["serves_trip"] is True
     assert result.bus_check["trip"]["legs"][0]["line"] == "Ligne 38"
-    assert result.spoken.startswith("Waaw, Tata 38 bi dafay dem PAI.")
-    assert result.spoken.endswith("minit.")
+    assert result.spoken == (
+        "Waaw, Tata 38 bi dafay dem PAI. Duggal ci, wàcci PAI."
+    )
 
 
 def test_bus_check_no_speaks_the_alternative(engine) -> None:
@@ -340,7 +341,8 @@ def test_bus_check_no_speaks_the_alternative(engine) -> None:
 
     assert result.spoken.startswith("Déedéet, Tata 38 bi du dem Malika.")
     assert "Tata 80" in result.spoken
-    assert "Malika. Lu tollu ci" in result.spoken
+    assert result.spoken.endswith("wàcci Malika.")
+    assert "minit." not in result.spoken
     assert result.bus_check["best_alternative"]["legs"]
 
 

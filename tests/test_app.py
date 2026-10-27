@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
+import numpy as np
+
 from koumba.agent import AgentResult
 
 
@@ -110,7 +114,7 @@ def test_respond_passes_history_and_uses_the_spoken_answer(
 
     spoken = (
         "Yaangi Sahm, duggal ci Tata 38 bi jëm Cité des Enseignants, wàcci "
-        "Grand Yoff. Lu tollu ci 45 minit."
+        "Grand Yoff."
     )
     tool_calls = [{"round": 1, "name": "find_trips"}]
     result = AgentResult(
@@ -361,8 +365,121 @@ def test_trip_cards_include_the_useful_fields() -> None:
     assert "Dakar Dem Dikk Ligne 7" in html
     assert "Ouakam" in html
     assert "Palais 2" in html
-    assert "40 min" in html
+    assert "7 stops" in html
+    assert "~40 min without traffic" in html
+    assert "about 40 min" not in html
     assert (
         "Routes based on official AFTU / Dakar Dem Dikk data and field "
         "corrections. Check with the apprenti."
     ) in html
+
+
+def test_trip_cards_use_french_stop_count_and_time_hint() -> None:
+    from koumba.app import _trip_cards
+
+    html = _trip_cards(
+        [
+            {
+                "transfers": 0,
+                "total_minutes": 40.0,
+                "legs": [
+                    {
+                        "operator": "Dakar Dem Dikk",
+                        "line": "Ligne 7",
+                        "board_stop": "Ouakam",
+                        "alight_stop": "Palais 2",
+                        "direction": "Palais 2",
+                        "num_stops": 7,
+                    }
+                ],
+                "walks": [],
+            }
+        ],
+        language="French",
+    )
+
+    assert "7 arrêts" in html
+    assert "~40 min hors embouteillages" in html
+    assert "7 stops" not in html
+
+
+def test_voice_flow_transcribes_then_runs_the_agent(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+    import koumba.listen as listen
+
+    transcript = "Maa ngi Sahm, bëgg naa dem Malika"
+    client = SimpleNamespace(
+        complete=lambda **kwargs: SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(
+                        content=(
+                            '{"text": "'
+                            + transcript
+                            + '", "language": "Wolof"}'
+                        ),
+                        tool_calls=[],
+                    )
+                )
+            ]
+        )
+    )
+    fake = _FakeAgent(
+        [
+            AgentResult(
+                reply="Long answer.",
+                language="Wolof",
+                spoken="Yaangi Sahm, duggal ci Tata 38 bi jëm Malika.",
+            )
+        ]
+    )
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_client", lambda: client)
+    monkeypatch.setattr(app, "_agent", lambda: fake)
+    monkeypatch.setattr(listen, "vocabulary", lambda: "Sahm, Malika")
+
+    chatbot, message, _cards, _thoughts, image, audio = app._respond_with_audio(
+        "",
+        [],
+        "C:/tmp/bus.jpg",
+        (16_000, np.zeros(16_000, dtype=np.int16)),
+    )
+
+    assert chatbot[-2] == {"role": "user", "content": f"🎤 {transcript}"}
+    assert chatbot[-1]["role"] == "assistant"
+    assert fake.calls == [(transcript, [], "C:/tmp/bus.jpg")]
+    assert message == ""
+    assert image is None
+    assert audio is None
+
+
+def test_voice_flow_keeps_the_textbox_after_transcription_failure(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    def fail(_audio):
+        raise ValueError(
+            "The recording is too short. Please speak for at least half a "
+            "second."
+        )
+
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_transcribe_audio", fail)
+
+    chatbot, message, _cards, _thoughts, image, audio = app._respond_with_audio(
+        "Type this instead",
+        [],
+        None,
+        (16_000, np.zeros(100, dtype=np.int16)),
+    )
+
+    assert chatbot[-1]["role"] == "assistant"
+    assert "too short" in chatbot[-1]["content"]
+    assert message == "Type this instead"
+    assert image is None
+    assert audio is None

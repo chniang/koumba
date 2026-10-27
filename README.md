@@ -3,8 +3,8 @@
 Koumba is a small bus assistant for Dakar. It finds direct trips first, then
 trips with up to two transfers, using the Dakar Dem Dikk and Tata AFTU lines
 from the public dataset. A Muse Spark agent can understand a request in Wolof,
-French, or English, call the route engine as tools, and check a bus photo with
-its vision input.
+French, or English, call the route engine as tools, check a bus photo with its
+vision input, and transcribe a spoken request with Muse Spark Open.
 
 ## Built during the Meta Global AI Developer Hackathon (Oct 26 - Nov 4, 2026)
 
@@ -27,13 +27,17 @@ This repository contains:
 - `koumba/agent.py` - the Muse Spark tool-calling loop with short conversation
   memory and optional image input.
 - `koumba/vision.py` - in-memory image resize and JPEG/base64 encoding.
+- `koumba/listen.py` - in-memory microphone WAV preparation and Muse Spark
+  Open transcription, with no audio stored.
 - `koumba/phrases.py` - deterministic short spoken answers in Wolof, French,
-  and English.
-- `koumba/app.py` - the Gradio demo UI with a provider banner, bus-photo
-  input, bus-check cards, and the honest data note.
+  and English, without travel-time guesses.
+- `koumba/app.py` - the Gradio demo UI with a provider banner, voice and
+  bus-photo inputs, bus-check cards, and the honest data note.
+- `scripts/try_voice.py` - manual real-provider WAV transcription test.
 - `data/corrections.json` - human-reviewed field corrections. It starts empty.
 - `.env.example` - provider presets and key placeholders, with no real key.
-- `tests/` - route, correction, tool, agent, provider, vision, and app tests.
+- `tests/` - route, correction, tool, agent, provider, vision, voice, and app
+  tests.
 
 ## Pre-existing
 
@@ -44,6 +48,7 @@ from scratch during the hackathon.
 ## Requirements
 
 - Python 3.12 (tested with Python 3.12.5 on Windows)
+- `numpy==1.26.4`
 - `pandas==3.1.0`
 - `rapidfuzz==3.14.6`
 - `huggingface_hub==2.3.0`
@@ -154,14 +159,25 @@ instead and never calls a real provider.
 python -m koumba.app
 ```
 
-The app has a “Where are you going?” text box, an optional “Photo of the bus
+The app has a “Where are you going?” text box, a “Speak to Koumba (Wolof,
+French, English)” microphone/upload box, an optional “Photo of the bus
 (optional)” upload/camera box, Wolof and French example buttons, a chat area,
 mobile-friendly trip cards, and a “How Koumba thought” accordion with the tool
-calls. Photos are not stored. The app resizes the photo and sends it only for
-the current turn, then clears the image input. After a bus photo,
-`check_bus_line` fills the cards with the direct trip or with the best
-alternative; a partial alternative is labelled “Part of the way with this
-bus”.
+calls. Voice recordings and photos are not stored. A recording is converted to
+a mono 16 kHz, 16-bit WAV in memory, transcribed by Muse Spark Open, shown in
+the chat as `🎤 {transcript}`, and passed to the normal agent flow. The audio
+input is cleared after the answer.
+
+The app resizes the photo and sends it only for the current turn, then clears
+the image input. After a bus photo, `check_bus_line` fills the cards with the
+direct trip or with the best alternative; a partial alternative is labelled
+“Part of the way with this bus”.
+
+Each bus leg shows its stop count prominently (`11 arrêts` in French, `11
+stops` in English). Travel time is no longer spoken, because Dakar traffic
+makes estimates misleading. It remains in the JSON for ranking and appears on
+the cards only as a small grey hint, such as `~45 min hors embouteillages` or
+`~45 min without traffic`.
 
 Small text under the cards says: “Routes based on official AFTU / Dakar Dem
 Dikk data and field corrections. Check with the apprenti.” French turns show
@@ -172,6 +188,18 @@ Fireworks”; if the configured key env var is missing, it shows a warning such 
 “Meta Model API key not configured” instead of crashing. Importing
 `koumba.app` or calling `build_app()` only builds the UI; it does not start a
 server.
+
+### Manual voice test
+
+```powershell
+python scripts/try_voice.py path\to\file.wav
+```
+
+This is not part of pytest. It uses the provider configured in `.env`, prints
+the transcript, detected language, and the agent's deterministic spoken answer.
+The configured model must accept `audio_url` content, such as Muse Spark Open
+on Baseten or Fireworks. The script accepts 8-bit, 16-bit, or 32-bit PCM WAV
+files and still sends a mono 16 kHz, 16-bit WAV to the provider.
 
 ## Data source and cache
 
@@ -262,11 +290,16 @@ never crashes on a bad correction. At startup the console prints:
 8. `vision.py` opens a local image with Pillow, applies EXIF orientation,
    limits the longest side to 1024 px, and encodes JPEG quality 85 as a base64
    data URL without saving a copy.
-9. `phrases.py` turns the best trip or bus check into a short deterministic
-   spoken answer, including a walk to the first boarding stop, and can build
-   the validated Wolof clarification question.
-10. `app.py` renders the chat, trip cards, bus-photo input, the check-bus
-    cards, the honest data note, and the current turn's tool calls.
+9. `listen.py` mixes stereo to mono, resamples to 16 kHz with numpy, trims to
+   30 seconds, writes a 16-bit PCM WAV in memory, and sends it to Muse Spark
+   Open with an `audio_url` content part. The prompt includes the cached list
+   of every dataset stop and place name for spelling.
+10. `phrases.py` turns the best trip or bus check into a short deterministic
+    spoken answer, including a walk to the first boarding stop, and can build
+    the validated Wolof clarification question. No template includes a travel
+    time.
+11. `app.py` renders the chat, voice and bus-photo inputs, trip cards, the
+    check-bus cards, the honest data note, and the current turn's tool calls.
 
 Ride time uses 250 m/min (15 km/h); a segment with a missing coordinate uses
 3 minutes as a fallback. Every bus leg is billed for at least 2 minutes.
@@ -358,20 +391,24 @@ informal Wolof forms such as `dama`, `nekk`, `beugg`, `bëgga`, `fan la`, and
 The app shows the deterministic `spoken` sentence for the best trip or bus
 check instead of the model's longer reply. It appends only the model's
 clarification question when one was asked. Bus names are shortened for speech
-(`Tata 38`, `Dem Dikk 7`) and minutes are rounded to the nearest five. The
-accordion shows only the tool calls from the current turn and clears on the
-next message.
+(`Tata 38`, `Dem Dikk 7`). The accordion shows only the tool calls from the
+current turn and clears on the next message.
+
+The native-speaker decision is that Dakar traffic makes travel-time estimates
+misleading, so no spoken answer includes minutes. The time remains in the JSON
+for ranking trips and is shown on cards only as a small grey hint.
 
 The bus-check answers use the validated Wolof forms:
 
 ```text
-Waaw, Tata 38 bi dafay dem PAI. Duggal ci, wàcci PAI. Lu tollu ci 50 minit.
+Waaw, Tata 38 bi dafay dem PAI. Duggal ci, wàcci PAI.
 Déedéet, Tata 38 bi du dem Malika. Yaangi Sahm, duggal ci Tata 38 ...
 ```
 
 Normal trip answers use the validated `Yaangi ...` direct/transfer templates.
-When the first leg needs a walk of at least one minute to a differently named
-stop, the answer includes it:
+The sentence ends after the final `wàcci {stop}.` with no time sentence. When
+the first leg needs a walk of at least one minute to a differently named stop,
+the answer includes it:
 
 ```text
 Yaangi Médina, doxal ba Avenue Blaise Diagne, duggal ci Tata 3 bi jëm ...
@@ -397,6 +434,8 @@ bus-check answers follow the same direct/alternative shape.
 - Place matching is conservative on purpose.
 - A bus photo is sent to the configured model provider for that turn only and
   is not stored by Koumba.
+- A voice recording is sent to the configured provider only for transcription
+  and is not stored by Koumba.
 
 ## Known limitations
 
@@ -412,8 +451,12 @@ bus-check answers follow the same direct/alternative shape.
 - Field corrections are only as reliable as their review. Invalid corrections
   are skipped with a warning, but a wrong accepted correction still changes the
   itinerary.
-- The agent loop and vision content are tested with a scripted fake client.
-  They have not been tested against a live provider or live camera images.
+- The agent loop, vision content, and voice transcription are tested with
+  scripted fake clients. They have not been tested against a live provider,
+  live camera images, or live microphone audio.
+- Voice transcription depends on the provider. Background noise, code-switching,
+  or a strong accent may produce the wrong place spelling; the user can type or
+  retry the recording.
 - Photo quality depends on the model; glare, motion blur, or an unreadable
   destination can make the operator or line ambiguous.
 - The Baseten preset leaves the base URL as a TODO until it is copied from the
@@ -444,22 +487,27 @@ paths. Agent tests use a scripted `FakeClient` to cover a Wolof request with a
 real engine call, official origin spelling, bus-check speech and cards data,
 history limits, a follow-up answer, informal Wolof detection, the five-round
 limit, and the missing-key error. Vision tests create a synthetic Pillow image
-and check resize, JPEG/base64 encoding, and the agent content part. Phrase tests
-check the validated `Yaangi` and bus-check templates, the first-stop walk
-wording, short bus names, minute rounding, and chat composition. Provider tests
-check the defaults, the Fireworks settings, Baseten detection, a custom key env
-var, and the SDK base URL/model plumbing. App tests build the UI, check the
-provider banner, verify history and photo passing, five-output handlers, photo
-clearing, bus-photo cards, the partial-route label, both honest notes, the
-spoken chat message, and that the thinking panel only shows the current turn.
-The tests never call a real provider.
+and check resize, JPEG/base64 encoding, and the agent content part. Voice tests
+cover stereo mixing, 44.1 kHz to 16 kHz resampling, rejecting recordings under
+half a second, the 30-second trim, the `audio_url` data request, and parsing
+fenced JSON after model reasoning. Phrase tests check the validated `Yaangi`
+and bus-check templates without travel time, the first-stop walk wording,
+short bus names, and chat composition. Provider tests check the defaults, the
+Fireworks settings, Baseten detection, a custom key env var, and the SDK base
+URL/model plumbing. App tests build the UI, check the provider banner, verify
+history, photo and voice passing, transcript display, photo/audio clearing,
+textbox recovery after transcription failure, bus-photo cards, stop counts,
+time hints, the partial-route label, both honest notes, the spoken chat message,
+and that the thinking panel only shows the current turn. The tests never call a
+real provider.
 
 ## Project layout
 
 ```text
 koumba/       package code
+scripts/      manual real-provider voice test
 data/         human-reviewed corrections.json
-tests/        route, correction, tool, agent, provider, vision, and app tests
+tests/        route, correction, tool, agent, provider, vision, voice, app tests
 data_cache/   downloaded CSVs (ignored by git)
 .env.example  configuration template (the real .env is ignored)
 ```

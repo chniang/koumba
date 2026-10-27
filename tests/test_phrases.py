@@ -70,7 +70,7 @@ def test_direct_wolof_answer_matches_the_validated_template() -> None:
 
     assert spoken_answer(trip, "Wolof", "Sahm") == (
         "Yaangi Sahm, duggal ci Tata 38 bi jëm Cité des Enseignants, wàcci "
-        "Grand Yoff. Lu tollu ci 45 minit."
+        "Grand Yoff."
     )
 
 
@@ -91,16 +91,15 @@ def test_direct_answer_mentions_the_walk_to_the_first_stop() -> None:
 
     assert spoken_answer(trip, "Wolof", "Médina") == (
         "Yaangi Médina, doxal ba Avenue Blaise Diagne, duggal ci Tata 3 bi "
-        "jëm Yoff-Village, wàcci Yoff-Village. Lu tollu ci 45 minit."
+        "jëm Yoff-Village, wàcci Yoff-Village."
     )
     assert spoken_answer(trip, "French", "Médina") == (
         "Tu es à Médina : marche jusqu'à Avenue Blaise Diagne, prends le "
-        "Tata 3 direction Yoff-Village, descends à Yoff-Village. Environ "
-        "45 minutes."
+        "Tata 3 direction Yoff-Village, descends à Yoff-Village."
     )
     assert spoken_answer(trip, "English", "Médina") == (
         "You are at Médina: walk to Avenue Blaise Diagne, take Tata 3 toward "
-        "Yoff-Village, get off at Yoff-Village. About 45 minutes."
+        "Yoff-Village, get off at Yoff-Village."
     )
 
 
@@ -123,7 +122,7 @@ def test_transfer_answer_mentions_the_walk_to_the_first_stop() -> None:
     assert spoken_answer(trip, "Wolof", "Médina") == (
         "Yaangi Médina, doxal ba Avenue Blaise Diagne, duggal ci Tata 3 bi "
         "jëm Cité des Enseignants, wàcci PAI, nga jël Tata 80 bi jëm Darou "
-        "Thioub, wàcci Malika. Lu tollu ci 80 minit."
+        "Thioub, wàcci Malika."
     )
 
 
@@ -187,8 +186,7 @@ def test_one_transfer_wolof_answer_matches_the_validated_template() -> None:
 
     assert spoken_answer(trip, "Wolof", "Sahm") == (
         "Yaangi Sahm, duggal ci Tata 38 bi jëm Cité des Enseignants, wàcci "
-        "PAI, nga jël Tata 80 bi jëm Darou Thioub, wàcci Malika. Lu tollu ci "
-        "80 minit."
+        "PAI, nga jël Tata 80 bi jëm Darou Thioub, wàcci Malika."
     )
 
 
@@ -217,7 +215,7 @@ def test_two_transfers_chain_the_same_wolof_pattern() -> None:
     assert spoken_answer(trip, "Wolof", "Sahm") == (
         "Yaangi Sahm, duggal ci Tata 38 bi jëm Cité des Enseignants, wàcci "
         "PAI, nga jël Tata 80 bi jëm Darou Thioub, wàcci Malika, nga jël "
-        "Dem Dikk 7 bi jëm Palais 2, wàcci Palais 2. Lu tollu ci 95 minit."
+        "Dem Dikk 7 bi jëm Palais 2, wàcci Palais 2."
     )
 
 
@@ -237,11 +235,10 @@ def test_french_and_english_answers_are_short() -> None:
 
     assert spoken_answer(trip, "French", "Ouakam") == (
         "À Ouakam, prends le Dem Dikk 7 direction Palais 2, descends à "
-        "Palais 2. Environ 40 minutes."
+        "Palais 2."
     )
     assert spoken_answer(trip, "English", "Ouakam") == (
-        "From Ouakam, take Dem Dikk 7 toward Palais 2, get off at Palais 2. "
-        "About 40 minutes."
+        "From Ouakam, take Dem Dikk 7 toward Palais 2, get off at Palais 2."
     )
 
 
@@ -255,16 +252,13 @@ def test_bus_check_yes_uses_the_validated_wolof_wording() -> None:
     }
 
     assert bus_check_spoken(check, "Wolof", "PAI") == (
-        "Waaw, Tata 38 bi dafay dem PAI. Duggal ci, wàcci PAI. "
-        "Lu tollu ci 50 minit."
+        "Waaw, Tata 38 bi dafay dem PAI. Duggal ci, wàcci PAI."
     )
     assert bus_check_spoken(check, "French", "PAI") == (
-        "Oui, le Tata 38 va à PAI. Monte et descends à PAI. "
-        "Environ 50 minutes."
+        "Oui, le Tata 38 va à PAI. Monte et descends à PAI."
     )
     assert bus_check_spoken(check, "English", "PAI") == (
-        "Yes, Tata 38 goes to PAI. Board it and get off at PAI. "
-        "About 50 minutes."
+        "Yes, Tata 38 goes to PAI. Board it and get off at PAI."
     )
 
 
@@ -298,7 +292,7 @@ def test_bus_check_no_adds_the_best_alternative() -> None:
     ) == (
         "Déedéet, Tata 38 bi du dem Malika. Yaangi Sahm, duggal ci Tata 38 "
         "bi jëm Cité des Enseignants, wàcci PAI, nga jël Tata 80 bi jëm Darou "
-        "Thioub, wàcci Malika. Lu tollu ci 80 minit."
+        "Thioub, wàcci Malika."
     )
     assert bus_check_spoken(check, "French", "Malika").startswith(
         "Non, le Tata 38 ne va pas à Malika."
@@ -337,7 +331,7 @@ def test_bus_check_no_alternative_mentions_the_first_walk() -> None:
     ) == (
         "Déedéet, Tata 5 bi du dem Yoff. Yaangi Médina, doxal ba Avenue "
         "Blaise Diagne, duggal ci Tata 3 bi jëm Yoff-Village, wàcci "
-        "Yoff-Village. Lu tollu ci 45 minit."
+        "Yoff-Village."
     )
 
 
@@ -363,7 +357,7 @@ def test_minutes_round_to_the_nearest_five() -> None:
 def test_chat_message_adds_only_a_model_clarification_question() -> None:
     spoken = (
         "Yaangi Sahm, duggal ci Tata 38 bi jëm Cité des Enseignants, wàcci "
-        "Grand Yoff. Lu tollu ci 45 minit."
+        "Grand Yoff."
     )
 
     assert compose_chat_message(
