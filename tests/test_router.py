@@ -72,6 +72,64 @@ def test_one_transfer() -> None:
     assert 13 <= trip.total_minutes <= 16
 
 
+def test_score_prefers_a_transfer_but_promotes_a_nearby_direct_trip() -> None:
+    engine = make_engine(
+        [
+            Line("Op D", "Direct", ("Origin", "Ridge", "Dest")),
+            Line("Op A", "Line A", ("Origin", "Transfer")),
+            Line("Op B", "Line B", ("Transfer", "Dest")),
+        ],
+        {
+            "Origin": point(0, 0),
+            "Ridge": point(6250, 6470),
+            "Dest": point(12500, 0),
+            "Transfer": point(6250, 0),
+        },
+    )
+
+    trips = engine.find_trips("Origin", "Dest")
+
+    direct = next(trip for trip in trips if trip.transfers == 0)
+    transfer = next(trip for trip in trips if trip.transfers == 1)
+    assert transfer.score < direct.score
+    assert direct.score <= transfer.score + 15
+    assert trips[0].transfers == 0
+
+
+def test_short_bus_leg_is_billed_as_two_minutes() -> None:
+    engine = make_engine(
+        [Line("Op A", "Line A", ("Origin", "Dest"))],
+        {"Origin": point(0), "Dest": point(100)},
+    )
+
+    trip = engine.find_trips("Origin", "Dest")[0]
+
+    assert trip.legs[0].minutes == 2
+    assert trip.total_minutes == 2
+
+
+def test_nearby_stop_is_used_when_the_exact_stop_has_no_route() -> None:
+    engine = make_engine(
+        [
+            Line("Op A", "Line A", ("Origin", "Elsewhere")),
+            Line("Op B", "Line B", ("Near", "Dest")),
+        ],
+        {
+            "Origin": point(0),
+            "Elsewhere": point(1000),
+            "Near": point(0, 400),
+            "Dest": point(2000, 400),
+        },
+    )
+
+    trip = engine.find_trips("Origin", "Dest")[0]
+
+    assert trip.transfers == 0
+    assert trip.legs[0].board_stop == "Near"
+    assert trip.walks[0].kind == "access"
+    assert 4 <= trip.walks[0].minutes <= 6
+
+
 def test_direct_is_preferred_even_when_slightly_slower() -> None:
     engine = make_engine(
         [

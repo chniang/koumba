@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from koumba.phrases import (
+    bus_check_spoken,
     clarification_question,
     compose_chat_message,
     round_minutes,
@@ -46,7 +47,7 @@ def test_direct_wolof_answer_matches_the_validated_template() -> None:
     )
 
     assert spoken_answer(trip, "Wolof", "Sahm") == (
-        "Ci Sahm, duggu ci Tata 38 bi jëm Cité des Enseignants, wàcci "
+        "Yaangi Sahm, duggal ci Tata 38 bi jëm Cité des Enseignants, wàcci "
         "Grand Yoff. Lu tollu ci 45 minit."
     )
 
@@ -73,9 +74,9 @@ def test_one_transfer_wolof_answer_matches_the_validated_template() -> None:
     )
 
     assert spoken_answer(trip, "Wolof", "Sahm") == (
-        "Ci Sahm, duggu ci Tata 38 bi jëm Cité des Enseignants, wàcci PAI, "
-        "nga jël Tata 80 bi jëm Darou Thioub, wàcci Malika. Lu tollu ci 80 "
-        "minit."
+        "Yaangi Sahm, duggal ci Tata 38 bi jëm Cité des Enseignants, wàcci "
+        "PAI, nga jël Tata 80 bi jëm Darou Thioub, wàcci Malika. Lu tollu ci "
+        "80 minit."
     )
 
 
@@ -102,8 +103,8 @@ def test_two_transfers_chain_the_same_wolof_pattern() -> None:
     )
 
     assert spoken_answer(trip, "Wolof", "Sahm") == (
-        "Ci Sahm, duggu ci Tata 38 bi jëm Cité des Enseignants, wàcci PAI, "
-        "nga jël Tata 80 bi jëm Darou Thioub, wàcci Malika, nga jël "
+        "Yaangi Sahm, duggal ci Tata 38 bi jëm Cité des Enseignants, wàcci "
+        "PAI, nga jël Tata 80 bi jëm Darou Thioub, wàcci Malika, nga jël "
         "Dem Dikk 7 bi jëm Palais 2, wàcci Palais 2. Lu tollu ci 95 minit."
     )
 
@@ -132,6 +133,69 @@ def test_french_and_english_answers_are_short() -> None:
     )
 
 
+def test_bus_check_yes_uses_the_validated_wolof_wording() -> None:
+    check = {
+        "serves_trip": True,
+        "operator": "Tata AFTU",
+        "line": "Ligne 38",
+        "alight_stop": "PAI",
+        "minutes": 48.1,
+    }
+
+    assert bus_check_spoken(check, "Wolof", "PAI") == (
+        "Waaw, Tata 38 bi dafay dem PAI. Duggal ci, wàcci PAI. "
+        "Lu tollu ci 50 minit."
+    )
+    assert bus_check_spoken(check, "French", "PAI") == (
+        "Oui, le Tata 38 va à PAI. Monte et descends à PAI. "
+        "Environ 50 minutes."
+    )
+    assert bus_check_spoken(check, "English", "PAI") == (
+        "Yes, Tata 38 goes to PAI. Board it and get off at PAI. "
+        "About 50 minutes."
+    )
+
+
+def test_bus_check_no_adds_the_best_alternative() -> None:
+    check = {
+        "serves_trip": False,
+        "operator": "Tata AFTU",
+        "line": "Ligne 38",
+        "can_help_part_way": True,
+    }
+    alternative = _trip(
+        [
+            _leg(
+                "Tata AFTU",
+                "Ligne 38",
+                "Sahm",
+                "PAI",
+                "Cité des Enseignants",
+            ),
+            _leg("Tata AFTU", "Ligne 80", "PAI", "Malika", "Darou Thioub"),
+        ],
+        80,
+    )
+
+    assert bus_check_spoken(
+        check,
+        "Wolof",
+        "Malika",
+        alternative,
+        "Sahm",
+    ) == (
+        "Déedéet, Tata 38 bi du dem Malika. Yaangi Sahm, duggal ci Tata 38 "
+        "bi jëm Cité des Enseignants, wàcci PAI, nga jël Tata 80 bi jëm Darou "
+        "Thioub, wàcci Malika. Lu tollu ci 80 minit."
+    )
+    assert bus_check_spoken(check, "French", "Malika").startswith(
+        "Non, le Tata 38 ne va pas à Malika."
+    )
+    assert bus_check_spoken(check, "English", "Malika").startswith(
+        "No, Tata 38 does not go to Malika."
+    )
+
+
 def test_clarification_question_matches_the_validated_template() -> None:
     assert clarification_question("Yoff-Village", "Grand Yoff") == (
         "Yoff-Village nga bëgga dem walla Grand Yoff ?"
@@ -153,7 +217,7 @@ def test_minutes_round_to_the_nearest_five() -> None:
 
 def test_chat_message_adds_only_a_model_clarification_question() -> None:
     spoken = (
-        "Ci Sahm, duggu ci Tata 38 bi jëm Cité des Enseignants, wàcci "
+        "Yaangi Sahm, duggal ci Tata 38 bi jëm Cité des Enseignants, wàcci "
         "Grand Yoff. Lu tollu ci 45 minit."
     )
 

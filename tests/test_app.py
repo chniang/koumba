@@ -8,10 +8,15 @@ from koumba.agent import AgentResult
 class _FakeAgent:
     def __init__(self, results: list[AgentResult]) -> None:
         self.results = list(results)
-        self.calls: list[tuple[str, list[dict] | None]] = []
+        self.calls: list[tuple[str, list[dict] | None, str | None]] = []
 
-    def run(self, text: str, history=None) -> AgentResult:
-        self.calls.append((text, history))
+    def run(
+        self,
+        text: str,
+        history=None,
+        image_path: str | None = None,
+    ) -> AgentResult:
+        self.calls.append((text, history, image_path))
         return self.results.pop(0)
 
 
@@ -68,12 +73,15 @@ def test_respond_without_key_shows_a_clear_message(
 
     monkeypatch.setattr(app, "_agent", should_not_run)
 
-    history, message, _trips, _thoughts = app._respond("Maa ngi Sahm", [])
+    history, message, _trips, _thoughts, image = app._respond(
+        "Maa ngi Sahm", []
+    )
 
     assert message == ""
     assert history[-1]["role"] == "assistant"
     assert "Meta Model API key not configured" in history[-1]["content"]
     assert "MODEL_API_KEY" in history[-1]["content"]
+    assert image is None
 
 
 def test_missing_key_message_names_the_custom_provider(
@@ -101,7 +109,7 @@ def test_respond_passes_history_and_uses_the_spoken_answer(
     import koumba.app as app
 
     spoken = (
-        "Ci Sahm, duggu ci Tata 38 bi jëm Cité des Enseignants, wàcci "
+        "Yaangi Sahm, duggal ci Tata 38 bi jëm Cité des Enseignants, wàcci "
         "Grand Yoff. Lu tollu ci 45 minit."
     )
     tool_calls = [{"round": 1, "name": "find_trips"}]
@@ -120,15 +128,47 @@ def test_respond_passes_history_and_uses_the_spoken_answer(
         {"role": "assistant", "content": "Yoff-Village walla Grand Yoff ?"},
     ]
 
-    chatbot, message, _trips, thoughts = app._respond("Grand Yoff", history)
+    chatbot, message, _trips, thoughts, image = app._respond(
+        "Grand Yoff", history
+    )
 
     assert message == ""
-    assert fake.calls == [("Grand Yoff", history)]
+    assert fake.calls == [("Grand Yoff", history, None)]
     assert chatbot[-1] == {
         "role": "assistant",
         "content": f"{spoken} Yoff-Village walla Grand Yoff?",
     }
     assert thoughts == tool_calls
+    assert image is None
+
+
+def test_respond_passes_the_bus_photo_and_clears_it(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    fake = _FakeAgent(
+        [
+            AgentResult(
+                reply="Waaw, Tata 38.",
+                language="Wolof",
+                spoken="Waaw, Tata 38 bi dafay dem PAI.",
+            )
+        ]
+    )
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_agent", lambda: fake)
+
+    chatbot, _message, _trips, _thoughts, image = app._respond(
+        "Is this my bus?",
+        [],
+        "C:/tmp/bus.jpg",
+    )
+
+    assert fake.calls == [("Is this my bus?", [], "C:/tmp/bus.jpg")]
+    assert chatbot[-1]["content"] == "Waaw, Tata 38 bi dafay dem PAI."
+    assert image is None
 
 
 def test_thinking_panel_refreshes_with_only_the_current_turn(
@@ -155,11 +195,11 @@ def test_thinking_panel_refreshes_with_only_the_current_turn(
     monkeypatch.setattr(app, "_api_key_configured", lambda: True)
     monkeypatch.setattr(app, "_agent", lambda: fake)
 
-    history, _message, _trips, first_thoughts = app._respond(
+    history, _message, _trips, first_thoughts, _image = app._respond(
         "Maa ngi Sahm",
         [],
     )
-    _history, _message, _trips, second_thoughts = app._respond(
+    _history, _message, _trips, second_thoughts, _image = app._respond(
         "Grand Yoff",
         history,
     )

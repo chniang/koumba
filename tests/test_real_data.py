@@ -115,6 +115,54 @@ def test_rond_point_sahm_to_malika_avoids_palais(engine: RouteEngine) -> None:
     # There is no direct line serving both places, so the best option
     # should use exactly one transfer, not a two-transfer detour.
     assert trips[0].transfers == 1
+    assert trips[0].line_combo == (
+        ("Tata AFTU", "Ligne 38"),
+        ("Tata AFTU", "Ligne 80"),
+    )
+
+
+def test_medina_to_yoff_uses_the_nearby_avenue_and_yoff_village(
+    engine: RouteEngine,
+) -> None:
+    trips = engine.find_trips("medina", "Yoff")
+
+    assert trips
+    trip = trips[0]
+    assert trip.transfers == 0
+    assert trip.line_combo in {
+        (("Tata AFTU", "Ligne 3"),),
+        (("Tata AFTU", "Ligne 4"),),
+    }
+    assert trip.legs[0].board_stop == "Avenue Blaise Diagne"
+    assert trip.legs[0].alight_stop == "Yoff-Village"
+
+    access = [walk for walk in trip.walks if walk.kind == "access"]
+    egress = [walk for walk in trip.walks if walk.kind == "egress"]
+    assert access and access[0].distance_m is not None
+    assert egress and egress[0].distance_m is not None
+    assert access[0].distance_m <= 600
+    assert egress[0].distance_m <= 600
+    assert all(
+        normalize_name(stop) != "grand yoff" for stop in trip.ridden_stops
+    )
+
+
+def test_yoff_never_boards_or_alights_at_grand_yoff(
+    engine: RouteEngine,
+) -> None:
+    trips = engine.find_trips("Yoff", "Palais")
+
+    assert trips
+    for trip in trips:
+        assert all(
+            normalize_name(stop) != "grand yoff"
+            for stop in trip.ridden_stops
+        )
+        assert all(
+            normalize_name(leg.board_stop) != "grand yoff"
+            and normalize_name(leg.alight_stop) != "grand yoff"
+            for leg in trip.legs
+        )
 
 
 @pytest.mark.parametrize(

@@ -102,7 +102,7 @@ def test_wolof_request_runs_the_real_engine_and_returns_trips(engine) -> None:
     }
     assert result.tool_calls[0]["name"] == "find_trips"
     assert result.tool_calls[0]["result"]["trips"] == result.trips
-    assert result.spoken.startswith("Ci Sahm, duggu ci Tata 38 bi jëm")
+    assert result.spoken.startswith("Yaangi Sahm, duggal ci Tata 38 bi jëm")
     assert result.spoken.endswith("minit.")
     assert client.call_count == 2
 
@@ -254,8 +254,90 @@ def test_follow_up_uses_history_and_keeps_the_earlier_language(engine) -> None:
     assert result.language == "Wolof"
     assert result.destination == "Grand Yoff"
     assert result.trips
-    assert result.spoken.startswith("Ci Sahm, duggu ci Tata 38")
+    assert result.spoken.startswith("Yaangi Sahm, duggal ci Tata 38")
     assert result.spoken.endswith("minit.")
+
+
+def test_official_place_name_is_used_in_the_spoken_answer(engine) -> None:
+    client = FakeClient(
+        [
+            _response(
+                tool_calls=[
+                    _tool_call(
+                        "call_1",
+                        "find_trips",
+                        {"origin": "medina", "destination": "Yoff"},
+                    )
+                ]
+            ),
+            _response("Voici la ligne 3."),
+        ]
+    )
+    agent = Agent(client, engine)
+
+    result = agent.run("Maa ngi medina, bëgg naa dem Yoff")
+
+    assert result.origin == "Médina"
+    assert result.spoken.startswith("Yaangi Médina, duggal ci Tata 3")
+    assert result.trips[0]["legs"][0]["board_stop"] == "Avenue Blaise Diagne"
+
+
+def test_bus_check_yes_uses_the_short_spoken_answer(engine) -> None:
+    client = FakeClient(
+        [
+            _response(
+                tool_calls=[
+                    _tool_call(
+                        "call_1",
+                        "check_bus_line",
+                        {
+                            "operator": "Tata",
+                            "line": "38",
+                            "origin": "Sahm",
+                            "destination": "PAI",
+                        },
+                    )
+                ]
+            ),
+            _response("Long model answer that the UI replaces."),
+        ]
+    )
+    agent = Agent(client, engine)
+
+    result = agent.run("Maa ngi Sahm, Tata 38 bi dafay dem PAI?")
+
+    assert result.tool_calls[0]["result"]["serves_trip"] is True
+    assert result.spoken.startswith("Waaw, Tata 38 bi dafay dem PAI.")
+    assert result.spoken.endswith("minit.")
+
+
+def test_bus_check_no_speaks_the_alternative(engine) -> None:
+    client = FakeClient(
+        [
+            _response(
+                tool_calls=[
+                    _tool_call(
+                        "call_1",
+                        "check_bus_line",
+                        {
+                            "operator": "Tata",
+                            "line": "38",
+                            "origin": "Sahm",
+                            "destination": "Malika",
+                        },
+                    )
+                ]
+            ),
+            _response("Long model answer that the UI replaces."),
+        ]
+    )
+    agent = Agent(client, engine)
+
+    result = agent.run("Maa ngi Sahm, Tata 38 bi dafay dem Malika?")
+
+    assert result.spoken.startswith("Déedéet, Tata 38 bi du dem Malika.")
+    assert "Tata 80" in result.spoken
+    assert "Malika. Lu tollu ci" in result.spoken
 
 
 def test_missing_model_api_key_has_a_clear_error(llm_env) -> None:

@@ -13,10 +13,11 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from .places import PlaceIndex
-from .phrases import spoken_answer
+from .places import PlaceIndex, prefer_exact_matches
+from .phrases import bus_check_spoken, spoken_answer
 from .router import RouteEngine
 from .tools import TOOL_SCHEMAS, execute_tool
+from .vision import image_data_url
 
 MAX_TOOL_ROUNDS = 5
 MAX_HISTORY_MESSAGES = 6
@@ -34,10 +35,19 @@ line, a stop, or a route. The tools are:
 - find_trips(origin, destination, max_trips, operator): run the real Koumba
   route engine. Leave operator empty unless the user asks for a specific bus
   company.
+- check_bus_line(operator, line, origin, destination): answer whether one bus
+  can make the trip, with boarding and alighting stops or an alternative.
+- line_info(operator, line): list a line's stops and directions.
 
 Use the conversation history to understand follow-up answers. If the user
 answers a clarification with just a place name, reuse the earlier origin or
 destination.
+
+When a photo is attached, read the operator and line number or sign first. If
+they are unreadable, say so and ask for the number; never guess. If you can
+read the bus and the destination is known, call check_bus_line. If the
+destination is unknown, call line_info and help the user. If the origin is
+unknown, ask where the user is. Answer a bus check with a clear yes or no.
 
 If a tool returns an error, explain it briefly and ask the user to clarify.
 Answer in the user's language using at most two short sentences. Never repeat
@@ -287,6 +297,13 @@ class Agent:
         self.place_index = place_index or engine.place_index
         self.max_tool_rounds = max(1, max_tool_rounds)
 
+    def _official_place_name(self, query: str | None) -> str | None:
+        text = str(query or "").strip()
+        if not text:
+            return None
+        matches = prefer_exact_matches(self.place_index.match(text), text)
+        return matches[0].name if matches else text
+
     def _result(
         self,
         *,
@@ -297,12 +314,25 @@ class Agent:
         trips: list[dict[str, Any]] | None,
         tool_calls: list[dict[str, Any]],
         rounds: int,
+        bus_check: dict[str, Any] | None = None,
     ) -> AgentResult:
         best_trip = trips[0] if trips else None
+        spoken = ""
+        if bus_check is not None:
+            alternative = bus_check.get("best_alternative")
+            spoken = bus_check_spoken(
+                bus_check,
+                language,
+                destination,
+                alternative if isinstance(alternative, dict) else None,
+                origin,
+            )
+        if not spoken:
+            spoken = spoken_answer(best_trip, language, origin)
         return AgentResult(
             reply=reply,
             language=language,
-            spoken=spoken_answer(best_trip, language, origin),
+            spoken=spoken,
             origin=origin,
             destination=destination,
             trips=trips,
@@ -314,22 +344,33 @@ class Agent:
         self,
         user_text: str,
         history: list[dict[str, Any]] | None = None,
+        image_path: str | None = None,
     ) -> AgentResult:
         text = (user_text or "").strip()
         memory = _clean_history(history)
         language = detect_language(text)
         if language == "Unknown":
             language = _history_language(memory)
+        user_content: str | list[dict[str, Any]] = text
+        if image_path:
+            user_content = [
+                {"type": "text", "text": text},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": image_data_url(image_path)},
+                },
+            ]
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": SYSTEM_PROMPT},
             *memory,
-            {"role": "user", "content": text},
+            {"role": "user", "content": user_content},
         ]
 
         tool_calls_made: list[dict[str, Any]] = []
         origin: str | None = None
         destination: str | None = None
         trips: list[dict[str, Any]] | None = None
+        bus_check: dict[str, Any] | None = None
         rounds_used = 0
 
         for round_number in range(1, self.max_tool_rounds + 1):
@@ -353,6 +394,7 @@ class Agent:
                     trips=trips,
                     tool_calls=tool_calls_made,
                     rounds=rounds_used,
+                    bus_check=bus_check,
                 )
 
             messages.append(_message_payload(message))
@@ -371,6 +413,7 @@ class Agent:
                     trips=trips,
                     tool_calls=tool_calls_made,
                     rounds=rounds_used,
+                    bus_check=bus_check,
                 )
 
             for call in model_calls:
@@ -402,17 +445,23 @@ class Agent:
                 )
 
                 if name == "find_trips":
-                    raw_origin = safe_arguments.get("origin")
-                    raw_destination = safe_arguments.get("destination")
-                    if isinstance(raw_origin, str) and raw_origin.strip():
-                        origin = raw_origin.strip()
-                    if (
-                        isinstance(raw_destination, str)
-                        and raw_destination.strip()
-                    ):
-                        destination = raw_destination.strip()
+                    origin = self._official_place_name(
+                        safe_arguments.get("origin")
+                    ) or origin
+                    destination = self._official_place_name(
+                        safe_arguments.get("destination")
+                    ) or destination
                     found = result.get("trips")
                     trips = found if isinstance(found, list) else None
+                elif name == "check_bus_line":
+                    origin = self._official_place_name(
+                        safe_arguments.get("origin")
+                    ) or origin
+                    destination = self._official_place_name(
+                        safe_arguments.get("destination")
+                    ) or destination
+                    if isinstance(result.get("serves_trip"), bool):
+                        bus_check = result
 
                 messages.append(
                     {
@@ -431,4 +480,5 @@ class Agent:
             trips=trips,
             tool_calls=tool_calls_made,
             rounds=rounds_used,
+            bus_check=bus_check,
         )

@@ -31,11 +31,15 @@ from .places import (
 
 MAX_TRANSFERS = 2
 ACCESS_WALK_RADIUS_M = 700.0
+NEARBY_EXACT_STOP_RADIUS_M = 600.0
 MAX_NEARBY_STOPS = 8
 MAX_LABELS_PER_STATE = 12
 MAX_EXPANSIONS = 250_000
 DETOUR_LIMIT = 1.8
 DOWNTOWN_RADIUS_M = 1_500.0
+MIN_LEG_MINUTES = 2.0
+TRANSFER_SCORE_MINUTES = 15.0
+DIRECT_ALLOWANCE_MINUTES = 15.0
 # A trip three times slower than the best option is not a useful
 # alternative.  This also catches routes with missing coordinates that
 # escape the distance-based detour check.
@@ -84,6 +88,13 @@ class Walk:
     after_leg: int = 0             # 0 = before the first leg
 
 
+def _has_endpoint_walk(trip: Trip) -> bool:
+    return any(
+        walk.kind in {"access", "egress"} and walk.minutes > 0
+        for walk in trip.walks
+    )
+
+
 @dataclass(frozen=True)
 class Leg:
     operator: str
@@ -115,11 +126,55 @@ class Trip:
     def walked_minutes(self) -> float:
         return sum(walk.minutes for walk in self.walks)
 
+    @property
+    def score(self) -> float:
+        return self.total_minutes + TRANSFER_SCORE_MINUTES * self.transfers
+
 
 @dataclass(frozen=True)
 class AccessPoint:
     stop: str
     walk: Walk
+
+
+def _rank_key(trip: Trip) -> tuple[float, int, float, float]:
+    distance = (
+        trip.total_distance_m
+        if trip.total_distance_m is not None
+        else float("inf")
+    )
+    return trip.score, trip.total_minutes, distance, trip.transfers
+
+
+def rank_trips(trips: list[Trip], max_trips: int | None = None) -> list[Trip]:
+    """Order trips by score, promoting a direct trip within 15 minutes.
+
+    Score is ``total_minutes + 15 * transfers``.  A direct trip is shown
+    first when it is at most 15 minutes slower than the best score, because
+    avoiding a transfer is worth a short wait.
+    """
+
+    unique: dict[tuple[LineKey, ...], Trip] = {}
+    for trip in trips:
+        current = unique.get(trip.line_combo)
+        if current is None or _rank_key(trip) < _rank_key(current):
+            unique[trip.line_combo] = trip
+
+    ordered = sorted(unique.values(), key=_rank_key)
+    if not ordered:
+        return []
+
+    best_score = ordered[0].score
+    direct = [
+        trip
+        for trip in ordered
+        if trip.transfers == 0
+        and trip.score <= best_score + DIRECT_ALLOWANCE_MINUTES
+    ]
+    direct_keys = {trip.line_combo for trip in direct}
+    rest = [trip for trip in ordered if trip.line_combo not in direct_keys]
+    ranked = direct + rest
+    return ranked if max_trips is None else ranked[:max_trips]
 
 
 @dataclass(frozen=True)
@@ -160,6 +215,7 @@ class RouteEngine:
         self,
         candidate: PlaceCandidate,
         kind: str,
+        include_nearby: bool = True,
     ) -> list[AccessPoint]:
         """Stops the user can reach from this place, with the walk."""
 
@@ -167,7 +223,8 @@ class RouteEngine:
 
         # Exact normalized stop names win: "Malika" and "Sahm" board at the
         # stop itself, without an invented walk.
-        for stop in self.network.stops_for_normalized(candidate.normalized):
+        exact_stops = self.network.stops_for_normalized(candidate.normalized)
+        for stop in exact_stops:
             points[stop] = AccessPoint(
                 stop=stop,
                 walk=Walk(
@@ -179,6 +236,47 @@ class RouteEngine:
                     after_leg=0,
                 ),
             )
+
+        # Exact stops also open every stop within a short walk.  This lets a
+        # neighbourhood such as Médina use a nearby avenue without losing the
+        # exact stop itself.  The exact stop keeps its zero-minute walk.
+        exact_coords = [
+            coords
+            for stop in exact_stops
+            if (coords := self.network.coords(stop)) is not None
+        ]
+        if exact_coords and include_nearby:
+            nearby: list[tuple[float, str]] = []
+            for stop in self.network.stop_names:
+                if stop in points:
+                    continue
+                stop_coords = self.network.coords(stop)
+                if stop_coords is None:
+                    continue
+                distance = min(
+                    haversine_m(coords, stop_coords) for coords in exact_coords
+                )
+                if distance > NEARBY_EXACT_STOP_RADIUS_M:
+                    continue
+                if (
+                    distance <= 1.0
+                    and normalize_name(stop) != candidate.normalized
+                ):
+                    continue
+                nearby.append((distance, stop))
+            nearby.sort()
+            for distance, stop in nearby:
+                points[stop] = AccessPoint(
+                    stop=stop,
+                    walk=Walk(
+                        kind=kind,
+                        from_place=candidate.name,
+                        to_place=stop,
+                        minutes=distance / WALK_SPEED_M_PER_MIN,
+                        distance_m=distance,
+                        after_leg=0,
+                    ),
+                )
 
         # A place that is not itself a stop (for example "Palais", which is
         # near Palais 1 and Palais 2) can use the nearest stops.
@@ -212,10 +310,11 @@ class RouteEngine:
         self,
         candidates: list[PlaceCandidate],
         kind: str,
+        include_nearby: bool = True,
     ) -> dict[str, AccessPoint]:
         result: dict[str, AccessPoint] = {}
         for candidate in candidates:
-            for point in self._access_points(candidate, kind):
+            for point in self._access_points(candidate, kind, include_nearby):
                 current = result.get(point.stop)
                 if current is None or point.walk.minutes < current.walk.minutes:
                     result[point.stop] = point
@@ -242,6 +341,7 @@ class RouteEngine:
         destination: str,
         max_trips: int = 3,
         operator: str | None = None,
+        first_line: LineKey | None = None,
     ) -> list[Trip]:
         max_trips = max(1, max_trips)
         origin_matches = prefer_exact_matches(
@@ -260,11 +360,19 @@ class RouteEngine:
                 destination, self.place_index.suggestions(destination)
             )
 
-        origin_points = self._endpoint_map(origin_matches, "access")
-        destination_points = self._endpoint_map(destination_matches, "egress")
-        if not origin_points:
+        origin_points = self._endpoint_map(
+            origin_matches, "access", include_nearby=False
+        )
+        destination_points = self._endpoint_map(
+            destination_matches, "egress", include_nearby=False
+        )
+        expanded_origin_points = self._endpoint_map(origin_matches, "access")
+        expanded_destination_points = self._endpoint_map(
+            destination_matches, "egress"
+        )
+        if not expanded_origin_points:
             raise PlaceNotFoundError(origin, self.place_index.suggestions(origin))
-        if not destination_points:
+        if not expanded_destination_points:
             raise PlaceNotFoundError(
                 destination, self.place_index.suggestions(destination)
             )
@@ -279,18 +387,33 @@ class RouteEngine:
             destination_matches, destination_coords, centre
         )
 
-        trips = self._search(
-            origin_points=origin_points,
-            destination_points=destination_points,
-            origin_name=origin,
-            destination_name=destination,
-            origin_coords=origin_coords,
-            destination_coords=destination_coords,
-            origin_is_downtown=origin_is_downtown,
-            destination_is_downtown=destination_is_downtown,
-            max_trips=max_trips,
-            operator=operator,
-        )
+        def search(
+            access_points: dict[str, AccessPoint],
+            egress_points: dict[str, AccessPoint],
+        ) -> list[Trip]:
+            return self._search(
+                origin_points=access_points,
+                destination_points=egress_points,
+                origin_name=origin,
+                destination_name=destination,
+                origin_coords=origin_coords,
+                destination_coords=destination_coords,
+                origin_is_downtown=origin_is_downtown,
+                destination_is_downtown=destination_is_downtown,
+                max_trips=max_trips,
+                operator=operator,
+                first_line=first_line,
+            )
+
+        trips = search(origin_points, destination_points)
+        if (
+            expanded_origin_points != origin_points
+            or expanded_destination_points != destination_points
+        ):
+            trips += search(
+                expanded_origin_points,
+                expanded_destination_points,
+            )
         if not trips:
             raise NoRouteFoundError(
                 f"No bus trip found between {origin!r} and {destination!r}."
@@ -319,16 +442,17 @@ class RouteEngine:
             if sane:
                 trips = sane
 
-        trips.sort(
-            key=lambda trip: (
-                trip.transfers,
-                trip.total_minutes,
-                trip.total_distance_m
-                if trip.total_distance_m is not None
-                else float("inf"),
-            )
-        )
-        return trips[:max_trips]
+        # The exact stop remains the primary choice.  A nearby stop may add a
+        # direct option, but it must not replace a normal exact-stop route
+        # with a walk plus extra transfers.
+        if any(not _has_endpoint_walk(trip) for trip in trips):
+            trips = [
+                trip
+                for trip in trips
+                if trip.transfers == 0 or not _has_endpoint_walk(trip)
+            ]
+
+        return rank_trips(trips, max_trips)
 
     # ------------------------------------------------------------------
     # Search.
@@ -345,8 +469,9 @@ class RouteEngine:
         destination_is_downtown: bool,
         max_trips: int,
         operator: str | None = None,
+        first_line: LineKey | None = None,
     ) -> list[Trip]:
-        queue: list[tuple[tuple[int, float], int, _Label]] = []
+        queue: list[tuple[float, int, float, int, _Label]] = []
         counter = itertools.count()
         best: dict[tuple[Node, int], list[_Label]] = defaultdict(list)
         recorded: dict[tuple[LineKey, ...], Trip] = {}
@@ -354,6 +479,8 @@ class RouteEngine:
 
         for stop, access in origin_points.items():
             for node in self.network.nodes_at_stop(stop):
+                if first_line is not None and node.line != first_line:
+                    continue
                 if operator is not None and node.line[0] != operator:
                     continue
                 access_step = _Step(
@@ -380,7 +507,7 @@ class RouteEngine:
 
         expansions = 0
         while queue:
-            (transfers_so_far, cost_so_far), _, label = heapq.heappop(queue)
+            score_so_far, _, _, _, label = heapq.heappop(queue)
             state = (label.node, label.transfers)
             if not any(existing is label for existing in best[state]):
                 continue
@@ -389,14 +516,10 @@ class RouteEngine:
             if expansions > MAX_EXPANSIONS:
                 break
 
-            # If the queue cannot beat the worst of our best trips, there
-            # is no point in expanding more nodes.
+            # Queue order is score order, so this lower bound is final.
             if len(accepted) >= max_trips:
-                worst = accepted[-1]
-                if (transfers_so_far, cost_so_far) >= (
-                    worst.transfers,
-                    worst.total_minutes,
-                ):
+                worst_score = max(trip.score for trip in accepted)
+                if score_so_far >= worst_score:
                     break
 
             stop = self.network.stop_for(label.node)
@@ -447,14 +570,19 @@ class RouteEngine:
         return list(recorded.values())
 
     @staticmethod
-    def _trip_rank(trip: Trip) -> tuple[bool, bool, int, float]:
+    def _trip_rank(
+        trip: Trip,
+    ) -> tuple[bool, bool, float, int, float, float]:
         # Prefer a clean trip over a detour, and a non-downtown trip over a
         # downtown shortcut, even if the clean version is slightly slower.
+        score, minutes, distance, transfers = _rank_key(trip)
         return (
             trip.detour,
             trip.via_downtown,
-            trip.transfers,
-            trip.total_minutes,
+            score,
+            transfers,
+            minutes,
+            distance,
         )
 
     @staticmethod
@@ -462,10 +590,7 @@ class RouteEngine:
         unique: dict[tuple[LineKey, ...], Trip] = {}
         for trip in trips:
             current = unique.get(trip.line_combo)
-            if current is None or (
-                trip.transfers,
-                trip.total_minutes,
-            ) < (current.transfers, current.total_minutes):
+            if current is None or _rank_key(trip) < _rank_key(current):
                 unique[trip.line_combo] = trip
 
         if not unique:
@@ -476,21 +601,11 @@ class RouteEngine:
             for trip in unique.values()
             if trip.total_minutes <= fastest * MAX_TIME_VS_BEST
         ]
-        ordered = sorted(
-            reasonable,
-            key=lambda trip: (
-                trip.transfers,
-                trip.total_minutes,
-                trip.total_distance_m
-                if trip.total_distance_m is not None
-                else float("inf"),
-            ),
-        )
-        return ordered[:max_trips]
+        return rank_trips(reasonable, max_trips)
 
     def _push(
         self,
-        queue: list[tuple[tuple[int, float], int, _Label]],
+        queue: list[tuple[float, int, float, int, _Label]],
         best: dict[tuple[Node, int], list[_Label]],
         counter,
         label: _Label,
@@ -516,7 +631,13 @@ class RouteEngine:
 
         heapq.heappush(
             queue,
-            ((label.transfers, label.cost), next(counter), label),
+            (
+                label.cost + TRANSFER_SCORE_MINUTES * label.transfers,
+                label.transfers,
+                label.cost,
+                next(counter),
+                label,
+            ),
         )
 
     def _advance_ride(self, label: _Label, edge: Edge) -> _Label:
@@ -600,12 +721,15 @@ class RouteEngine:
         walks: list[Walk] = []
         ridden_stops: list[str] = []
         current: dict | None = None
+        minimum_leg_extra = 0.0
 
         def finish_leg() -> None:
-            nonlocal current
+            nonlocal current, minimum_leg_extra
             if current is None:
                 return
             line = self.network.lines[current["line"]]
+            billed_minutes = max(MIN_LEG_MINUTES, current["minutes"])
+            minimum_leg_extra += billed_minutes - current["minutes"]
             legs.append(
                 Leg(
                     operator=line.company,
@@ -616,7 +740,7 @@ class RouteEngine:
                     num_stops=abs(
                         int(current["end_index"]) - int(current["start_index"])
                     ),
-                    minutes=current["minutes"],
+                    minutes=billed_minutes,
                     distance_m=current["distance"],
                 )
             )
@@ -695,7 +819,7 @@ class RouteEngine:
 
         finish_leg()
 
-        total_minutes = sum(step.minutes for step in steps)
+        total_minutes = sum(step.minutes for step in steps) + minimum_leg_extra
 
         total_distance: float | None = 0.0
         for step in steps:

@@ -217,14 +217,14 @@ def _history_as_dicts(history) -> list[dict[str, Any]]:
     return result
 
 
-def _respond(message_text: str, history):
-    """Handle one chat submission and return the four UI values."""
+def _respond(message_text: str, history, image_path: str | None = None):
+    """Handle one chat submission and return the five UI values."""
 
     text = (message_text or "").strip()
     previous = _history_as_dicts(history)
     current = list(previous)
     if not text:
-        return current, "", gr.update(), gr.update()
+        return current, "", gr.update(), gr.update(), image_path
 
     current.append({"role": "user", "content": text})
 
@@ -235,10 +235,10 @@ def _respond(message_text: str, history):
                 "content": _missing_key_message(),
             }
         )
-        return current, "", _trip_cards(None), []
+        return current, "", _trip_cards(None), [], None
 
     try:
-        result = _agent().run(text, previous)
+        result = _agent().run(text, previous, image_path)
     except Exception as exc:
         current.append(
             {
@@ -249,7 +249,7 @@ def _respond(message_text: str, history):
                 ),
             }
         )
-        return current, "", _trip_cards(None), []
+        return current, "", _trip_cards(None), [], None
 
     current.append(
         {
@@ -257,11 +257,17 @@ def _respond(message_text: str, history):
             "content": compose_chat_message(result.spoken, result.reply),
         }
     )
-    return current, "", _trip_cards(result.trips), result.tool_calls
+    return (
+        current,
+        "",
+        _trip_cards(result.trips),
+        result.tool_calls,
+        None,
+    )
 
 
 def _clear():
-    return [], "", _trip_cards(None), []
+    return [], "", _trip_cards(None), [], None
 
 
 def build_app() -> gr.Blocks:
@@ -295,6 +301,13 @@ def build_app() -> gr.Blocks:
                     ),
                     lines=2,
                 )
+                image = gr.Image(
+                    label="Photo of the bus (optional)",
+                    type="filepath",
+                    sources=["upload", "webcam"],
+                    height=220,
+                )
+                gr.Markdown("Photos are not stored.")
                 with gr.Row():
                     send = gr.Button("Send", variant="primary")
                     clear = gr.Button("Clear")
@@ -313,9 +326,17 @@ def build_app() -> gr.Blocks:
                 with gr.Accordion("How Koumba thought", open=False):
                     thoughts = gr.JSON(value=[], label="Tool calls")
 
-        outputs = [chatbot, message, trips, thoughts]
-        send.click(_respond, inputs=[message, chatbot], outputs=outputs)
-        message.submit(_respond, inputs=[message, chatbot], outputs=outputs)
+        outputs = [chatbot, message, trips, thoughts, image]
+        send.click(
+            _respond,
+            inputs=[message, chatbot, image],
+            outputs=outputs,
+        )
+        message.submit(
+            _respond,
+            inputs=[message, chatbot, image],
+            outputs=outputs,
+        )
         example_wolof.click(
             lambda history: _respond(EXAMPLE_WOLOF, history),
             inputs=[chatbot],

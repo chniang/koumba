@@ -107,12 +107,12 @@ def spoken_answer(
         first_bus, first_direction, first_alight = speech[0]
         if len(speech) == 1:
             sentence = (
-                f"Ci {origin_text}, duggu ci {first_bus} bi jëm "
+                f"Yaangi {origin_text}, duggal ci {first_bus} bi jëm "
                 f"{first_direction}, wàcci {first_alight}."
             )
         else:
             sentence = (
-                f"Ci {origin_text}, duggu ci {first_bus} bi jëm "
+                f"Yaangi {origin_text}, duggal ci {first_bus} bi jëm "
                 f"{first_direction}, wàcci {first_alight}"
             )
             for bus, direction, alight in speech[1:]:
@@ -159,6 +159,60 @@ def spoken_answer(
             )
         sentence += "."
     return f"{sentence} About {minutes} minutes."
+
+
+def bus_check_spoken(
+    check: dict[str, Any] | None,
+    language: str,
+    destination: str | None = None,
+    alternative: dict[str, Any] | None = None,
+    origin: str | None = None,
+) -> str:
+    """Answer "is this my bus?" with the validated short wording."""
+
+    if not isinstance(check, dict):
+        return ""
+    serves = check.get("serves_trip")
+    if not isinstance(serves, bool):
+        return ""
+
+    bus = short_bus_name(check.get("operator"), check.get("line"))
+    destination_text = str(
+        destination or check.get("destination") or ""
+    ).strip()
+    if not bus or not destination_text:
+        return ""
+
+    selected = _language_name(language)
+    if serves:
+        alight = str(check.get("alight_stop") or "").strip()
+        minutes = round_minutes(check.get("minutes"))
+        if not alight:
+            return ""
+        if selected == "Wolof":
+            return (
+                f"Waaw, {bus} bi dafay dem {destination_text}. "
+                f"Duggal ci, wàcci {alight}. Lu tollu ci {minutes} minit."
+            )
+        if selected == "French":
+            return (
+                f"Oui, le {bus} va à {destination_text}. Monte et descends "
+                f"à {alight}. Environ {minutes} minutes."
+            )
+        return (
+            f"Yes, {bus} goes to {destination_text}. Board it and get off "
+            f"at {alight}. About {minutes} minutes."
+        )
+
+    if selected == "Wolof":
+        answer = f"Déedéet, {bus} bi du dem {destination_text}."
+    elif selected == "French":
+        answer = f"Non, le {bus} ne va pas à {destination_text}."
+    else:
+        answer = f"No, {bus} does not go to {destination_text}."
+
+    follow_up = spoken_answer(alternative, language, origin)
+    return f"{answer} {follow_up}".strip()
 
 
 def clarification_question(

@@ -8,13 +8,25 @@ exception, so a model tool round can recover and ask the user a question.
 from __future__ import annotations
 
 import json
+import re
+from dataclasses import dataclass
 from typing import Any
 
+from rapidfuzz import fuzz
+
+from .network import Line, LineKey
 from .places import PlaceIndex, normalize_name
 from .router import NoRouteFoundError, PlaceNotFoundError, RouteEngine, Trip
 
 OPERATORS = ("Dakar Dem Dikk", "Tata AFTU")
 MAX_TOOL_TRIPS = 5
+MAX_CLOSEST_LINES = 5
+
+
+@dataclass(frozen=True)
+class _ResolvedLine:
+    line: Line
+    key: LineKey
 
 TOOL_SCHEMAS: list[dict[str, Any]] = [
     {
@@ -84,6 +96,72 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "check_bus_line",
+            "description": (
+                "Answer whether one bus line can take the user from origin to "
+                "destination. Use this for a bus photo or a question such as "
+                "'Is this my bus?'. It returns board and alight stops when the "
+                "line works directly, or the best alternative and whether the "
+                "line helps part of the way."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "operator": {
+                        "type": "string",
+                        "description": (
+                            "Bus company, for example Tata AFTU or "
+                            "Dakar Dem Dikk."
+                        ),
+                    },
+                    "line": {
+                        "type": "string",
+                        "description": (
+                            "Line number or name from the bus, for example "
+                            "38, Ligne 38, or TAF TAF."
+                        ),
+                    },
+                    "origin": {
+                        "type": "string",
+                        "description": "Where the user is starting.",
+                    },
+                    "destination": {
+                        "type": "string",
+                        "description": "Where the user wants to go.",
+                    },
+                },
+                "required": ["operator", "line", "origin", "destination"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "line_info",
+            "description": (
+                "List the ordered stops and both directions for one bus line. "
+                "Use this after reading a bus number from a photo when the "
+                "destination is not known yet."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "operator": {
+                        "type": "string",
+                        "description": "Bus company for the line.",
+                    },
+                    "line": {
+                        "type": "string",
+                        "description": "Line number or name to look up.",
+                    },
+                },
+                "required": ["operator", "line"],
+            },
+        },
+    },
 ]
 
 
@@ -98,6 +176,122 @@ def _suggestions(items: list[tuple[str, float]]) -> list[dict[str, Any]]:
         {"name": name, "score": round(float(score), 1)}
         for name, score in items
     ]
+
+
+def normalize_operator(value: Any) -> str | None:
+    """Turn common operator spellings into the dataset's two names."""
+
+    if value is None:
+        return None
+    compact = normalize_name(value).replace(" ", "")
+    if not compact or compact in {"null", "none", "any", "all"}:
+        return None
+    if compact in {"tata", "aftu", "tataaftu"}:
+        return "Tata AFTU"
+    if compact in {"demdikk", "ddd", "dakardemdikk"}:
+        return "Dakar Dem Dikk"
+    return None
+
+
+def _line_alias(value: Any) -> str:
+    tokens = normalize_name(value).split()
+    while tokens and tokens[0] in {"l", "ligne", "line", "bus", "numero", "no"}:
+        tokens.pop(0)
+    text = " ".join(tokens).strip()
+    match = re.search(r"\d+[a-z]?", text)
+    return match.group(0) if match else text
+
+
+def _closest_lines(
+    engine: RouteEngine,
+    operator: str,
+    query: str,
+    limit: int = MAX_CLOSEST_LINES,
+) -> list[str]:
+    target = _line_alias(query) or normalize_name(query)
+    scored: list[tuple[float, str]] = []
+    for (company, _), line in engine.network.lines.items():
+        if company != operator:
+            continue
+        score = max(
+            fuzz.WRatio(target, _line_alias(line.name)),
+            fuzz.WRatio(normalize_name(query), normalize_name(line.name)),
+        )
+        scored.append((score, line.name))
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    return [name for _, name in scored[:limit]]
+
+
+def _resolve_line(
+    engine: RouteEngine,
+    operator: Any,
+    line: Any,
+) -> tuple[_ResolvedLine | None, dict[str, Any] | None]:
+    raw_operator = str(operator or "").strip()
+    raw_line = str(line or "").strip()
+    normalized_operator = normalize_operator(raw_operator)
+    if normalized_operator is None:
+        return None, {
+            "error": "invalid_operator",
+            "message": (
+                "The operator must be Dakar Dem Dikk or Tata AFTU."
+            ),
+            "allowed_operators": list(OPERATORS),
+        }
+    if not raw_line:
+        return None, {
+            "error": "line_not_found",
+            "operator": normalized_operator,
+            "line": raw_line,
+            "message": "The bus line is empty.",
+            "closest_lines": _closest_lines(
+                engine, normalized_operator, raw_line
+            ),
+        }
+
+    target = _line_alias(raw_line)
+    target_norm = normalize_name(raw_line)
+    for key, line_object in engine.network.lines.items():
+        if key[0] != normalized_operator:
+            continue
+        if (
+            _line_alias(line_object.name) == target
+            or normalize_name(line_object.name) == target_norm
+        ):
+            return _ResolvedLine(line=line_object, key=key), None
+
+    closest = _closest_lines(engine, normalized_operator, raw_line)
+    return None, {
+        "error": "line_not_found",
+        "operator": normalized_operator,
+        "line": raw_line,
+        "message": (
+            f"I could not find {raw_line!r} for {normalized_operator}."
+        ),
+        "closest_lines": closest,
+    }
+
+
+def _line_info_dict(line: Line) -> dict[str, Any]:
+    return {
+        "operator": line.company,
+        "line": line.name,
+        "stops": list(line.stops),
+        "terminus_a": line.terminus_a or line.stops[0],
+        "terminus_b": line.terminus_b or line.stops[-1],
+        "directions": [
+            {
+                "from": line.stops[0],
+                "towards": line.terminus_for(0),
+                "stops": list(line.stops),
+            },
+            {
+                "from": line.stops[-1],
+                "towards": line.terminus_for(1),
+                "stops": list(line.stops_for(1)),
+            },
+        ],
+    }
 
 
 def _trip_to_dict(trip: Trip) -> dict[str, Any]:
@@ -211,23 +405,23 @@ def find_trips(
     max_trips = max(1, min(max_trips, MAX_TOOL_TRIPS))
 
     if operator is not None:
-        operator = str(operator).strip()
-        if operator.lower() in {"", "null", "none", "any", "all"}:
-            operator = None
-        else:
-            for allowed in OPERATORS:
-                if operator.lower() == allowed.lower():
-                    operator = allowed
-                    break
-            else:
-                return {
-                    "error": "invalid_operator",
-                    "message": (
-                        "The operator must be Dakar Dem Dikk, Tata AFTU, "
-                        "or null."
-                    ),
-                    "allowed_operators": list(OPERATORS),
-                }
+        raw_operator = str(operator).strip()
+        operator = normalize_operator(raw_operator)
+        if operator is None and raw_operator.lower() not in {
+            "",
+            "null",
+            "none",
+            "any",
+            "all",
+        }:
+            return {
+                "error": "invalid_operator",
+                "message": (
+                    "The operator must be Dakar Dem Dikk, Tata AFTU, "
+                    "or null."
+                ),
+                "allowed_operators": list(OPERATORS),
+            }
 
     try:
         trips = engine.find_trips(
@@ -268,6 +462,119 @@ def find_trips(
     }
 
 
+def check_bus_line(
+    engine: RouteEngine,
+    operator: str,
+    line: str,
+    origin: str,
+    destination: str,
+) -> dict[str, Any]:
+    """Check whether one bus line can make the requested trip."""
+
+    origin = str(origin or "").strip()
+    destination = str(destination or "").strip()
+    if not origin or not destination:
+        return {
+            "error": "invalid_request",
+            "message": "Both an origin and a destination are needed.",
+        }
+
+    resolved, error = _resolve_line(engine, operator, line)
+    if error is not None or resolved is None:
+        return error or {
+            "error": "line_not_found",
+            "message": "I could not resolve that bus line.",
+        }
+
+    try:
+        requested_trips = engine.find_trips(
+            origin,
+            destination,
+            max_trips=MAX_TOOL_TRIPS,
+            first_line=resolved.key,
+        )
+    except PlaceNotFoundError as exc:
+        return {
+            "error": "place_not_found",
+            "query": exc.query,
+            "message": f"I could not find {exc.query!r} in the Dakar stop data.",
+            "suggestions": _suggestions(exc.suggestions),
+        }
+    except NoRouteFoundError:
+        requested_trips = []
+    except Exception as exc:
+        return {
+            "error": "tool_error",
+            "message": "The route engine could not complete this search.",
+            "detail": str(exc),
+        }
+
+    direct = next(
+        (trip for trip in requested_trips if trip.transfers == 0),
+        None,
+    )
+    if direct is not None:
+        leg = direct.legs[0]
+        return {
+            "serves_trip": True,
+            "operator": resolved.key[0],
+            "line": resolved.key[1],
+            "board_stop": leg.board_stop,
+            "alight_stop": leg.alight_stop,
+            "direction": leg.direction,
+            "minutes": _round(direct.total_minutes),
+        }
+
+    try:
+        alternatives = engine.find_trips(
+            origin,
+            destination,
+            max_trips=1,
+        )
+    except NoRouteFoundError:
+        alternatives = []
+    except PlaceNotFoundError as exc:
+        return {
+            "error": "place_not_found",
+            "query": exc.query,
+            "message": f"I could not find {exc.query!r} in the Dakar stop data.",
+            "suggestions": _suggestions(exc.suggestions),
+        }
+    except Exception as exc:
+        return {
+            "error": "tool_error",
+            "message": "The route engine could not complete this search.",
+            "detail": str(exc),
+        }
+
+    best_alternative = (
+        _trip_to_dict(alternatives[0]) if alternatives else None
+    )
+    return {
+        "serves_trip": False,
+        "operator": resolved.key[0],
+        "line": resolved.key[1],
+        "best_alternative": best_alternative,
+        "can_help_part_way": bool(requested_trips),
+    }
+
+
+def line_info(
+    engine: RouteEngine,
+    operator: str,
+    line: str,
+) -> dict[str, Any]:
+    """Return one line's ordered stops and directions."""
+
+    resolved, error = _resolve_line(engine, operator, line)
+    if error is not None or resolved is None:
+        return error or {
+            "error": "line_not_found",
+            "message": "I could not resolve that bus line.",
+        }
+    return _line_info_dict(resolved.line)
+
+
 def execute_tool(
     name: str,
     arguments: dict[str, Any] | str | None,
@@ -302,8 +609,27 @@ def execute_tool(
             arguments.get("max_trips", 3),
             arguments.get("operator"),
         )
+    if name == "check_bus_line":
+        return check_bus_line(
+            engine,
+            arguments.get("operator", ""),
+            arguments.get("line", ""),
+            arguments.get("origin", ""),
+            arguments.get("destination", ""),
+        )
+    if name == "line_info":
+        return line_info(
+            engine,
+            arguments.get("operator", ""),
+            arguments.get("line", ""),
+        )
     return {
         "error": "unknown_tool",
         "message": f"Unknown tool {name!r}.",
-        "available_tools": ["resolve_place", "find_trips"],
+        "available_tools": [
+            "resolve_place",
+            "find_trips",
+            "check_bus_line",
+            "line_info",
+        ],
     }
