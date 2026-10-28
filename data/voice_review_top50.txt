@@ -1,0 +1,50 @@
+Poste Thiaroye  ->  Poste Thiaroye
+Bountou Pikine  ->  Buntu Pikine
+Croisement Cambérène  ->  Croisement Cambérene
+Route des Niayes  ->  Rute des Niayes
+Croisement Keur Massar  ->  Croisement Kër Massar
+Autoroute  ->  Autorute
+Colobane  ->  Colobane
+Fass Mbao  ->  Fass Mbao
+Avenue Blaise Diagne  ->  Avenue Blaise Diañe
+Diamaguène  ->  Diamaguene
+Palais 1  ->  Palais 1
+Patte d'Oie  ->  Patte d'Oie
+Pont de l'Émergence  ->  Pont de l'Émergence
+Route Nationale 1  ->  Rute Nationale 1
+Station Keur Massar  ->  Station Kër Massar
+Tally Diallo  ->  Tally Diallo
+UCAD  ->  UCAD
+Avenue Bourguiba  ->  Avenue Burguiba
+Keur Massar  ->  Kër Massar
+Keur Mbaye Fall  ->  Kër Mbaye Fall
+Liberté 5  ->  Liberté 5
+Ouakam  ->  Uakam
+Palais 2  ->  Palais 2
+Petersen  ->  Petersen
+Police Thiaroye  ->  Police Thiaroye
+Rufisque  ->  Rufisque
+Echangeur Patte d'Oie  ->  Echangër Patte d'Oie
+Lat Dior  ->  Lat Dior
+Malika  ->  Malika
+Route du Front de Terre  ->  Rute du Front de Terre
+Allées Papa Gueye Fall  ->  Allées Papa Gueye Fall
+Aéroport LSS  ->  Aéroport LSS
+Bargny  ->  Barñy
+Case Ba  ->  Case Ba
+Castors  ->  Castors
+Croisement Tivaouane Peulh  ->  Croisement Tivauane Pëlh
+Diamalaye  ->  Diamalaye
+Gare Petersen  ->  Gare Petersen
+Guédiawaye  ->  Guédiawaye
+HLM  ->  HLM
+Marché Boubess  ->  Marché Bubess
+Mbédou Fass  ->  Mbédu Fass
+MTOA  ->  MTOA
+Pharmacie Golf  ->  Pharmacie Golf
+Place Leclerc  ->  Place Leclerc
+Police Parcelles  ->  Police Parcelles
+Poste Courant  ->  Poste Curant
+Rond-Point Liberté 6  ->  Rond-Point Liberté 6
+SONADIS  ->  SONADIS
+VDN  ->  VDN

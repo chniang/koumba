@@ -13,6 +13,7 @@ import re
 from typing import Any
 
 from .places import normalize_name
+from .voice_lexicon import bus_id, connector_id, place_id
 
 SUPPORTED_LANGUAGES = ("Wolof", "French", "English")
 
@@ -265,6 +266,145 @@ def bus_check_spoken(
 
     follow_up = spoken_answer(alternative, language, origin)
     return f"{answer} {follow_up}".strip()
+
+
+def _trip_segments(
+    trip: dict[str, Any] | None,
+    origin: str | None,
+) -> list[str]:
+    """Lexicon ids for the Wolof best-trip sentence, in speech order."""
+
+    if not isinstance(trip, dict):
+        return []
+    legs = trip.get("legs")
+    if not isinstance(legs, list) or not legs:
+        return []
+
+    speech = []
+    for leg in legs:
+        if not isinstance(leg, dict):
+            return []
+        item = _leg_speech(leg)
+        if item is None:
+            return []
+        speech.append(item)
+
+    origin_text = str(origin or "").strip()
+    if not origin_text:
+        origin_text = _leg_value(legs[0], "board_stop")
+    if not origin_text:
+        return []
+
+    board_stop = _walk_to_first_stop(trip, legs[0], origin_text)
+    parts = [connector_id("Yaangi"), place_id(origin_text)]
+    if board_stop:
+        parts.extend([connector_id("doxal ba"), place_id(board_stop)])
+
+    _, first_direction, first_alight = speech[0]
+    first_leg = legs[0]
+    parts.extend(
+        [
+            connector_id("duggal ci"),
+            bus_id(
+                _leg_value(first_leg, "operator"),
+                _leg_value(first_leg, "line"),
+            ),
+            connector_id("bi jëm"),
+            place_id(first_direction),
+            connector_id("wàcci"),
+            place_id(first_alight),
+        ]
+    )
+
+    # Each transfer repeats the short "take ... go to ... get off" pattern.
+    for leg, (_bus, direction, alight) in zip(legs[1:], speech[1:]):
+        parts.extend(
+            [
+                connector_id("nga jël"),
+                bus_id(
+                    _leg_value(leg, "operator"),
+                    _leg_value(leg, "line"),
+                ),
+                connector_id("bi jëm"),
+                place_id(direction),
+                connector_id("wàcci"),
+                place_id(alight),
+            ]
+        )
+    return parts
+
+
+def _bus_check_segments(
+    check: dict[str, Any] | None,
+    destination: str | None,
+    alternative: dict[str, Any] | None,
+    origin: str | None,
+) -> list[str]:
+    """Lexicon ids for the Wolof bus-check answer, including any alternative."""
+
+    if not isinstance(check, dict):
+        return []
+    serves = check.get("serves_trip")
+    if not isinstance(serves, bool):
+        return []
+
+    bus = short_bus_name(check.get("operator"), check.get("line"))
+    destination_text = str(
+        destination or check.get("destination") or ""
+    ).strip()
+    if not bus or not destination_text:
+        return []
+
+    bus_lexicon_id = bus_id(check.get("operator"), check.get("line"))
+    if serves:
+        alight = str(check.get("alight_stop") or "").strip()
+        if not alight:
+            return []
+        return [
+            connector_id("Waaw"),
+            bus_lexicon_id,
+            connector_id("bi dafay dem"),
+            place_id(destination_text),
+            connector_id("duggal ci"),
+            connector_id("wàcci"),
+            place_id(alight),
+        ]
+
+    parts = [
+        connector_id("Déedéet"),
+        bus_lexicon_id,
+        connector_id("bi du dem"),
+        place_id(destination_text),
+    ]
+    parts.extend(_trip_segments(alternative, origin))
+    return parts
+
+
+def spoken_segments(
+    trip: dict[str, Any] | None = None,
+    language: str = "Wolof",
+    origin: str | None = None,
+    *,
+    check: dict[str, Any] | None = None,
+    destination: str | None = None,
+    alternative: dict[str, Any] | None = None,
+) -> list[str]:
+    """Return lexicon ids in exactly the order of the short spoken answer.
+
+    Call it like :func:`spoken_answer` for a trip, for example
+    ``spoken_segments(trip, "Wolof", "Sahm")``.  For a bus check, pass the
+    check and optional alternative by keyword:
+
+    ``spoken_segments(check=check, language="Wolof", destination="PAI")``.
+
+    Only Wolof is segmented; French and English return an empty list.
+    """
+
+    if _language_name(language) != "Wolof":
+        return []
+    if check is not None:
+        return _bus_check_segments(check, destination, alternative, origin)
+    return _trip_segments(trip, origin)
 
 
 def clarification_question(
