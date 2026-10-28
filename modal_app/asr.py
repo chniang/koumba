@@ -61,12 +61,23 @@ image = (
         "fastapi[standard]",
         "torch==2.8.0",
         "torchaudio==2.8.0",
+        "numpy==1.26.4",
+        "pyarrow==25.0.1",
+        "pandas==2.3.3",
+        "polars==1.44.2",
     )
     .run_commands(
-        'python -c "import torch, torchaudio, fairseq2n; '
-        'print(torch.__version__, torchaudio.__version__); '
+        'python -c "import numpy, pyarrow, torch, torchaudio, fairseq2n; '
+        "from omnilingual_asr.models.inference.pipeline import "
+        "ASRInferencePipeline; "
+        "from omnilingual_asr.models.wav2vec2_llama.lang_ids import "
+        "supported_langs; "
+        "print('numpy', numpy.__version__, 'pyarrow', pyarrow.__version__, "
+        "'torch', torch.__version__); "
+        "print('wol_Latn' in supported_langs); "
         "assert torch.__version__ == '2.8.0+cu128'; "
-        "assert torchaudio.__version__ == '2.8.0+cu128'\""
+        "assert torchaudio.__version__ == '2.8.0+cu128'; "
+        "assert 'wol_Latn' in supported_langs\""
     )
 )
 

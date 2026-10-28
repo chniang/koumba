@@ -12,7 +12,8 @@ are read at deploy time, and the pipeline is loaded once per container in
 `@modal.enter`. The `koumba-asr-cache` Volume caches the model weights. Both
 device modes install matching `torch`/`torchaudio` 2.8.0 CUDA 12.8 wheels,
 as required by the `fairseq2` 0.6 runtime; those wheels also run on CPU-only
-containers.
+containers. The data stack is pinned to NumPy 1.26, PyArrow 25, pandas 2.3,
+and polars 1.44 to keep the runtime compatible with fairseq2 0.6.
 
 ## 1. Create the shared secret
 
