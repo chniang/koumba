@@ -7,8 +7,6 @@ other.  The model is downloaded once into a Modal Volume and the Synthesizer
 is loaded once per container.
 """
 
-from __future__ import annotations
-
 import contextlib
 import io
 import logging
@@ -16,9 +14,14 @@ import os
 import secrets
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 import modal
+from fastapi import FastAPI, Header, HTTPException
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import Response
+from pydantic import BaseModel, Field
 
 APP_NAME = "koumba-tts"
 MODEL_ID = "AIHubSN/Kiriku-Wolof-TTS"
@@ -34,6 +37,13 @@ NUMPY_VERSION = "1.22.0"
 TRANSFORMERS_VERSION = "4.46.3"
 
 logger = logging.getLogger("koumba-tts")
+
+
+class SpeakIn(BaseModel):
+    """The validated JSON body for one speech request."""
+
+    text: str = Field(min_length=1, max_length=MAX_TEXT_CHARS)
+
 
 app = modal.App(APP_NAME)
 model_cache = modal.Volume.from_name(
@@ -78,6 +88,59 @@ image = (
         "assert transformers.__version__ == '4.46.3'\""
     )
 )
+
+
+def create_api(
+    synthesize: Callable[[str], bytes],
+    authorize: Callable[[str | None], bool],
+) -> FastAPI:
+    """Build the ASGI app with FastAPI annotations resolved at runtime."""
+
+    api = FastAPI(title="Koumba TTS", version="1.0")
+
+    @api.get("/health")
+    def health(
+        x_koumba_key: str | None = Header(
+            default=None,
+            alias="X-Koumba-Key",
+        ),
+    ) -> dict[str, bool | str]:
+        if not authorize(x_koumba_key):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        return {"ok": True, "model": MODEL_NAME}
+
+    @api.post("/speak")
+    async def speak(
+        payload: SpeakIn,
+        x_koumba_key: str | None = Header(
+            default=None,
+            alias="X-Koumba-Key",
+        ),
+    ) -> Response:
+        if not authorize(x_koumba_key):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+        text = payload.text.strip()
+        if not text:
+            raise HTTPException(status_code=400, detail="Text is empty")
+
+        # Keep Wolof letters and digits, but the model speaks lower case.
+        text = text.lower()
+        try:
+            audio = await run_in_threadpool(synthesize, text)
+        except Exception as exc:
+            logger.warning(
+                "Speech synthesis failed: %s",
+                type(exc).__name__,
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Speech synthesis failed",
+            ) from exc
+
+        return Response(content=audio, media_type="audio/wav")
+
+    return api
 
 
 @app.cls(
@@ -175,79 +238,7 @@ class KoumbaTTS:
         return audio
 
     @modal.asgi_app()
-    def web(self):
+    def web(self) -> FastAPI:
         """Return the small FastAPI app that Modal exposes over HTTPS."""
 
-        from fastapi import FastAPI, Header, HTTPException, Request
-        from fastapi.concurrency import run_in_threadpool
-        from fastapi.responses import Response
-
-        api = FastAPI(title="Koumba TTS", version="1.0")
-
-        @api.get("/health")
-        def health(
-            x_koumba_key: str | None = Header(
-                default=None,
-                alias="X-Koumba-Key",
-            ),
-        ) -> dict[str, bool | str]:
-            if not self._authorized(x_koumba_key):
-                raise HTTPException(status_code=401, detail="Unauthorized")
-            return {"ok": True, "model": MODEL_NAME}
-
-        @api.post("/speak")
-        async def speak(
-            request: Request,
-            x_koumba_key: str | None = Header(
-                default=None,
-                alias="X-Koumba-Key",
-            ),
-        ) -> Response:
-            if not self._authorized(x_koumba_key):
-                raise HTTPException(status_code=401, detail="Unauthorized")
-
-            try:
-                payload = await request.json()
-            except (TypeError, ValueError) as exc:
-                raise HTTPException(
-                    status_code=400,
-                    detail="The body must be JSON.",
-                ) from exc
-            if not isinstance(payload, dict):
-                raise HTTPException(
-                    status_code=400,
-                    detail="The body must be a JSON object.",
-                )
-
-            text = payload.get("text")
-            if not isinstance(text, str):
-                raise HTTPException(
-                    status_code=400,
-                    detail="The text field must be a string.",
-                )
-            text = text.strip()
-            if not text:
-                raise HTTPException(status_code=400, detail="Text is empty")
-            if len(text) > MAX_TEXT_CHARS:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Text is too long (max {MAX_TEXT_CHARS}).",
-                )
-
-            # Keep Wolof letters and digits, but the model speaks lower case.
-            text = text.lower()
-            try:
-                audio = await run_in_threadpool(self._synthesize, text)
-            except Exception as exc:
-                logger.warning(
-                    "Speech synthesis failed: %s",
-                    type(exc).__name__,
-                )
-                raise HTTPException(
-                    status_code=500,
-                    detail="Speech synthesis failed",
-                ) from exc
-
-            return Response(content=audio, media_type="audio/wav")
-
-        return api
+        return create_api(self._synthesize, self._authorized)
