@@ -456,8 +456,17 @@ def test_voice_flow_uses_cleaned_text_and_shows_both_transcripts(
     monkeypatch.setattr(app, "_api_key_configured", lambda: True)
     monkeypatch.setattr(app, "_transcribe_audio", lambda _audio: transcription)
     monkeypatch.setattr(app, "_agent", lambda: fake)
+    monkeypatch.setattr(app, "speak", lambda _text: b"RIFF-reply")
 
-    chatbot, message, _cards, thoughts, image, audio = app._respond_with_audio(
+    (
+        chatbot,
+        message,
+        _cards,
+        thoughts,
+        image,
+        audio,
+        reply_audio,
+    ) = app._respond_with_audio(
         "",
         [],
         "C:/tmp/bus.jpg",
@@ -470,6 +479,7 @@ def test_voice_flow_uses_cleaned_text_and_shows_both_transcripts(
     assert message == ""
     assert image is None
     assert audio is None
+    assert reply_audio == b"RIFF-reply"
 
     voice = thoughts[0]["voice"]
     assert voice["raw_asr_text"] == raw
@@ -497,7 +507,15 @@ def test_voice_flow_keeps_the_textbox_after_transcription_failure(
     monkeypatch.setattr(app, "_api_key_configured", lambda: True)
     monkeypatch.setattr(app, "_transcribe_audio", fail)
 
-    chatbot, message, _cards, _thoughts, image, audio = app._respond_with_audio(
+    (
+        chatbot,
+        message,
+        _cards,
+        _thoughts,
+        image,
+        audio,
+        reply_audio,
+    ) = app._respond_with_audio(
         "Type this instead",
         [],
         None,
@@ -509,6 +527,7 @@ def test_voice_flow_keeps_the_textbox_after_transcription_failure(
     assert message == "Type this instead"
     assert image is None
     assert audio is None
+    assert reply_audio is None
 
 
 def test_voice_flow_reports_missing_modal_configuration(
@@ -527,7 +546,15 @@ def test_voice_flow_reports_missing_modal_configuration(
     monkeypatch.setattr(app, "_transcribe_audio", should_not_run)
     monkeypatch.setattr(app, "_agent", should_not_run)
 
-    chatbot, message, _cards, thoughts, image, audio = app._respond_with_audio(
+    (
+        chatbot,
+        message,
+        _cards,
+        thoughts,
+        image,
+        audio,
+        reply_audio,
+    ) = app._respond_with_audio(
         "Type this instead",
         [],
         None,
@@ -539,6 +566,157 @@ def test_voice_flow_reports_missing_modal_configuration(
     assert thoughts == []
     assert image is None
     assert audio is None
+    assert reply_audio is None
+
+
+def test_typed_wolof_reply_returns_audio_for_autoplay(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    spoken = "Yaangi Sahm, duggal ci Tata 38 bi jëm Malika."
+    fake = _FakeAgent(
+        [
+            AgentResult(
+                reply="Long model answer.",
+                language="Wolof",
+                spoken=spoken,
+            )
+        ]
+    )
+    calls: list[str] = []
+
+    def fake_speak(text: str) -> bytes:
+        calls.append(text)
+        return b"RIFF-reply"
+
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_agent", lambda: fake)
+    monkeypatch.setattr(app, "speak", fake_speak)
+
+    values = app._respond_with_audio("Maa ngi Sahm", [], None, None)
+
+    assert len(values) == 7
+    assert values[5] is None
+    assert values[-1] == b"RIFF-reply"
+    assert calls == [spoken]
+
+
+def test_french_reply_does_not_request_audio(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    fake = _FakeAgent(
+        [
+            AgentResult(
+                reply="Prends le Tata 38.",
+                language="French",
+                spoken="À Sahm, prends le Tata 38.",
+            )
+        ]
+    )
+    calls: list[str] = []
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_agent", lambda: fake)
+    monkeypatch.setattr(
+        app,
+        "speak",
+        lambda text: calls.append(text) or b"RIFF-reply",
+    )
+
+    values = app._respond_with_audio(
+        "Je suis à Sahm, je vais à Malika",
+        [],
+        None,
+        None,
+    )
+
+    assert values[5] is None
+    assert values[-1] is None
+    assert calls == []
+
+
+def test_tts_failure_keeps_the_text_answer(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    spoken = "Yaangi Sahm, duggal ci Tata 38 bi jëm Malika."
+    fake = _FakeAgent(
+        [
+            AgentResult(
+                reply="Long model answer.",
+                language="Wolof",
+                spoken=spoken,
+            )
+        ]
+    )
+    warnings: list[str] = []
+
+    def fail(_text: str) -> bytes:
+        raise app.SpeakError("Voice reply service is unavailable.")
+
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_agent", lambda: fake)
+    monkeypatch.setattr(app, "speak", fail)
+    monkeypatch.setattr(
+        app.gr,
+        "Warning",
+        lambda message, **_kwargs: warnings.append(message),
+    )
+
+    values = app._respond_with_audio("Maa ngi Sahm", [], None, None)
+
+    assert values[0][-1]["content"] == spoken
+    assert values[-1] is None
+    assert warnings == ["Voice reply service is unavailable."]
+
+
+def test_missing_tts_configuration_shows_a_clear_warning(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+    from koumba.speak import SpeakNotConfigured
+
+    fake = _FakeAgent(
+        [
+            AgentResult(
+                reply="Long model answer.",
+                language="Wolof",
+                spoken="Yaangi Sahm, duggal ci Tata 38 bi jëm Malika.",
+            )
+        ]
+    )
+    warnings: list[str] = []
+
+    def fail(_text: str) -> bytes:
+        raise SpeakNotConfigured(
+            "Voice reply not configured. Add KOUMBA_TTS_URL and "
+            "KOUMBA_ASR_KEY to your environment or .env file."
+        )
+
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_agent", lambda: fake)
+    monkeypatch.setattr(app, "speak", fail)
+    monkeypatch.setattr(
+        app.gr,
+        "Warning",
+        lambda message, **_kwargs: warnings.append(message),
+    )
+
+    values = app._respond_with_audio("Maa ngi Sahm", [], None, None)
+
+    assert values[0][-1]["content"].startswith("Yaangi Sahm")
+    assert values[-1] is None
+    assert warnings == [
+        "Voice reply not configured. Add KOUMBA_TTS_URL and "
+        "KOUMBA_ASR_KEY to your environment or .env file."
+    ]
 
 
 def test_recording_stop_auto_sends_once_per_waveform(
@@ -559,6 +737,7 @@ def test_recording_stop_auto_sends_once_per_waveform(
             [{"voice": {"raw_asr_text": "Maa ngi Sam"}}],
             None,
             None,
+            b"RIFF-reply",
         )
 
     monkeypatch.setattr(app, "_respond_with_audio", fake_respond)
@@ -579,6 +758,8 @@ def test_recording_stop_auto_sends_once_per_waveform(
     assert calls[0][3] is first_audio
     assert calls[1][3] is second_audio
     assert statuses == [app.LISTENING_STATUS, app.LISTENING_STATUS]
+    assert len(first) == 8
+    assert first[-2] == b"RIFF-reply"
     assert first[-1] == app._audio_fingerprint(first_audio)
     assert duplicate[-1] == first[-1]
     assert second[-1] == app._audio_fingerprint(second_audio)
@@ -645,8 +826,9 @@ def test_voice_thoughts_refresh_for_each_voice_turn(
         lambda _audio: next(transcriptions),
     )
     monkeypatch.setattr(app, "_agent", lambda: fake)
+    monkeypatch.setattr(app, "speak", lambda _text: b"RIFF-reply")
 
-    history, _message, _cards, first_thoughts, _image, _audio = (
+    history, _message, _cards, first_thoughts, _image, _audio, _reply = (
         app._respond_with_audio(
             "",
             [],
@@ -654,13 +836,19 @@ def test_voice_thoughts_refresh_for_each_voice_turn(
             (16_000, np.zeros(16_000, dtype=np.int16)),
         )
     )
-    _history, _message, _cards, second_thoughts, _image, _audio = (
-        app._respond_with_audio(
-            "",
-            history,
-            None,
-            (16_000, np.ones(16_000, dtype=np.int16)),
-        )
+    (
+        _history,
+        _message,
+        _cards,
+        second_thoughts,
+        _image,
+        _audio,
+        _reply,
+    ) = app._respond_with_audio(
+        "",
+        history,
+        None,
+        (16_000, np.ones(16_000, dtype=np.int16)),
     )
 
     assert first_thoughts[0]["voice"]["raw_asr_text"] == first_raw

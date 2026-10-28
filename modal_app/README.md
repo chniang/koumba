@@ -1,11 +1,13 @@
-# Koumba ASR on Modal
+# Koumba ASR and TTS on Modal
 
-This folder contains the Modal service for Meta Omnilingual ASR. It is separate
-from the Koumba app: the app only posts WAV bytes to the deployed HTTPS URL.
-The local app never imports Modal or loads the ASR model.
+This folder contains two separate Modal services: Meta Omnilingual ASR for
+voice input and Kiriku-Wolof-TTS for spoken Wolof replies. They are separate
+from the Koumba app: the app only posts WAV bytes or text to the deployed
+HTTPS URLs. The local app never imports Modal or loads either model.
 
-The service uses Meta's Apache-2.0 Omnilingual ASR and defaults to CPU because
-Modal GPU functions require a payment method. CPU mode uses 8 cores and 16 GiB
+The ASR service uses Meta's Apache-2.0 Omnilingual ASR and defaults to CPU
+because Modal GPU functions require a payment method. CPU mode uses 8 cores and
+16 GiB
 of RAM; GPU mode uses an L4 with A10G fallback. The model defaults to
 `omniASR_CTC_1B`; set `omniASR_CTC_300M` for faster CPU inference. Both choices
 are read at deploy time, and the pipeline is loaded once per container in
@@ -120,3 +122,64 @@ For the full local flow (Modal ASR, Muse Spark cleanup, then the route agent):
 ```powershell
 .\.venv\Scripts\python.exe scripts\try_voice.py path\to\sample.wav
 ```
+
+## Wolof TTS service
+
+`modal_app/tts.py` serves `AIHubSN/Kiriku-Wolof-TTS` with Coqui TTS 0.19.0.
+The service runs on CPU with 4 cores and 8 GiB of RAM, keeps the model in the
+`koumba-tts-cache` Volume, and loads the Synthesizer once per container. The
+model is gated on Hugging Face, so request access to the model first.
+
+The TTS endpoint uses the same `koumba-asr` secret and `KOUMBA_ASR_KEY` as the
+ASR endpoint. Create a separate Hugging Face secret for the model download:
+
+```powershell
+.\.venv\Scripts\python.exe -m modal secret create koumba-hf "HF_TOKEN=<your-token>"
+```
+
+Deploy it:
+
+```powershell
+.\.venv\Scripts\python.exe -m modal deploy modal_app/tts.py
+```
+
+Modal prints the web URL. Add it to `.env` without `/speak`:
+
+```text
+KOUMBA_TTS_URL=https://your-workspace--koumba-tts-web.modal.run
+KOUMBA_ASR_KEY=<the same random value>
+```
+
+Load the values into the current PowerShell session and check the service:
+
+```powershell
+$env:KOUMBA_TTS_URL = "https://your-workspace--koumba-tts-web.modal.run"
+$env:KOUMBA_ASR_KEY = "<the same random value>"
+
+curl.exe "$env:KOUMBA_TTS_URL/health" `
+  -H "X-Koumba-Key: $env:KOUMBA_ASR_KEY"
+```
+
+Expected:
+
+```json
+{"ok":true,"model":"Kiriku-Wolof-TTS"}
+```
+
+Generate a WAV from a short Wolof sentence:
+
+```powershell
+curl.exe -X POST "$env:KOUMBA_TTS_URL/speak" `
+  -H "X-Koumba-Key: $env:KOUMBA_ASR_KEY" `
+  -H "Content-Type: application/json" `
+  --data-raw '{"text":"Maa ngi Sahm, bëgg naa dem Malika"}' `
+  --output reply.wav
+```
+
+The first request downloads the model into the Volume. Later containers reuse
+the cached weights. The endpoint accepts up to 400 characters, returns
+`audio/wav`, and times out after 120 seconds. Requests with a missing or wrong
+key return HTTP 401; empty, malformed, or overlong text returns HTTP 400. The
+service logs synthesis time and character count, but does not store or log the
+sentence or the audio. The first request after the 300-second idle window pays
+the container start and model load cost.

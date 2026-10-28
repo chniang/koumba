@@ -4,8 +4,9 @@ Koumba is a small bus assistant for Dakar. It finds direct trips first, then
 trips with up to two transfers, using the Dakar Dem Dikk and Tata AFTU lines
 from the public dataset. A Muse Spark agent can understand a request in Wolof,
 French, or English, call the route engine as tools, check a bus photo with its
-vision input, and transcribe a spoken request with Meta Omnilingual ASR on
-Modal before a text-only Muse Spark cleanup.
+vision input, transcribe a spoken request with Meta Omnilingual ASR on Modal
+before a text-only Muse Spark cleanup, and speak the short Wolof answer with
+Kiriku-Wolof-TTS on Modal.
 
 ## Built during the Meta Global AI Developer Hackathon (Oct 26 - Nov 4, 2026)
 
@@ -30,17 +31,22 @@ This repository contains:
 - `koumba/vision.py` - in-memory image resize and JPEG/base64 encoding.
 - `koumba/listen.py` - in-memory microphone WAV preparation, Modal ASR HTTP
   calls, and Muse Spark place-name cleanup, with no audio stored.
+- `koumba/speak.py` - the Modal Kiriku-Wolof-TTS HTTP client for short spoken
+  replies.
 - `koumba/phrases.py` - deterministic short spoken answers in Wolof, French,
   and English, without travel-time guesses.
 - `koumba/app.py` - the Gradio demo UI with a provider banner, voice and
-  bus-photo inputs, bus-check cards, and the honest data note.
+  bus-photo inputs, bus-check cards, spoken Wolof replies, and the honest data
+  note.
 - `modal_app/asr.py` - the Modal Omnilingual ASR service and its cache volume.
-- `modal_app/README.md` - secret creation, deployment, and endpoint tests.
+- `modal_app/tts.py` - the Modal Kiriku-Wolof-TTS service and its cache volume.
+- `modal_app/README.md` - secret creation, deployment, and endpoint tests for
+  both Modal services.
 - `scripts/try_voice.py` - manual WAV -> Modal -> cleanup -> agent test.
 - `data/corrections.json` - human-reviewed field corrections. It starts empty.
 - `.env.example` - provider presets and voice endpoint placeholders.
-- `tests/` - route, correction, tool, agent, provider, vision, voice, and app
-  tests.
+- `tests/` - route, correction, tool, agent, provider, vision, voice, TTS, and
+  app tests.
 
 ## Pre-existing
 
@@ -62,8 +68,8 @@ from scratch during the hackathon.
 - `gradio==6.30.0`
 - `Pillow==11.3.0`
 
-The `modal` package is needed only to deploy `modal_app/asr.py`; the Koumba app
-uses plain HTTP and does not import it.
+The `modal` package is needed only to deploy the services in `modal_app/`; the
+Koumba app uses plain HTTP and does not import it.
 
 ## Setup
 
@@ -92,10 +98,18 @@ For voice, deploy `modal_app/asr.py` and add its HTTPS URL and shared secret:
 # KOUMBA_ASR_KEY=the-same-secret-as-the-modal-secret
 ```
 
-See `modal_app/README.md` for secret creation, deployment, and a curl test.
-Modal deployment defaults to CPU; GPU mode requires a payment method. If either
-voice setting is missing, the app shows `Voice not configured` instead of
-failing.
+For spoken replies, also deploy `modal_app/tts.py` and add its HTTPS URL:
+
+```powershell
+# KOUMBA_TTS_URL=https://your-workspace--koumba-tts-web.modal.run
+```
+
+The TTS service reuses `KOUMBA_ASR_KEY` and needs a Hugging Face token in the
+`koumba-hf` Modal secret. See `modal_app/README.md` for secret creation,
+deployment, and curl tests. Modal ASR deployment defaults to CPU; GPU mode
+requires a payment method. If either voice setting is missing, the app shows
+`Voice not configured` instead of failing. If TTS is missing, the text answer
+still appears and the app shows `Voice reply not configured`.
 
 `.env.example` also contains commented presets for Baseten and Fireworks.
 Baseten still needs its OpenAI-compatible base URL pasted from the Baseten
@@ -190,6 +204,13 @@ as `🎤 {cleaned text}` and passed to the normal agent flow. The audio input is
 cleared after the answer, and the thinking panel shows both the raw ASR text
 and the cleaned text, plus which model did each step.
 
+For every Wolof answer, the app sends the short spoken sentence to the Modal
+Kiriku-Wolof-TTS service and plays the returned WAV in a small autoplay player
+under the chat. French and English answers do not request audio. If the TTS
+endpoint is not configured, the app shows `Voice reply not configured` as a
+warning; if the service fails, the chat text remains available. The service
+does not store the text or the audio.
+
 The app resizes the photo and sends it only for the current turn, then clears
 the image input. After a bus photo, `check_bus_line` fills the cards with the
 direct trip or with the best alternative; a partial alternative is labelled
@@ -239,8 +260,15 @@ answer. The script accepts 8-bit, 16-bit, or 32-bit PCM WAV files.
    and returns the cleaned text, language, and fixed-place list.
 5. The app displays the cleaned text and keeps the raw ASR text in the
    `How Koumba thought` panel for transparency.
+6. For a Wolof answer, the app posts the deterministic spoken sentence to
+   `KOUMBA_TTS_URL/speak` with `X-Koumba-Key: KOUMBA_ASR_KEY` and a 60-second
+   timeout. French and English answers do not request audio.
+7. Modal runs Kiriku-Wolof-TTS on CPU, returns `audio/wav`, and the app plays it
+   in the small autoplay player under the chat. The service caches the model in
+   the `koumba-tts-cache` Volume and accepts at most 400 characters.
 
-No audio is stored by Koumba or by the Modal service.
+No audio is stored by Koumba or by either Modal service. If TTS is unavailable,
+the text answer is still shown.
 
 ## Data source and cache
 
@@ -481,6 +509,8 @@ bus-check answers follow the same direct/alternative shape.
 - A voice recording is sent to the Modal ASR endpoint only for transcription,
   then the raw text goes to Muse Spark Open for cleanup. The audio is not
   stored by Koumba or by Modal.
+- A Wolof text answer is sent to the Modal TTS endpoint only for synthesis.
+  The sentence and generated audio are not stored by Koumba or by Modal.
 
 ## Known limitations
 
@@ -497,8 +527,9 @@ bus-check answers follow the same direct/alternative shape.
   are skipped with a warning, but a wrong accepted correction still changes the
   itinerary.
 - The agent loop and vision content are tested with scripted fake clients.
-  Voice tests use fake HTTP and a fake cleanup LLM. They have not been tested
-  against the live Modal endpoint, a live provider, or real microphone audio.
+  Voice and TTS tests use fake HTTP and a fake cleanup LLM. They have not been
+  tested against the live Modal endpoints, a live provider, or real microphone
+  audio.
 - Voice accuracy depends on Omnilingual ASR and the Muse Spark cleanup. Background
   noise, code-switching, or a strong accent may still produce the wrong place
   spelling; the user can type or retry the recording.
@@ -506,6 +537,10 @@ bus-check answers follow the same direct/alternative shape.
   load time. Model weights are cached, but the container is not kept warm.
   CPU inference is slower than GPU; Modal GPU functions also require a payment
   method.
+- Kiriku-Wolof-TTS is a single-speaker model. Pronunciation of mixed French or
+  English place names may be imperfect, and CPU synthesis adds latency after an
+  idle period. Autoplay can also be blocked by a browser's media policy until
+  the user interacts with the page.
 - Photo quality depends on the model; glare, motion blur, or an unreadable
   destination can make the operator or line ambiguous.
 - The Baseten preset leaves the base URL as a TODO until it is copied from the
@@ -513,9 +548,9 @@ bus-check answers follow the same direct/alternative shape.
 - The language badge uses a small heuristic and can mislabel very short or
   heavily mixed messages.
 - No machine-learning model is downloaded on the local machine and there is no
-  Streamlit app. Omnilingual ASR runs only on Modal when deployed. The optional
-  agent and cleanup call the configured OpenAI-compatible provider only when
-  its key env var is set.
+  Streamlit app. Omnilingual ASR and Kiriku-Wolof-TTS run only on Modal when
+  deployed. The optional agent and cleanup call the configured
+  OpenAI-compatible provider only when its key env var is set.
 
 ## Tests
 
@@ -542,6 +577,10 @@ cover stereo mixing, 44.1 kHz to 16 kHz resampling, rejecting recordings under
 half a second, the 30-second trim, the Modal URL and `X-Koumba-Key` header, raw
 WAV body, 401 handling, missing voice configuration, raw-text retention,
 inference-time propagation, and cleanup JSON parsing after model reasoning.
+TTS client tests cover the endpoint URL, JSON body, shared key, 60-second
+timeout, missing configuration, authentication, HTTP and network failures, and
+empty audio. App tests cover Wolof autoplay audio, French silence, warning on
+missing TTS configuration, and text-answer survival when TTS fails.
 Phrase tests check the validated
 `Yaangi`
 and bus-check templates without travel time, the first-stop walk wording,
@@ -558,11 +597,12 @@ real provider or the Modal endpoint.
 ## Project layout
 
 ```text
-koumba/       package code; the app only calls the ASR service over HTTP
-modal_app/    Modal Omnilingual ASR service and deployment notes
+koumba/       package code; the app only calls the Modal services over HTTP
+modal_app/    Modal ASR and TTS services plus deployment notes
 scripts/      manual WAV -> Modal -> cleanup -> agent test
 data/         human-reviewed corrections.json
-tests/        route, correction, tool, agent, provider, vision, voice, app tests
+tests/        route, correction, tool, agent, provider, vision, voice, TTS,
+              and app tests
 data_cache/   downloaded CSVs (ignored by git)
 .env.example  configuration template (the real .env is ignored)
 ```

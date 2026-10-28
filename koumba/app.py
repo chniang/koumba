@@ -36,6 +36,7 @@ from .network import Network
 from .phrases import compose_chat_message
 from .places import PlaceIndex
 from .router import RouteEngine
+from .speak import SpeakError, speak
 
 EXAMPLE_WOLOF = "Maa ngi Sahm, bëgg naa dem Malika"
 EXAMPLE_FRENCH = "Je suis à Ouakam, je vais au Palais"
@@ -105,6 +106,7 @@ CSS = """
   padding: 10px 12px;
   border-radius: 10px;
 }
+.reply-audio { max-width: 420px; }
 @media (max-width: 640px) {
   .trip-grid { grid-template-columns: 1fr; }
 }
@@ -169,6 +171,11 @@ def _plural(count: int, word: str) -> str:
 def _is_french(language: str | None) -> bool:
     lowered = (language or "").strip().lower()
     return lowered in {"french", "français", "francais"}
+
+
+def _is_wolof(language: str | None) -> bool:
+    lowered = (language or "").strip().lower()
+    return lowered in {"wolof", "wo", "wol_latn"}
 
 
 def _minutes(value: Any) -> str:
@@ -330,14 +337,18 @@ def _history_as_dicts(history) -> list[dict[str, Any]]:
     return result
 
 
-def _respond(message_text: str, history, image_path: str | None = None):
-    """Handle one chat submission and return the five UI values."""
+def _respond_turn(
+    message_text: str,
+    history,
+    image_path: str | None = None,
+):
+    """Handle one typed chat submission and also return its agent result."""
 
     text = (message_text or "").strip()
     previous = _history_as_dicts(history)
     current = list(previous)
     if not text:
-        return current, "", gr.update(), gr.update(), image_path
+        return current, "", gr.update(), gr.update(), image_path, None
 
     current.append({"role": "user", "content": text})
 
@@ -348,7 +359,7 @@ def _respond(message_text: str, history, image_path: str | None = None):
                 "content": _missing_key_message(),
             }
         )
-        return current, "", _trip_cards(None), [], None
+        return current, "", _trip_cards(None), [], None, None
 
     try:
         result = _agent().run(text, previous, image_path)
@@ -362,7 +373,7 @@ def _respond(message_text: str, history, image_path: str | None = None):
                 ),
             }
         )
-        return current, "", _trip_cards(None), [], None
+        return current, "", _trip_cards(None), [], None, None
 
     current.append(
         {
@@ -376,7 +387,38 @@ def _respond(message_text: str, history, image_path: str | None = None):
         _cards_for_result(result),
         result.tool_calls,
         None,
+        result,
     )
+
+
+def _respond(message_text: str, history, image_path: str | None = None):
+    """Handle one chat submission and return the five UI values."""
+
+    chatbot, message, cards, thoughts, image, _result = _respond_turn(
+        message_text,
+        history,
+        image_path,
+    )
+    return chatbot, message, cards, thoughts, image
+
+
+def _reply_audio_for_result(result: Any) -> bytes | None:
+    """Return a WAV reply for Wolof turns, and no audio for other languages."""
+
+    if result is None or not _is_wolof(getattr(result, "language", None)):
+        return None
+    text = str(
+        getattr(result, "spoken", "") or getattr(result, "reply", "") or ""
+    ).strip()
+    if not text:
+        return None
+    try:
+        return speak(text)
+    except SpeakError as exc:
+        gr.Warning(str(exc))
+        return None
+    except Exception:
+        return None
 
 
 def _audio_present(audio: Any) -> bool:
@@ -460,12 +502,20 @@ def _respond_with_audio(
     """Handle text, or transcribe a recording through the normal chat flow."""
 
     if not _audio_present(audio):
-        chatbot, message, cards, thoughts, image = _respond(
+        chatbot, message, cards, thoughts, image, result = _respond_turn(
             message_text,
             history,
             image_path,
         )
-        return chatbot, message, cards, thoughts, image, None
+        return (
+            chatbot,
+            message,
+            cards,
+            thoughts,
+            image,
+            None,
+            _reply_audio_for_result(result),
+        )
 
     previous = _history_as_dicts(history)
     current = list(previous)
@@ -480,6 +530,7 @@ def _respond_with_audio(
             [],
             image_path,
             None,
+            None,
         )
 
     if not _api_key_configured():
@@ -492,6 +543,7 @@ def _respond_with_audio(
             _trip_cards(None),
             [],
             image_path,
+            None,
             None,
         )
 
@@ -507,6 +559,7 @@ def _respond_with_audio(
             _trip_cards(None),
             [],
             image_path,
+            None,
             None,
         )
 
@@ -532,6 +585,7 @@ def _respond_with_audio(
             [],
             image_path,
             None,
+            None,
         )
 
     current.append({"role": "user", "content": f"🎤 {text}"})
@@ -544,7 +598,7 @@ def _respond_with_audio(
                 "content": f"Koumba could not start the route engine. {exc}",
             }
         )
-        return current, "", _trip_cards(None), [], None, None
+        return current, "", _trip_cards(None), [], None, None, None
 
     current.append(
         {
@@ -559,6 +613,7 @@ def _respond_with_audio(
         _voice_thoughts(transcription, result.tool_calls),
         None,
         None,
+        _reply_audio_for_result(result),
     )
 
 
@@ -581,6 +636,7 @@ def _respond_to_recording(
             gr.update(),
             gr.update(),
             gr.update(),
+            gr.update(),
             last_audio_key,
         )
 
@@ -594,7 +650,7 @@ def _clear():
 
 
 def _clear_voice():
-    return (*_clear(), None, None)
+    return (*_clear(), None, None, None)
 
 
 def build_app() -> gr.Blocks:
@@ -619,6 +675,12 @@ def build_app() -> gr.Blocks:
                     label="Koumba",
                     height=360,
                     layout="bubble",
+                )
+                reply_audio = gr.Audio(
+                    label="Koumba speaks (Wolof)",
+                    autoplay=True,
+                    interactive=False,
+                    elem_classes=["reply-audio"],
                 )
                 message = gr.Textbox(
                     label="Where are you going?",
@@ -663,7 +725,15 @@ def build_app() -> gr.Blocks:
                         label="Tool calls and voice details",
                     )
 
-        voice_outputs = [chatbot, message, trips, thoughts, image, audio]
+        voice_outputs = [
+            chatbot,
+            message,
+            trips,
+            thoughts,
+            image,
+            audio,
+            reply_audio,
+        ]
         send.click(
             _respond_with_audio,
             inputs=[message, chatbot, image, audio],

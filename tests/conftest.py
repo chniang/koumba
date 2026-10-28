@@ -29,6 +29,9 @@ _LLM_ENV_VARS = (
     "KOUMBA_MODEL",
     "BASETEN_API_KEY",
     "FIREWORKS_API_KEY",
+    "KOUMBA_ASR_URL",
+    "KOUMBA_ASR_KEY",
+    "KOUMBA_TTS_URL",
 )
 
 
