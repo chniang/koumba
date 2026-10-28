@@ -241,6 +241,7 @@ def _asr_transcribe(wav_bytes: bytes, lang: str) -> dict[str, Any]:
         "text": text,
         "lang": str(payload.get("lang") or lang),
         "seconds": payload.get("seconds"),
+        "infer_seconds": payload.get("infer_seconds"),
         "model": str(payload.get("model") or "omniASR_CTC_1B"),
     }
 
@@ -361,6 +362,7 @@ def transcribe(
         "asr_lang": raw["lang"],
         "places_fixed": cleaned["places_fixed"],
         "seconds": raw.get("seconds"),
+        "infer_seconds": raw.get("infer_seconds"),
         "asr_model": raw.get("model"),
         "models": {
             "transcription": ASR_MODEL_LABEL,

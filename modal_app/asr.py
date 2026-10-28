@@ -11,15 +11,33 @@ import os
 import secrets
 import tempfile
 import threading
+import time
 import wave
 from pathlib import Path
 
 import modal
 
 APP_NAME = "koumba-asr"
-MODEL_CARD = "omniASR_CTC_1B"
+DEFAULT_MODEL = "omniASR_CTC_1B"
+ALLOWED_MODELS = {"omniASR_CTC_1B", "omniASR_CTC_300M"}
 DEFAULT_LANG = "wol_Latn"
 CACHE_PATH = "/cache/fairseq2"
+
+ASR_DEVICE = (os.environ.get("KOUMBA_ASR_DEVICE") or "cpu").strip().lower()
+if ASR_DEVICE not in {"cpu", "gpu"}:
+    raise ValueError("KOUMBA_ASR_DEVICE must be 'cpu' or 'gpu'.")
+
+ASR_MODEL = (
+    os.environ.get("KOUMBA_ASR_MODEL") or DEFAULT_MODEL
+).strip()
+if ASR_MODEL not in ALLOWED_MODELS:
+    allowed = ", ".join(sorted(ALLOWED_MODELS))
+    raise ValueError(f"KOUMBA_ASR_MODEL must be one of: {allowed}.")
+
+if ASR_DEVICE == "gpu":
+    hardware = {"gpu": ["L4", "A10G"]}
+else:
+    hardware = {"cpu": 8.0, "memory": 16384}
 
 logger = logging.getLogger("koumba-asr")
 
@@ -39,10 +57,15 @@ image = (
 
 @app.cls(
     image=image,
-    gpu=["L4", "A10G"],
+    **hardware,
     volumes={"/cache": model_cache},
     secrets=[asr_secret],
-    env={"FAIRSEQ2_CACHE_DIR": CACHE_PATH},
+    # Deploy-time choices must also reach the container's module globals.
+    env={
+        "FAIRSEQ2_CACHE_DIR": CACHE_PATH,
+        "KOUMBA_ASR_DEVICE": ASR_DEVICE,
+        "KOUMBA_ASR_MODEL": ASR_MODEL,
+    },
     scaledown_window=300,
     timeout=120,
     startup_timeout=900,
@@ -53,6 +76,7 @@ class KoumbaASR:
     def load(self) -> None:
         """Load the model and language list once per container."""
 
+        import torch
         from omnilingual_asr.models.inference.pipeline import (
             ASRInferencePipeline,
         )
@@ -74,15 +98,22 @@ class KoumbaASR:
         if not self.languages["wol_Latn"]:
             logger.error("This Omnilingual ASR build does not list wol_Latn")
 
-        self.pipeline = ASRInferencePipeline(
-            model_card=MODEL_CARD,
-            device="cuda",
-        )
+        if ASR_DEVICE == "gpu":
+            self.pipeline = ASRInferencePipeline(
+                model_card=ASR_MODEL,
+                device="cuda",
+            )
+        else:
+            self.pipeline = ASRInferencePipeline(
+                model_card=ASR_MODEL,
+                device="cpu",
+                dtype=torch.float32,
+            )
         # Commit the downloaded weights now, so a crash later cannot lose them.
         model_cache.commit()
-        # One GPU is shared by the web workers, so serialize model calls.
-        self.gpu_lock = threading.Lock()
-        logger.info("Loaded %s on the Modal GPU", MODEL_CARD)
+        # The web workers share one CPU allocation or GPU, so serialize calls.
+        self.inference_lock = threading.Lock()
+        logger.info("Loaded %s in %s mode", ASR_MODEL, ASR_DEVICE)
 
     def _authorized(self, supplied_key: str | None) -> bool:
         expected = (os.environ.get("KOUMBA_ASR_KEY") or "").strip()
@@ -101,7 +132,11 @@ class KoumbaASR:
             raise ValueError("The WAV file has no usable sample rate.")
         return round(frames / rate, 3)
 
-    def _transcribe(self, audio_bytes: bytes, lang: str) -> tuple[str, float]:
+    def _transcribe(
+        self,
+        audio_bytes: bytes,
+        lang: str,
+    ) -> tuple[str, float, float]:
         seconds = self._wav_seconds(audio_bytes)
         path = ""
 
@@ -115,13 +150,24 @@ class KoumbaASR:
                 path = audio_file.name
                 audio_file.write(audio_bytes)
 
-            with self.gpu_lock:
+            with self.inference_lock:
+                started = time.perf_counter()
                 texts = self.pipeline.transcribe([path], lang=[lang])
+                infer_seconds = round(time.perf_counter() - started, 3)
 
             text = str(texts[0] if texts else "").strip()
             if not text:
                 raise ValueError("The model returned an empty transcript.")
-            return text, seconds
+            logger.info(
+                "Transcription time: %.3fs (lang=%s, audio=%.3fs, "
+                "model=%s, device=%s)",
+                infer_seconds,
+                lang,
+                seconds,
+                ASR_MODEL,
+                ASR_DEVICE,
+            )
+            return text, seconds, infer_seconds
         finally:
             if path:
                 Path(path).unlink(missing_ok=True)
@@ -136,8 +182,8 @@ class KoumbaASR:
         api = FastAPI(title="Koumba ASR", version="1.0")
 
         @api.get("/languages")
-        def languages() -> dict[str, bool]:
-            return dict(self.languages)
+        def languages() -> dict[str, bool | str]:
+            return {**self.languages, "model": ASR_MODEL}
 
         @api.post("/transcribe")
         async def transcribe(
@@ -161,7 +207,7 @@ class KoumbaASR:
                 raise HTTPException(status_code=400, detail="Empty audio body")
 
             try:
-                text, seconds = await run_in_threadpool(
+                text, seconds, infer_seconds = await run_in_threadpool(
                     self._transcribe,
                     audio_bytes,
                     lang,
@@ -179,7 +225,8 @@ class KoumbaASR:
                 "text": text,
                 "lang": lang,
                 "seconds": seconds,
-                "model": MODEL_CARD,
+                "infer_seconds": infer_seconds,
+                "model": ASR_MODEL,
             }
 
         return api

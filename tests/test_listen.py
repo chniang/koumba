@@ -76,6 +76,7 @@ def _fake_asr_post(
                 "text": text,
                 "lang": "wol_Latn",
                 "seconds": 1.0,
+                "infer_seconds": 0.25,
                 "model": "omniASR_CTC_1B",
             },
         )
@@ -159,6 +160,7 @@ def test_transcribe_posts_wav_with_the_shared_secret(monkeypatch) -> None:
     assert result["places_fixed"] == ["Sahm", "Malika"]
     assert result["asr_lang"] == "wol_Latn"
     assert result["asr_model"] == "omniASR_CTC_1B"
+    assert result["infer_seconds"] == 0.25
     assert result["models"] == {
         "transcription": "Omnilingual ASR on Modal",
         "cleanup": "Muse Spark Open on Baseten",

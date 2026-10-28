@@ -93,8 +93,9 @@ For voice, deploy `modal_app/asr.py` and add its HTTPS URL and shared secret:
 ```
 
 See `modal_app/README.md` for secret creation, deployment, and a curl test.
-If either voice setting is missing, the app shows `Voice not configured`
-instead of failing.
+Modal deployment defaults to CPU; GPU mode requires a payment method. If either
+voice setting is missing, the app shows `Voice not configured` instead of
+failing.
 
 `.env.example` also contains commented presets for Baseten and Fireworks.
 Baseten still needs its OpenAI-compatible base URL pasted from the Baseten
@@ -227,9 +228,12 @@ answer. The script accepts 8-bit, 16-bit, or 32-bit PCM WAV files.
 1. The browser or `try_voice.py` produces a mono 16 kHz, 16-bit PCM WAV.
 2. Koumba posts the raw WAV bytes to `KOUMBA_ASR_URL/transcribe?lang=wol_Latn`
    with `X-Koumba-Key: KOUMBA_ASR_KEY`.
-3. Modal runs `omniASR_CTC_1B` on an L4 GPU (A10G fallback). The model is
-   loaded once per container and cached in the `koumba-asr-cache` Volume. The
-   temporary WAV is deleted immediately after inference.
+3. Modal runs Omnilingual ASR on CPU by default (8 cores, 16 GiB), with an
+   optional L4/A10G GPU deployment. The model defaults to `omniASR_CTC_1B`;
+   `KOUMBA_ASR_MODEL=omniASR_CTC_300M` is faster on CPU. It is loaded once per
+   container and cached in the `koumba-asr-cache` Volume. The temporary WAV is
+   deleted immediately after inference, and the response includes
+   `infer_seconds`.
 4. Muse Spark Open receives the raw transcript and the official bus stop and
    place vocabulary, text only. It fixes only place names and obvious spelling
    and returns the cleaned text, language, and fixed-place list.
@@ -499,7 +503,9 @@ bus-check answers follow the same direct/alternative shape.
   noise, code-switching, or a strong accent may still produce the wrong place
   spelling; the user can type or retry the recording.
 - The first Modal request after 300 idle seconds pays the cold-start and model
-  load time. Model weights are cached, but the GPU container is not kept warm.
+  load time. Model weights are cached, but the container is not kept warm.
+  CPU inference is slower than GPU; Modal GPU functions also require a payment
+  method.
 - Photo quality depends on the model; glare, motion blur, or an unreadable
   destination can make the operator or line ambiguous.
 - The Baseten preset leaves the base URL as a TODO until it is copied from the
@@ -534,8 +540,9 @@ limit, and the missing-key error. Vision tests create a synthetic Pillow image
 and check resize, JPEG/base64 encoding, and the agent content part. Voice tests
 cover stereo mixing, 44.1 kHz to 16 kHz resampling, rejecting recordings under
 half a second, the 30-second trim, the Modal URL and `X-Koumba-Key` header, raw
-WAV body, 401 handling, missing voice configuration, raw-text retention, and
-cleanup JSON parsing after model reasoning. Phrase tests check the validated
+WAV body, 401 handling, missing voice configuration, raw-text retention,
+inference-time propagation, and cleanup JSON parsing after model reasoning.
+Phrase tests check the validated
 `Yaangi`
 and bus-check templates without travel time, the first-stop walk wording,
 short bus names, and chat composition. Provider tests check the defaults, the
