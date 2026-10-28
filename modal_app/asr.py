@@ -34,6 +34,12 @@ if ASR_MODEL not in ALLOWED_MODELS:
     allowed = ", ".join(sorted(ALLOWED_MODELS))
     raise ValueError(f"KOUMBA_ASR_MODEL must be one of: {allowed}.")
 
+TORCH_INDEX_URL = (
+    "https://download.pytorch.org/whl/cu128"
+    if ASR_DEVICE == "gpu"
+    else "https://download.pytorch.org/whl/cpu"
+)
+
 if ASR_DEVICE == "gpu":
     hardware = {"gpu": ["L4", "A10G"]}
 else:
@@ -51,7 +57,21 @@ asr_secret = modal.Secret.from_name(
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("libsndfile1", "ffmpeg")
-    .pip_install("omnilingual-asr==0.1.0", "fastapi[standard]")
+    .pip_install(
+        "torch==2.8.0",
+        "torchaudio==2.8.0",
+        index_url=TORCH_INDEX_URL,
+    )
+    .pip_install(
+        "omnilingual-asr==0.1.0",
+        "fastapi[standard]",
+        "torch==2.8.0",
+        "torchaudio==2.8.0",
+    )
+    .run_commands(
+        'python -c "import torch, torchaudio; print(torch.__version__, torchaudio.__version__); '
+        'assert torch.__version__.split(\'+\')[0] == torchaudio.__version__.split(\'+\')[0]"'
+    )
 )
 
 
