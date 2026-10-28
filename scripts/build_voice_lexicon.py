@@ -8,12 +8,13 @@ This script does not synthesize audio.  It writes:
 
 * ``data/voice_lexicon.csv`` - connectors, bus names, and place names.
 * ``data/voice_review_top50.txt`` - the busiest places, ready for a native
-  speaker to add vowel length where needed.
+  speaker to review.
 
-The place ``say_as`` column stays identical to the source spelling unless a
-human override exists.  The ``suggestion`` column is the only place where the
-mechanical, conservative letter conversions from ``koumba.voice_lexicon`` are
-applied.
+French words and names stay exactly as written.  The only place spellings that
+change are the reviewed whole words in ``data/voice_word_overrides.csv`` and
+the full-name overrides in ``data/voice_overrides.csv``.  The latter are applied
+last and win.  The ``suggestion`` column keeps the old mechanical note, but it
+is never copied into ``say_as``.
 """
 
 from __future__ import annotations
@@ -34,16 +35,17 @@ from koumba.data import load_data
 from koumba.phrases import short_bus_name
 from koumba.voice_lexicon import (
     CONNECTOR_TEXTS,
+    apply_word_overrides,
     bus_id,
     connector_id,
     place_id,
-    place_needs_review,
     safe_place_suggestion,
 )
 from koumba.wolof_numbers import wolof_number
 
 DATA_DIR = ROOT / "data"
 LEXICON_PATH = DATA_DIR / "voice_lexicon.csv"
+WORD_OVERRIDES_PATH = DATA_DIR / "voice_word_overrides.csv"
 OVERRIDES_PATH = DATA_DIR / "voice_overrides.csv"
 REVIEW_PATH = DATA_DIR / "voice_review_top50.txt"
 
@@ -176,38 +178,53 @@ def _place_names(data) -> list[str]:
 def _place_rows(data) -> list[dict[str, str]]:
     rows = []
     for text in _place_names(data):
+        # The suggestion is just a note for a human.  It never becomes say_as:
+        # French-looking spellings may be exactly what the Oolel voice needs.
         suggestion = safe_place_suggestion(text)
-        status = "review" if place_needs_review(text) else "auto"
-        # Keep the dataset spelling until a person has checked vowel length.
         rows.append(
-            _row(place_id(text), "place", text, text, suggestion, status)
+            _row(place_id(text), "place", text, text, suggestion, "auto")
         )
     return rows
 
 
-def _read_overrides(path: Path) -> dict[str, str]:
+def _read_override_csv(path: Path, key_column: str) -> dict[str, str]:
+    """Read a two-column pronunciation override file, if it exists."""
+
     if not path.exists():
         return {}
 
     overrides: dict[str, str] = {}
+    expected = {key_column, "say_as"}
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
-        if not reader.fieldnames or set(reader.fieldnames) != {"text", "say_as"}:
-            raise ValueError(f"{path} must have exactly text,say_as columns")
+        if not reader.fieldnames or set(reader.fieldnames) != expected:
+            columns = ",".join((key_column, "say_as"))
+            raise ValueError(f"{path} must have exactly {columns} columns")
         for row in reader:
-            text = _clean(row.get("text"))
+            key = _clean(row.get(key_column))
             say_as = _clean(row.get("say_as"))
-            if not text or not say_as:
-                raise ValueError(f"{path} has an empty text or say_as value")
-            overrides[text] = say_as
+            if not key or not say_as:
+                raise ValueError(f"{path} has an empty {key_column} or say_as")
+            overrides[key] = say_as
     return overrides
 
 
-def _apply_overrides(
+def _apply_word_overrides(
     rows: list[dict[str, str]],
     overrides: dict[str, str],
 ) -> None:
-    """Apply reviewed spellings last, so they always win over generation."""
+    """Replace reviewed words inside every place's say_as."""
+
+    for row in rows:
+        if row["kind"] == "place":
+            row["say_as"] = apply_word_overrides(row["say_as"], overrides)
+
+
+def _apply_full_name_overrides(
+    rows: list[dict[str, str]],
+    overrides: dict[str, str],
+) -> None:
+    """Apply whole-name spellings after the word pass, so they win."""
 
     by_text = {row["text"]: row for row in rows if row["kind"] == "place"}
     for text, say_as in overrides.items():
@@ -215,14 +232,30 @@ def _apply_overrides(
         if row is None:
             # An explicit human override is useful even if a future dataset
             # drops that stop, so keep it instead of silently discarding it.
-            row = _row(place_id(text), "place", text, say_as, say_as, "validated")
+            row = _row(place_id(text), "place", text, say_as, say_as, "auto")
             rows.append(row)
             by_text[text] = row
             continue
 
         row["say_as"] = say_as
         row["suggestion"] = say_as
-        row["status"] = "validated"
+
+
+def _mark_place_statuses(
+    rows: list[dict[str, str]],
+    reviewed_names: set[str],
+) -> None:
+    """Mark changed places and the reviewed top-50 places as validated."""
+
+    for row in rows:
+        if row["kind"] != "place":
+            continue
+        changed = row["say_as"] != row["text"]
+        row["status"] = (
+            "validated"
+            if changed or row["text"] in reviewed_names
+            else "auto"
+        )
 
 
 def _line_counts(data) -> Counter[str]:
@@ -260,17 +293,25 @@ def _write_lexicon(rows: list[dict[str, str]]) -> None:
         writer.writerows(rows)
 
 
-def _write_review_file(data, rows: list[dict[str, str]]) -> int:
+def _review_ranked(data) -> list[tuple[str, int]]:
+    """Return the 50 busiest places, with deterministic tie-breaking."""
+
+    counts = _line_counts(data)
+    return sorted(
+        counts.items(),
+        key=lambda item: (-item[1], item[0].casefold(), item[0]),
+    )[:50]
+
+
+def _write_review_file(
+    ranked: list[tuple[str, int]],
+    rows: list[dict[str, str]],
+) -> int:
     suggestions = {
         row["text"]: row["suggestion"]
         for row in rows
         if row["kind"] == "place"
     }
-    counts = _line_counts(data)
-    ranked = sorted(
-        counts.items(),
-        key=lambda item: (-item[1], item[0].casefold(), item[0]),
-    )[:50]
 
     with REVIEW_PATH.open("w", encoding="utf-8", newline="") as handle:
         for text, _count in ranked:
@@ -294,10 +335,17 @@ def _print_counts(rows: list[dict[str, str]]) -> None:
 def main() -> int:
     data = load_data()
     rows = _connector_rows() + _bus_rows(data.lignes) + _place_rows(data)
-    _apply_overrides(rows, _read_overrides(OVERRIDES_PATH))
+
+    word_overrides = _read_override_csv(WORD_OVERRIDES_PATH, "word")
+    full_overrides = _read_override_csv(OVERRIDES_PATH, "text")
+    _apply_word_overrides(rows, word_overrides)
+    _apply_full_name_overrides(rows, full_overrides)
+
+    ranked = _review_ranked(data)
+    _mark_place_statuses(rows, {text for text, _count in ranked})
 
     _write_lexicon(rows)
-    review_count = _write_review_file(data, rows)
+    review_count = _write_review_file(ranked, rows)
 
     _print_counts(rows)
     print(f"Wrote {LEXICON_PATH.relative_to(ROOT)} ({len(rows)} rows)")

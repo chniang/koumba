@@ -130,61 +130,61 @@ place:49-2e01e174,place,49,49,49,auto
 place:63-a17554a0,place,63,63,63,auto
 place:72-c097638f,place,72,72,72,auto
 place:aibd-98f87eaf,place,AIBD,AIBD,AIBD,auto
-place:allees-ababacar-sy-dieuppeul-derkle-4c5b1add,place,Allées Ababacar Sy (Dieuppeul/derklé),Allées Ababacar Sy (Dieuppeul/derklé),Allées Ababacar Sy (Diëppël/derklé),review
-place:allees-cheikh-sidaty-aidara-niaritalli-6b21b34f,place,Allées Cheikh Sidaty Aïdara (Niaritalli),Allées Cheikh Sidaty Aïdara (Niaritalli),Allées Cheix Sidaty Aïdara (Niaritalli),review
-place:allees-cherif-macky-sall-b90e8aee,place,Allées Cherif Macky Sall,Allées Cherif Macky Sall,Allées Cherif Macky Sall,review
+place:allees-ababacar-sy-dieuppeul-derkle-4c5b1add,place,Allées Ababacar Sy (Dieuppeul/derklé),Allées Ababacar Sy (Dieuppeul/derklé),Allées Ababacar Sy (Diëppël/derklé),auto
+place:allees-cheikh-sidaty-aidara-niaritalli-6b21b34f,place,Allées Cheikh Sidaty Aïdara (Niaritalli),Allées Cheikh Sidaty Aïdara (Niaritalli),Allées Cheix Sidaty Aïdara (Niaritalli),auto
+place:allees-cherif-macky-sall-b90e8aee,place,Allées Cherif Macky Sall,Allées Cherif Macky Sall,Allées Cherif Macky Sall,auto
 place:allees-medina-zac-25dc9e01,place,Allées Médina ZAC,Allées Médina ZAC,Allées Médina ZAC,auto
-place:allees-papa-gueye-fall-31d3ef29,place,Allées Papa Gueye Fall,Allées Papa Gueye Fall,Allées Papa Gueye Fall,auto
+place:allees-papa-gueye-fall-31d3ef29,place,Allées Papa Gueye Fall,Allées Papa Gueye Fall,Allées Papa Gueye Fall,validated
 place:almadies-07830ec2,place,Almadies,Almadies,Almadies,auto
 place:ancienne-piste-5faaeb97,place,Ancienne Piste,Ancienne Piste,Ancienne Piste,auto
 place:ancienne-piste-d-envol-881f076f,place,Ancienne Piste d'Envol,Ancienne Piste d'Envol,Ancienne Piste d'Envol,auto
 place:apix-20cedfb3,place,Apix,Apix,Apix,auto
 place:arafat-94ce05ac,place,Arafat,Arafat,Arafat,auto
-place:arret-cherif-6c2388b0,place,Arrêt Chérif,Arrêt Chérif,Arrêt Chérif,review
-place:arret-cherif-rufisque-8f7bf46f,place,Arrêt Chérif (Rufisque),Arrêt Chérif (Rufisque),Arrêt Chérif (Rufisque),review
-place:auchan-keur-massar-8068fcc2,place,Auchan Keur Massar,Auchan Keur Massar,Auchan Kër Massar,review
-place:auto-route-36609fcb,place,Auto Route,Auto Route,Auto Rute,review
-place:autoroute-d57ab9f2,place,Autoroute,Autoroute,Autorute,review
-place:autoroute-a-peage-dc293a97,place,Autoroute A Péage,Autoroute A Péage,Autorute A Péage,review
-place:autoroute-seydina-l-d81b11bb,place,Autoroute Seydina L,Autoroute Seydina L,Autorute Seydina L,review
-place:autoroute-seydina-limamoulaye-e4d4c5ba,place,Autoroute Seydina Limamoulaye,Autoroute Seydina Limamoulaye,Autorute Seydina Limamulaye,review
-place:autoroute-seydinalimamoulaye-fbf7d24f,place,Autoroute Seydinalimamoulaye,Autoroute Seydinalimamoulaye,Autorute Seydinalimamulaye,review
-place:av-blaise-diagne-c5eb9faf,place,Av Blaise Diagne,Av Blaise Diagne,Av Blaise Diañe,review
-place:av-bourguiba-bbf5d62e,place,Av Bourguiba,Av Bourguiba,Av Burguiba,review
-place:av-cheikh-ahmadou-bamba-rue-13-des-hlm-bff675b5,place,Av Cheikh Ahmadou Bamba (Rue 13 des HLM),Av Cheikh Ahmadou Bamba (Rue 13 des HLM),Av Cheix Ahmadu Bamba (Rue 13 des HLM),review
-place:av-cheikh-anta-diop-eebe2abb,place,Av Cheikh Anta Diop,Av Cheikh Anta Diop,Av Cheix Anta Diop,review
+place:arret-cherif-6c2388b0,place,Arrêt Chérif,Arrêt Chérif,Arrêt Chérif,auto
+place:arret-cherif-rufisque-8f7bf46f,place,Arrêt Chérif (Rufisque),Arrêt Chérif (Rufisque),Arrêt Chérif (Rufisque),auto
+place:auchan-keur-massar-8068fcc2,place,Auchan Keur Massar,Auchan Keur Massar,Auchan Kër Massar,auto
+place:auto-route-36609fcb,place,Auto Route,Auto Route,Auto Rute,auto
+place:autoroute-d57ab9f2,place,Autoroute,Autoroute,Autorute,validated
+place:autoroute-a-peage-dc293a97,place,Autoroute A Péage,Autoroute A Péage,Autorute A Péage,auto
+place:autoroute-seydina-l-d81b11bb,place,Autoroute Seydina L,Autoroute Seydina L,Autorute Seydina L,auto
+place:autoroute-seydina-limamoulaye-e4d4c5ba,place,Autoroute Seydina Limamoulaye,Autoroute Seydina Limamoulaye,Autorute Seydina Limamulaye,auto
+place:autoroute-seydinalimamoulaye-fbf7d24f,place,Autoroute Seydinalimamoulaye,Autoroute Seydinalimamoulaye,Autorute Seydinalimamulaye,auto
+place:av-blaise-diagne-c5eb9faf,place,Av Blaise Diagne,Av Blaise Diagne,Av Blaise Diañe,auto
+place:av-bourguiba-bbf5d62e,place,Av Bourguiba,Av Bourguiba,Av Burguiba,auto
+place:av-cheikh-ahmadou-bamba-rue-13-des-hlm-bff675b5,place,Av Cheikh Ahmadou Bamba (Rue 13 des HLM),Av Cheikh Ahmadou Bamba (Rue 13 des HLM),Av Cheix Ahmadu Bamba (Rue 13 des HLM),auto
+place:av-cheikh-anta-diop-eebe2abb,place,Av Cheikh Anta Diop,Av Cheikh Anta Diop,Av Cheix Anta Diop,auto
 place:av-emile-badiane-2a0254ae,place,Av Emile Badiane,Av Emile Badiane,Av Emile Badiane,auto
-place:av-hyacinthe-thiandoum-622cf61f,place,Av Hyacinthe Thiandoum,Av Hyacinthe Thiandoum,Av Hyacinthe Thiandum,review
-place:av-hyacinthe-thiandoum-grand-yoff-7be41184,place,Av Hyacinthe Thiandoum (Grand-Yoff),Av Hyacinthe Thiandoum (Grand-Yoff),Av Hyacinthe Thiandum (Grand-Yoff),review
+place:av-hyacinthe-thiandoum-622cf61f,place,Av Hyacinthe Thiandoum,Av Hyacinthe Thiandoum,Av Hyacinthe Thiandum,auto
+place:av-hyacinthe-thiandoum-grand-yoff-7be41184,place,Av Hyacinthe Thiandoum (Grand-Yoff),Av Hyacinthe Thiandoum (Grand-Yoff),Av Hyacinthe Thiandum (Grand-Yoff),auto
 place:av-malick-sy-dd44826a,place,Av Malick Sy,Av Malick Sy,Av Malick Sy,auto
-place:av-oumar-foutiyou-tall-golf-nord-457ebd6a,place,Av Oumar Foutiyou Tall (Golf Nord),Av Oumar Foutiyou Tall (Golf Nord),Av Umar Futiyu Tall (Golf Nord),review
-place:av-cheikh-ahmadou-bamba-cite-port-cb18aa1b,place,Av. Cheikh Ahmadou Bamba (Cité Port),Av. Cheikh Ahmadou Bamba (Cité Port),Av. Cheix Ahmadu Bamba (Cité Port),review
+place:av-oumar-foutiyou-tall-golf-nord-457ebd6a,place,Av Oumar Foutiyou Tall (Golf Nord),Av Oumar Foutiyou Tall (Golf Nord),Av Umar Futiyu Tall (Golf Nord),auto
+place:av-cheikh-ahmadou-bamba-cite-port-cb18aa1b,place,Av. Cheikh Ahmadou Bamba (Cité Port),Av. Cheikh Ahmadou Bamba (Cité Port),Av. Cheix Ahmadu Bamba (Cité Port),auto
 place:av-emile-badiane-99c4d93a,place,Av. Emile Badiane,Av. Emile Badiane,Av. Emile Badiane,auto
-place:avenue-blaise-diagne-99d30607,place,Avenue Blaise Diagne,Avenue Blaise Diagne,Avenue Blaise Diañe,review
-place:avenue-bourguiba-4ce55098,place,Avenue Bourguiba,Avenue Bourguiba,Avenue Burguiba,review
-place:avenue-cardinal-hyacinthe-thiandoum-cfac5e44,place,Avenue Cardinal Hyacinthe Thiandoum,Avenue Cardinal Hyacinthe Thiandoum,Avenue Cardinal Hyacinthe Thiandum,review
-place:avenue-cheikh-amadou-bamba-rue-13-des-hlm-eac10100,place,Avenue Cheikh Amadou Bamba (Rue 13 des HLM),Avenue Cheikh Amadou Bamba (Rue 13 des HLM),Avenue Cheix Amadu Bamba (Rue 13 des HLM),review
-place:avenue-cheikh-amadou-bamba-mbacke-rue-13-cf0a82ed,place,Avenue Cheikh Amadou Bamba Mbacke (Rue 13),Avenue Cheikh Amadou Bamba Mbacke (Rue 13),Avenue Cheix Amadu Bamba Mbacke (Rue 13),review
-place:avenue-cheikh-anta-diop-b4f308a9,place,Avenue Cheikh Anta Diop,Avenue Cheikh Anta Diop,Avenue Cheix Anta Diop,review
-place:avenue-cheikh-antadiop-f7cfc3b8,place,Avenue Cheikh Antadiop,Avenue Cheikh Antadiop,Avenue Cheix Antadiop,review
+place:avenue-blaise-diagne-99d30607,place,Avenue Blaise Diagne,Avenue Blaise Diagne,Avenue Blaise Diañe,validated
+place:avenue-bourguiba-4ce55098,place,Avenue Bourguiba,Avenue Bourguiba,Avenue Burguiba,validated
+place:avenue-cardinal-hyacinthe-thiandoum-cfac5e44,place,Avenue Cardinal Hyacinthe Thiandoum,Avenue Cardinal Hyacinthe Thiandoum,Avenue Cardinal Hyacinthe Thiandum,auto
+place:avenue-cheikh-amadou-bamba-rue-13-des-hlm-eac10100,place,Avenue Cheikh Amadou Bamba (Rue 13 des HLM),Avenue Cheikh Amadou Bamba (Rue 13 des HLM),Avenue Cheix Amadu Bamba (Rue 13 des HLM),auto
+place:avenue-cheikh-amadou-bamba-mbacke-rue-13-cf0a82ed,place,Avenue Cheikh Amadou Bamba Mbacke (Rue 13),Avenue Cheikh Amadou Bamba Mbacke (Rue 13),Avenue Cheix Amadu Bamba Mbacke (Rue 13),auto
+place:avenue-cheikh-anta-diop-b4f308a9,place,Avenue Cheikh Anta Diop,Avenue Cheikh Anta Diop,Avenue Cheix Anta Diop,auto
+place:avenue-cheikh-antadiop-f7cfc3b8,place,Avenue Cheikh Antadiop,Avenue Cheikh Antadiop,Avenue Cheix Antadiop,auto
 place:avenue-emile-badiane-bd5abe1a,place,Avenue Emile Badiane,Avenue Emile Badiane,Avenue Emile Badiane,auto
 place:avenue-hyacinthe-thiandom-a75cceeb,place,Avenue Hyacinthe Thiandom,Avenue Hyacinthe Thiandom,Avenue Hyacinthe Thiandom,auto
-place:avenue-hyacinthe-thiandoum-1910728f,place,Avenue Hyacinthe Thiandoum,Avenue Hyacinthe Thiandoum,Avenue Hyacinthe Thiandum,review
+place:avenue-hyacinthe-thiandoum-1910728f,place,Avenue Hyacinthe Thiandoum,Avenue Hyacinthe Thiandoum,Avenue Hyacinthe Thiandum,auto
 place:avenue-malick-sy-3c1d42f2,place,Avenue Malick Sy,Avenue Malick Sy,Avenue Malick Sy,auto
 place:avenue-malicksy-4d19fd27,place,Avenue Malicksy,Avenue Malicksy,Avenue Malicksy,auto
 place:aeroport-2343d2c6,place,Aéroport,Aéroport,Aéroport,auto
 place:aeroport-l-s-senghor-37702d9a,place,Aéroport L S Senghor,Aéroport L S Senghor,Aéroport L S Senghor,auto
-place:aeroport-lss-cda45071,place,Aéroport LSS,Aéroport LSS,Aéroport LSS,auto
+place:aeroport-lss-cda45071,place,Aéroport LSS,Aéroport El Ess Ess,Aéroport LSS,validated
 place:bambilor-cb035b51,place,Bambilor,Bambilor,Bambilor,auto
 place:banoba-60e245b7,place,Banoba,Banoba,Banoba,auto
-place:bargny-3cff1ec8,place,Bargny,Bargny,Barñy,review
-place:bargny-gare-ferroviaire-c5b5e66d,place,Bargny (Gare Ferroviaire),Bargny (Gare Ferroviaire),Barñy (Gare Ferroviaire),review
-place:bargny-gare-ferroviaire-1cee77c0,place,Bargny (Gare ferroviaire),Bargny (Gare ferroviaire),Barñy (Gare ferroviaire),review
-place:baux-maraichers-3f65ff62,place,Baux Maraîchers,Baux Maraîchers,Baux Maraîchers,review
-place:bayakh-8aa2d29f,place,Bayakh,Bayakh,Bayax,review
+place:bargny-3cff1ec8,place,Bargny,Barñi,Barñy,validated
+place:bargny-gare-ferroviaire-c5b5e66d,place,Bargny (Gare Ferroviaire),Barñi (Gare Ferroviaire),Barñy (Gare Ferroviaire),validated
+place:bargny-gare-ferroviaire-1cee77c0,place,Bargny (Gare ferroviaire),Barñi (Gare ferroviaire),Barñy (Gare ferroviaire),validated
+place:baux-maraichers-3f65ff62,place,Baux Maraîchers,Baux Maraîchers,Baux Maraîchers,auto
+place:bayakh-8aa2d29f,place,Bayakh,Bayakh,Bayax,auto
 place:baye-laye-74433b01,place,Baye Laye,Baye Laye,Baye Laye,auto
 place:bd-maurice-gueye-c2f2a25e,place,Bd Maurice Gueye,Bd Maurice Gueye,Bd Maurice Gueye,auto
-place:beaux-maraichers-b30255f2,place,Beaux Maraîchers,Beaux Maraîchers,Beaux Maraîchers,review
+place:beaux-maraichers-b30255f2,place,Beaux Maraîchers,Beaux Maraîchers,Beaux Maraîchers,auto
 place:bene-baraque-feb7eb15,place,Bene Baraque,Bene Baraque,Bene Baraque,auto
 place:bethio-7a9da04b,place,Bethio,Bethio,Bethio,auto
 place:bld-centenaire-de-la-commune-de-dakar-d88f7d97,place,Bld Centenaire de la Commune de Dakar,Bld Centenaire de la Commune de Dakar,Bld Centenaire de la Commune de Dakar,auto
@@ -192,61 +192,61 @@ place:bld-des-martyrs-bdf9c78d,place,Bld des Martyrs,Bld des Martyrs,Bld des Mar
 place:bld-du-centenaire-de-la-commune-de-dakar-d9871bcd,place,Bld du Centenaire de la Commune de Dakar,Bld du Centenaire de la Commune de Dakar,Bld du Centenaire de la Commune de Dakar,auto
 place:bld-maurice-gueye-07859718,place,Bld Maurice Gueye,Bld Maurice Gueye,Bld Maurice Gueye,auto
 place:bopp-f632a099,place,Bopp,Bopp,Bopp,auto
-place:boulevard-de-la-gueule-tapee-59bb6f6e,place,Boulevard de la Gueule Tapée,Boulevard de la Gueule Tapée,Bulevard de la Guële Tapée,review
-place:boulevard-dial-diop-16868e11,place,Boulevard Dial Diop,Boulevard Dial Diop,Bulevard Dial Diop,review
-place:boulevard-du-centenaire-de-la-commune-de-dakar-73307de9,place,Boulevard du Centenaire de la Commune de Dakar,Boulevard du Centenaire de la Commune de Dakar,Bulevard du Centenaire de la Commune de Dakar,review
-place:boulevard-du-general-de-gaulle-3256c810,place,Boulevard du Général de Gaulle,Boulevard du Général de Gaulle,Bulevard du Général de Gaulle,review
-place:boulevard-maurice-gueye-82a5ab63,place,Boulevard Maurice Gueye,Boulevard Maurice Gueye,Bulevard Maurice Gueye,review
-place:boune-ebeda482,place,Boune,Boune,Bune,review
-place:bountou-pikine-96868377,place,Bountou Pikine,Bountou Pikine,Buntu Pikine,review
-place:bourguiba-0564015b,place,Bourguiba,Bourguiba,Burguiba,review
-place:boutikou-diallo-3183ae79,place,Boutikou Diallo,Boutikou Diallo,Butiku Diallo,review
-place:boutique-diallo-17ad4be7,place,Boutique Diallo,Boutique Diallo,Butique Diallo,review
-place:boutique-diallo-ouakam-cfb56ae3,place,Boutique Diallo (Ouakam),Boutique Diallo (Ouakam),Butique Diallo (Uakam),review
-place:branche-est-autoroute-ec2e131f,place,Branche Est Autoroute,Branche Est Autoroute,Branche Est Autorute,review
-place:branche-est-autoroute-f0c0a699,place,Branche Est-Autoroute,Branche Est-Autoroute,Branche Est-Autorute,review
-place:bene-tally-fb38d974,place,Bène Tally,Bène Tally,Bene Tally,review
+place:boulevard-de-la-gueule-tapee-59bb6f6e,place,Boulevard de la Gueule Tapée,Boulevard de la Gueule Tapée,Bulevard de la Guële Tapée,auto
+place:boulevard-dial-diop-16868e11,place,Boulevard Dial Diop,Boulevard Dial Diop,Bulevard Dial Diop,auto
+place:boulevard-du-centenaire-de-la-commune-de-dakar-73307de9,place,Boulevard du Centenaire de la Commune de Dakar,Boulevard du Centenaire de la Commune de Dakar,Bulevard du Centenaire de la Commune de Dakar,auto
+place:boulevard-du-general-de-gaulle-3256c810,place,Boulevard du Général de Gaulle,Boulevard du Général de Gaulle,Bulevard du Général de Gaulle,auto
+place:boulevard-maurice-gueye-82a5ab63,place,Boulevard Maurice Gueye,Boulevard Maurice Gueye,Bulevard Maurice Gueye,auto
+place:boune-ebeda482,place,Boune,Boune,Bune,auto
+place:bountou-pikine-96868377,place,Bountou Pikine,Bountou Pikine,Buntu Pikine,validated
+place:bourguiba-0564015b,place,Bourguiba,Bourguiba,Burguiba,auto
+place:boutikou-diallo-3183ae79,place,Boutikou Diallo,Boutikou Diallo,Butiku Diallo,auto
+place:boutique-diallo-17ad4be7,place,Boutique Diallo,Boutique Diallo,Butique Diallo,auto
+place:boutique-diallo-ouakam-cfb56ae3,place,Boutique Diallo (Ouakam),Boutique Diallo (Wakaam),Butique Diallo (Uakam),validated
+place:branche-est-autoroute-ec2e131f,place,Branche Est Autoroute,Branche Est Autoroute,Branche Est Autorute,auto
+place:branche-est-autoroute-f0c0a699,place,Branche Est-Autoroute,Branche Est-Autoroute,Branche Est-Autorute,auto
+place:bene-tally-fb38d974,place,Bène Tally,Bène Tally,Bene Tally,auto
 place:cafeteria-6ac81eeb,place,Cafeteria,Cafeteria,Cafeteria,auto
 place:caisse-de-securite-sociale-7f8eaeb3,place,Caisse de Sécurité Sociale,Caisse de Sécurité Sociale,Caisse de Sécurité Sociale,auto
-place:camberene-4721d5e8,place,Cambérène,Cambérène,Cambérene,review
-place:camberene-2-bc7993f8,place,Cambérène 2,Cambérène 2,Cambérene 2,review
-place:camp-marchand-cd8a6071,place,Camp Marchand,Camp Marchand,Camp Marchand,review
-place:camp-marchand-rufisque-4601082c,place,Camp Marchand Rufisque,Camp Marchand Rufisque,Camp Marchand Rufisque,review
+place:camberene-4721d5e8,place,Cambérène,Cambérène,Cambérene,auto
+place:camberene-2-bc7993f8,place,Cambérène 2,Cambérène 2,Cambérene 2,auto
+place:camp-marchand-cd8a6071,place,Camp Marchand,Camp Marchand,Camp Marchand,auto
+place:camp-marchand-rufisque-4601082c,place,Camp Marchand Rufisque,Camp Marchand Rufisque,Camp Marchand Rufisque,auto
 place:canada-cd6a7b87,place,Canada,Canada,Canada,auto
 place:canal-4-d7674d42,place,Canal 4,Canal 4,Canal 4,auto
-place:canal-de-la-gueule-tapee-da62a078,place,Canal de la Gueule Tapée,Canal de la Gueule Tapée,Canal de la Guële Tapée,review
-place:cap-des-biches-40a7bf68,place,Cap des Biches,Cap des Biches,Cap des Biches,review
+place:canal-de-la-gueule-tapee-da62a078,place,Canal de la Gueule Tapée,Canal de la Gueule Tapée,Canal de la Guële Tapée,auto
+place:cap-des-biches-40a7bf68,place,Cap des Biches,Cap des Biches,Cap des Biches,auto
 place:capa-ef4c8ebc,place,CAPA,CAPA,CAPA,auto
-place:carrefour-hlm-gd-medine-diamalaye-28fea967,place,Carrefour HLM Gd Medine/diamalaye,Carrefour HLM Gd Medine/diamalaye,Carrefur HLM Gd Medine/diamalaye,review
-place:carrefour-serigne-assane-419b2c59,place,Carrefour Serigne Assane,Carrefour Serigne Assane,Carrefur Seriñe Assane,review
-place:carrefour-seydou-n-tall-7a5ddb8c,place,Carrefour Seydou N Tall,Carrefour Seydou N Tall,Carrefur Seydu N Tall,review
-place:case-ba-a4d6c6d3,place,Case Ba,Case Ba,Case Ba,auto
+place:carrefour-hlm-gd-medine-diamalaye-28fea967,place,Carrefour HLM Gd Medine/diamalaye,Carrefour HLM Gd Medine/diamalaye,Carrefur HLM Gd Medine/diamalaye,auto
+place:carrefour-serigne-assane-419b2c59,place,Carrefour Serigne Assane,Carrefour Serigne Assane,Carrefur Seriñe Assane,auto
+place:carrefour-seydou-n-tall-7a5ddb8c,place,Carrefour Seydou N Tall,Carrefour Seydou N Tall,Carrefur Seydu N Tall,auto
+place:case-ba-a4d6c6d3,place,Case Ba,Case Ba,Case Ba,validated
 place:case-bi-dda7e6b7,place,Case Bi,Case Bi,Case Bi,auto
-place:case-de-camberene-664b609d,place,Case de Cambérène,Case de Cambérène,Case de Cambérene,review
+place:case-de-camberene-664b609d,place,Case de Cambérène,Case de Cambérène,Case de Cambérene,auto
 place:case-ba-afa72052,place,Case-Ba,Case-Ba,Case-Ba,auto
 place:casebi-31727220,place,Casebi,Casebi,Casebi,auto
-place:caserne-sapeurs-pompiers-aab392ee,place,Caserne Sapeurs Pompiers,Caserne Sapeurs Pompiers,Caserne Sapërs Pompiers,review
-place:caserne-sapeurs-pompiers-parcelles-3b8c70cf,place,Caserne Sapeurs Pompiers Parcelles,Caserne Sapeurs Pompiers Parcelles,Caserne Sapërs Pompiers Parcelles,review
-place:castors-97cb8de4,place,Castors,Castors,Castors,auto
+place:caserne-sapeurs-pompiers-aab392ee,place,Caserne Sapeurs Pompiers,Caserne Sapeurs Pompiers,Caserne Sapërs Pompiers,auto
+place:caserne-sapeurs-pompiers-parcelles-3b8c70cf,place,Caserne Sapeurs Pompiers Parcelles,Caserne Sapeurs Pompiers Parcelles,Caserne Sapërs Pompiers Parcelles,auto
+place:castors-97cb8de4,place,Castors,Castors,Castors,validated
 place:centre-aere-de-la-bceao-4795314f,place,Centre Aéré de la BCEAO,Centre Aéré de la BCEAO,Centre Aéré de la BCEAO,auto
 place:centre-de-jaxaay-164768c7,place,Centre de Jaxaay,Centre de Jaxaay,Centre de Jaxaay,auto
 place:centre-ville-28a5cbc6,place,Centre-Ville,Centre-Ville,Centre-Ville,auto
-place:cheikh-bethio-daadd600,place,Cheikh Bethio,Cheikh Bethio,Cheix Bethio,review
-place:cheikh-sidatyaidara-cb392724,place,Cheikh Sidatyaidara,Cheikh Sidatyaidara,Cheix Sidatyaidara,review
-place:cheikh-sidatyaidara-niarytally-4486a18b,place,Cheikh Sidatyaidara (Niarytally),Cheikh Sidatyaidara (Niarytally),Cheix Sidatyaidara (Niarytally),review
+place:cheikh-bethio-daadd600,place,Cheikh Bethio,Cheikh Bethio,Cheix Bethio,auto
+place:cheikh-sidatyaidara-cb392724,place,Cheikh Sidatyaidara,Cheikh Sidatyaidara,Cheix Sidatyaidara,auto
+place:cheikh-sidatyaidara-niarytally-4486a18b,place,Cheikh Sidatyaidara (Niarytally),Cheikh Sidatyaidara (Niarytally),Cheix Sidatyaidara (Niarytally),auto
 place:cinema-parcelles-eb6d25cf,place,Cinéma Parcelles,Cinéma Parcelles,Cinéma Parcelles,auto
-place:cite-ainoumady-3d579055,place,Cité Ainoumady,Cité Ainoumady,Cité Ainumady,review
+place:cite-ainoumady-3d579055,place,Cité Ainoumady,Cité Ainoumady,Cité Ainumady,auto
 place:cite-apix-be185644,place,Cité Apix,Cité Apix,Cité Apix,auto
 place:cite-asecna-d258d907,place,Cité ASECNA,Cité ASECNA,Cité ASECNA,auto
 place:cite-assurance-89e8d0d5,place,Cité Assurance,Cité Assurance,Cité Assurance,auto
 place:cite-avion-874871c2,place,Cité Avion,Cité Avion,Cité Avion,auto
 place:cite-baba-guisse-8788df9a,place,Cité Baba Guisse,Cité Baba Guisse,Cité Baba Guisse,auto
 place:cite-capec-8ea10e21,place,Cité CAPEC,Cité CAPEC,Cité CAPEC,auto
-place:cite-cardinal-thiandoum-a7026508,place,Cité Cardinal Thiandoum,Cité Cardinal Thiandoum,Cité Cardinal Thiandum,review
+place:cite-cardinal-thiandoum-a7026508,place,Cité Cardinal Thiandoum,Cité Cardinal Thiandoum,Cité Cardinal Thiandum,auto
 place:cite-cocehas-62a702ca,place,Cité COCEHAS,Cité COCEHAS,Cité COCEHAS,auto
 place:cite-des-eaux-609e6dc3,place,Cité des Eaux,Cité des Eaux,Cité des Eaux,auto
-place:cite-des-enseignants-e0a60f8a,place,Cité des Enseignants,Cité des Enseignants,Cité des Enseiñants,review
-place:cite-enseignants-dbe040d6,place,Cité Enseignants,Cité Enseignants,Cité Enseiñants,review
+place:cite-des-enseignants-e0a60f8a,place,Cité des Enseignants,Cité des Enseignants,Cité des Enseiñants,auto
+place:cite-enseignants-dbe040d6,place,Cité Enseignants,Cité Enseignants,Cité Enseiñants,auto
 place:cite-fadia-cbde776b,place,Cité Fadia,Cité Fadia,Cité Fadia,auto
 place:cite-gendarmerie-6b4929a8,place,Cité Gendarmerie,Cité Gendarmerie,Cité Gendarmerie,auto
 place:cite-gendarmerie-jaxaay-d0466176,place,Cité Gendarmerie (Jaxaay),Cité Gendarmerie (Jaxaay),Cité Gendarmerie (Jaxaay),auto
@@ -254,83 +254,83 @@ place:cite-lobatt-fall-7c6610d7,place,Cité Lobatt Fall,Cité Lobatt Fall,Cité 
 place:cite-lobattfall-caa9f1a4,place,Cité Lobattfall,Cité Lobattfall,Cité Lobattfall,auto
 place:cite-mame-dior-4744bc65,place,Cité Mame Dior,Cité Mame Dior,Cité Mame Dior,auto
 place:cite-nations-unies-82da6868,place,Cité Nations Unies,Cité Nations Unies,Cité Nations Unies,auto
-place:cite-nations-unies-camberene-1bd9aea6,place,Cité Nations Unies (Cambérène),Cité Nations Unies (Cambérène),Cité Nations Unies (Cambérene),review
+place:cite-nations-unies-camberene-1bd9aea6,place,Cité Nations Unies (Cambérène),Cité Nations Unies (Cambérène),Cité Nations Unies (Cambérene),auto
 place:cite-nations-unies-derriere-hopital-dalal-diam-7c132722,place,Cité Nations Unies (Derriere Hôpital Dalal Diam),Cité Nations Unies (Derriere Hôpital Dalal Diam),Cité Nations Unies (Derriere Hôpital Dalal Diam),auto
 place:cite-port-961a05ab,place,Cité Port,Cité Port,Cité Port,auto
 place:cite-penitence-b5662731,place,Cité Pénitence,Cité Pénitence,Cité Pénitence,auto
 place:cite-safco-e3a9e424,place,Cité SAFCO,Cité SAFCO,Cité SAFCO,auto
 place:cite-sagef-6818ac83,place,Cité SAGEF,Cité SAGEF,Cité SAGEF,auto
-place:cite-serigne-mansour-b4bbd7ac,place,Cité Serigne Mansour,Cité Serigne Mansour,Cité Seriñe Mansur,review
+place:cite-serigne-mansour-b4bbd7ac,place,Cité Serigne Mansour,Cité Serigne Mansour,Cité Seriñe Mansur,auto
 place:cite-sicap-dbb5e671,place,Cité SICAP,Cité SICAP,Cité SICAP,auto
 place:cite-socabeg-ccdaafe7,place,Cité SOCABEG,Cité SOCABEG,Cité SOCABEG,auto
 place:cite-sonatel-691f8ffe,place,Cité Sonatel,Cité Sonatel,Cité Sonatel,auto
 place:cite-sotrac-44a4f82c,place,Cité SOTRAC,Cité SOTRAC,Cité SOTRAC,auto
 place:cite-yacine-diop-97a829bd,place,Cité Yacine Diop,Cité Yacine Diop,Cité Yacine Diop,auto
 place:claudel-fcad14a7,place,Claudel,Claudel,Claudel,auto
-place:college-la-liberte-45c12fef,place,Collège la Liberté,Collège la Liberté,College la Liberté,review
-place:colobane-70586cb6,place,Colobane,Colobane,Colobane,auto
+place:college-la-liberte-45c12fef,place,Collège la Liberté,Collège la Liberté,College la Liberté,auto
+place:colobane-70586cb6,place,Colobane,Colobane,Colobane,validated
 place:colobane-rufisque-949cbe5b,place,Colobane Rufisque,Colobane Rufisque,Colobane Rufisque,auto
 place:comico-a6993eab,place,Comico,Comico,Comico,auto
-place:comico-yeumbeul-57403a74,place,Comico Yeumbeul,Comico Yeumbeul,Comico Yëmbël,review
-place:corniche-b3c031f7,place,Corniche,Corniche,Corniche,review
-place:corniche-fadia-8811af68,place,Corniche Fadia,Corniche Fadia,Corniche Fadia,review
-place:corniche-guediawaye-0cd4ef00,place,Corniche Guédiawaye,Corniche Guédiawaye,Corniche Guédiawaye,review
+place:comico-yeumbeul-57403a74,place,Comico Yeumbeul,Comico Yeumbeul,Comico Yëmbël,auto
+place:corniche-b3c031f7,place,Corniche,Corniche,Corniche,auto
+place:corniche-fadia-8811af68,place,Corniche Fadia,Corniche Fadia,Corniche Fadia,auto
+place:corniche-guediawaye-0cd4ef00,place,Corniche Guédiawaye,Corniche Guédiawaye,Corniche Guédiawaye,auto
 place:croisement-22-4e1cbab7,place,Croisement 22,Croisement 22,Croisement 22,auto
 place:croisement-bethio-3f4c7a5f,place,Croisement Bethio,Croisement Bethio,Croisement Bethio,auto
-place:croisement-camberene-f4b826be,place,Croisement Cambérène,Croisement Cambérène,Croisement Cambérene,review
-place:croisement-cheikh-bethio-7cdb7d62,place,Croisement Cheikh Bethio,Croisement Cheikh Bethio,Croisement Cheix Bethio,review
+place:croisement-camberene-f4b826be,place,Croisement Cambérène,Croisement Cambérène,Croisement Cambérene,validated
+place:croisement-cheikh-bethio-7cdb7d62,place,Croisement Cheikh Bethio,Croisement Cheikh Bethio,Croisement Cheix Bethio,auto
 place:croisement-dial-mbaye-5fcd8a50,place,Croisement Dial Mbaye,Croisement Dial Mbaye,Croisement Dial Mbaye,auto
 place:croisement-dior-9f596a87,place,Croisement Dior,Croisement Dior,Croisement Dior,auto
 place:croisement-gadaye-a08c8601,place,Croisement Gadaye,Croisement Gadaye,Croisement Gadaye,auto
 place:croisement-grand-mbao-328da29e,place,Croisement Grand Mbao,Croisement Grand Mbao,Croisement Grand Mbao,auto
-place:croisement-keur-massar-34dbda2a,place,Croisement Keur Massar,Croisement Keur Massar,Croisement Kër Massar,review
-place:croisement-keurmassar-19cc8ad1,place,Croisement Keurmassar,Croisement Keurmassar,Croisement Kërmassar,review
-place:croisement-mame-abdou-4b4acf1c,place,Croisement Mame Abdou,Croisement Mame Abdou,Croisement Mame Abdu,review
+place:croisement-keur-massar-34dbda2a,place,Croisement Keur Massar,Croisement Keur Massar,Croisement Kër Massar,validated
+place:croisement-keurmassar-19cc8ad1,place,Croisement Keurmassar,Croisement Keurmassar,Croisement Kërmassar,auto
+place:croisement-mame-abdou-4b4acf1c,place,Croisement Mame Abdou,Croisement Mame Abdou,Croisement Mame Abdu,auto
 place:croisement-niague-cite-sicap-ab400cbe,place,Croisement Niague (Cité Sicap),Croisement Niague (Cité Sicap),Croisement Niague (Cité Sicap),auto
 place:croisement-niagues-1fb5d6d5,place,Croisement Niagues,Croisement Niagues,Croisement Niagues,auto
-place:croisement-pai-eade6cf4,place,Croisement PAI,Croisement PAI,Croisement PAI,auto
+place:croisement-pai-eade6cf4,place,Croisement PAI,Croisement Paay,Croisement PAI,validated
 place:croisement-tally-diallo-398809db,place,Croisement Tally Diallo,Croisement Tally Diallo,Croisement Tally Diallo,auto
-place:croisement-tivaouane-peulh-153457df,place,Croisement Tivaouane Peulh,Croisement Tivaouane Peulh,Croisement Tivauane Pëlh,review
-place:croisement-yeumbeul-7070804b,place,Croisement Yeumbeul,Croisement Yeumbeul,Croisement Yëmbël,review
+place:croisement-tivaouane-peulh-153457df,place,Croisement Tivaouane Peulh,Croisement Tivaouane Peulh,Croisement Tivauane Pëlh,validated
+place:croisement-yeumbeul-7070804b,place,Croisement Yeumbeul,Croisement Yeumbeul,Croisement Yëmbël,auto
 place:croisement-zac-mbao-f8f88fe6,place,Croisement ZAC Mbao,Croisement ZAC Mbao,Croisement ZAC Mbao,auto
 place:cto-619e44c8,place,CTO,CTO,CTO,auto
 place:dakar-plateau-12120b61,place,Dakar Plateau,Dakar Plateau,Dakar Plateau,auto
-place:dangou-db96e523,place,Dangou,Dangou,Dangu,review
-place:darou-missel-b4e89159,place,Darou Missel,Darou Missel,Daru Missel,review
-place:darou-thioub-2ce5b5b5,place,Darou Thioub,Darou Thioub,Daru Thiub,review
-place:daroukhane-582935d7,place,Daroukhane,Daroukhane,Daruxane,review
-place:daroukhane-keur-serigne-assane-24ab285e,place,Daroukhane Keur Serigne Assane,Daroukhane Keur Serigne Assane,Daruxane Kër Seriñe Assane,review
+place:dangou-db96e523,place,Dangou,Dangou,Dangu,auto
+place:darou-missel-b4e89159,place,Darou Missel,Darou Missel,Daru Missel,auto
+place:darou-thioub-2ce5b5b5,place,Darou Thioub,Darou Thioub,Daru Thiub,auto
+place:daroukhane-582935d7,place,Daroukhane,Daroukhane,Daruxane,auto
+place:daroukhane-keur-serigne-assane-24ab285e,place,Daroukhane Keur Serigne Assane,Daroukhane Keur Serigne Assane,Daruxane Kër Seriñe Assane,auto
 place:derkle-c2abe891,place,Derklé,Derklé,Derklé,auto
-place:deux-voies-notaire-d04db4fa,place,Deux Voies Notaire,Deux Voies Notaire,Dëx Voies Notaire,review
+place:deux-voies-notaire-d04db4fa,place,Deux Voies Notaire,Deux Voies Notaire,Dëx Voies Notaire,auto
 place:dial-mbaay-a88475f1,place,Dial Mbaay,Dial Mbaay,Dial Mbaay,auto
 place:dial-mbaye-2daf3b91,place,Dial Mbaye,Dial Mbaye,Dial Mbaye,auto
-place:diamaguene-1db3fe3e,place,Diamaguène,Diamaguène,Diamaguene,review
-place:diamalaye-7c5378c4,place,Diamalaye,Diamalaye,Diamalaye,auto
+place:diamaguene-1db3fe3e,place,Diamaguène,Diamaguène,Diamaguene,validated
+place:diamalaye-7c5378c4,place,Diamalaye,Diamalaye,Diamalaye,validated
 place:diamniadio-7b91c190,place,Diamniadio,Diamniadio,Diamniadio,auto
-place:dieuppeul-ca18562f,place,Dieuppeul,Dieuppeul,Diëppël,review
-place:dieuppeul-sapeurs-pompiers-a870abf7,place,Dieuppeul (Sapeurs Pompiers),Dieuppeul (Sapeurs Pompiers),Diëppël (Sapërs Pompiers),review
+place:dieuppeul-ca18562f,place,Dieuppeul,Dieuppeul,Diëppël,auto
+place:dieuppeul-sapeurs-pompiers-a870abf7,place,Dieuppeul (Sapeurs Pompiers),Dieuppeul (Sapeurs Pompiers),Diëppël (Sapërs Pompiers),auto
 place:dior-975bbf42,place,Dior,Dior,Dior,auto
-place:dioutyba-9de37372,place,Dioutyba,Dioutyba,Diutyba,review
-place:dioutyba-rufisque-e2081cf6,place,Dioutyba (Rufisque),Dioutyba (Rufisque),Diutyba (Rufisque),review
-place:dispensaire-nabil-choucair-c0f3989b,place,Dispensaire Nabil Choucair,Dispensaire Nabil Choucair,Dispensaire Nabil Chucair,review
-place:djiddah-thiaroye-kao-527f65e6,place,Djiddah Thiaroye Kao,Djiddah Thiaroye Kao,Jiddah Thiaroye Kao,review
-place:dougar-a56c6da8,place,Dougar,Dougar,Dugar,review
-place:echangeur-cyrnos-246ff442,place,Echangeur Cyrnos,Echangeur Cyrnos,Echangër Cyrnos,review
-place:echangeur-de-hann-fa08ea56,place,Echangeur de Hann,Echangeur de Hann,Echangër de Hann,review
-place:echangeur-de-la-foire-cd41f411,place,Echangeur de la Foire,Echangeur de la Foire,Echangër de la Foire,review
-place:echangeur-hann-1d9998fe,place,Echangeur Hann,Echangeur Hann,Echangër Hann,review
-place:echangeur-patte-d-oie-a0462ab6,place,Echangeur Patte d'Oie,Echangeur Patte d'Oie,Echangër Patte d'Oie,review
-place:echangeur-rufisque-ouest-8c164c5c,place,Echangeur Rufisque-Ouest,Echangeur Rufisque-Ouest,Echangër Rufisque-Uest,review
+place:dioutyba-9de37372,place,Dioutyba,Dioutyba,Diutyba,auto
+place:dioutyba-rufisque-e2081cf6,place,Dioutyba (Rufisque),Dioutyba (Rufisque),Diutyba (Rufisque),auto
+place:dispensaire-nabil-choucair-c0f3989b,place,Dispensaire Nabil Choucair,Dispensaire Nabil Choucair,Dispensaire Nabil Chucair,auto
+place:djiddah-thiaroye-kao-527f65e6,place,Djiddah Thiaroye Kao,Djiddah Thiaroye Kao,Jiddah Thiaroye Kao,auto
+place:dougar-a56c6da8,place,Dougar,Dougar,Dugar,auto
+place:echangeur-cyrnos-246ff442,place,Echangeur Cyrnos,Echangeur Cyrnos,Echangër Cyrnos,auto
+place:echangeur-de-hann-fa08ea56,place,Echangeur de Hann,Echangeur de Hann,Echangër de Hann,auto
+place:echangeur-de-la-foire-cd41f411,place,Echangeur de la Foire,Echangeur de la Foire,Echangër de la Foire,auto
+place:echangeur-hann-1d9998fe,place,Echangeur Hann,Echangeur Hann,Echangër Hann,auto
+place:echangeur-patte-d-oie-a0462ab6,place,Echangeur Patte d'Oie,Echangeur Patte d'Oie,Echangër Patte d'Oie,validated
+place:echangeur-rufisque-ouest-8c164c5c,place,Echangeur Rufisque-Ouest,Echangeur Rufisque-Ouest,Echangër Rufisque-Uest,auto
 place:ecobank-8c7d0916,place,Ecobank,Ecobank,Ecobank,auto
-place:entree-ouakam-761842fe,place,Entrée Ouakam,Entrée Ouakam,Entrée Uakam,review
+place:entree-ouakam-761842fe,place,Entrée Ouakam,Entrée Wakaam,Entrée Uakam,validated
 place:espace-hlm-gd-medine-e00138b5,place,Espace HLM Gd Médine,Espace HLM Gd Médine,Espace HLM Gd Médine,auto
-place:espace-hlm-gd-medine-face-autoroute-10dac058,place,Espace HLM Gd Médine (Face Autoroute),Espace HLM Gd Médine (Face Autoroute),Espace HLM Gd Médine (Face Autorute),review
+place:espace-hlm-gd-medine-face-autoroute-10dac058,place,Espace HLM Gd Médine (Face Autoroute),Espace HLM Gd Médine (Face Autoroute),Espace HLM Gd Médine (Face Autorute),auto
 place:fadia-b0275c9a,place,Fadia,Fadia,Fadia,auto
 place:fann-83df4ed5,place,Fann,Fann,Fann,auto
-place:fass-1ae61b27,place,Fass,Fass,Fass,auto
-place:fass-mbao-12563da4,place,Fass Mbao,Fass Mbao,Fass Mbao,auto
-place:fass-mbao-rail-ba-c94b15a4,place,Fass Mbao (Rail-Ba),Fass Mbao (Rail-Ba),Fass Mbao (Rail-Ba),auto
-place:fass-rufisque-a45e4395,place,Fass Rufisque,Fass Rufisque,Fass Rufisque,auto
+place:fass-1ae61b27,place,Fass,Faass,Fass,validated
+place:fass-mbao-12563da4,place,Fass Mbao,Faass Mbao,Fass Mbao,validated
+place:fass-mbao-rail-ba-c94b15a4,place,Fass Mbao (Rail-Ba),Faass Mbao (Rail-Ba),Fass Mbao (Rail-Ba),validated
+place:fass-rufisque-a45e4395,place,Fass Rufisque,Faass Rufisque,Fass Rufisque,validated
 place:fassmbao-2476bf44,place,Fassmbao,Fassmbao,Fassmbao,auto
 place:foire-c0da57db,place,Foire,Foire,Foire,auto
 place:front-de-terre-547b91d0,place,Front de Terre,Front de Terre,Front de Terre,auto
@@ -342,13 +342,13 @@ place:gare-de-colobane-0ff119bc,place,Gare de Colobane,Gare de Colobane,Gare de 
 place:gare-de-dakar-7a01bcb6,place,Gare de Dakar,Gare de Dakar,Gare de Dakar,auto
 place:gare-de-diamniadio-9e2dbb26,place,Gare de Diamniadio,Gare de Diamniadio,Gare de Diamniadio,auto
 place:gare-de-petersen-bffb2794,place,Gare de Petersen,Gare de Petersen,Gare de Petersen,auto
-place:gare-des-baux-maraichers-d9a2b303,place,Gare des Baux Maraîchers,Gare des Baux Maraîchers,Gare des Baux Maraîchers,review
+place:gare-des-baux-maraichers-d9a2b303,place,Gare des Baux Maraîchers,Gare des Baux Maraîchers,Gare des Baux Maraîchers,auto
 place:gare-des-parcelles-assainies-eda54a3d,place,Gare des Parcelles Assainies,Gare des Parcelles Assainies,Gare des Parcelles Assainies,auto
 place:gare-ferroviaire-5a6ec3b9,place,Gare Ferroviaire,Gare Ferroviaire,Gare Ferroviaire,auto
 place:gare-lat-dior-4e17be67,place,Gare Lat Dior,Gare Lat Dior,Gare Lat Dior,auto
 place:gare-lat-dior-baec16db,place,Gare Lat-Dior,Gare Lat-Dior,Gare Lat-Dior,auto
-place:gare-petersen-e0fefe65,place,Gare Petersen,Gare Petersen,Gare Petersen,auto
-place:gare-routiere-de-colobane-00519a3d,place,Gare routière de Colobane,Gare routière de Colobane,Gare rutiere de Colobane,review
+place:gare-petersen-e0fefe65,place,Gare Petersen,Gare Petersen,Gare Petersen,validated
+place:gare-routiere-de-colobane-00519a3d,place,Gare routière de Colobane,Gare routière de Colobane,Gare rutiere de Colobane,auto
 place:giratoire-de-liberte-vi-4324e7fb,place,Giratoire de Liberté VI,Giratoire de Liberté VI,Giratoire de Liberté VI,auto
 place:giratoire-liberte-6-eae8b703,place,Giratoire Liberté 6,Giratoire Liberté 6,Giratoire Liberté 6,auto
 place:giratoire-liberte-vi-3a601e3f,place,Giratoire Liberté VI,Giratoire Liberté VI,Giratoire Liberté VI,auto
@@ -361,29 +361,29 @@ place:grand-dakar-11e3a47c,place,Grand Dakar,Grand Dakar,Grand Dakar,auto
 place:grand-mbao-c14d423d,place,Grand Mbao,Grand Mbao,Grand Mbao,auto
 place:grand-yoff-4c6d1e09,place,Grand Yoff,Grand Yoff,Grand Yoff,auto
 place:grand-yoff-6f3d36ac,place,Grand-Yoff,Grand-Yoff,Grand-Yoff,auto
-place:groupement-national-des-sapeurs-pompiers-fbee5816,place,Groupement National des Sapeurs-Pompiers,Groupement National des Sapeurs-Pompiers,Grupement National des Sapërs-Pompiers,review
-place:gueule-tapee-0c8adb7f,place,Gueule Tapée,Gueule Tapée,Guële Tapée,review
-place:gueule-tapee-claudel-01110fe5,place,Gueule Tapée Claudel,Gueule Tapée Claudel,Guële Tapée Claudel,review
-place:guediawaye-09de8285,place,Guédiawaye,Guédiawaye,Guédiawaye,auto
-place:guediawaye-cite-des-enseignants-d0c29c03,place,Guédiawaye Cité des Enseignants,Guédiawaye Cité des Enseignants,Guédiawaye Cité des Enseiñants,review
+place:groupement-national-des-sapeurs-pompiers-fbee5816,place,Groupement National des Sapeurs-Pompiers,Groupement National des Sapeurs-Pompiers,Grupement National des Sapërs-Pompiers,auto
+place:gueule-tapee-0c8adb7f,place,Gueule Tapée,Gueule Tapée,Guële Tapée,auto
+place:gueule-tapee-claudel-01110fe5,place,Gueule Tapée Claudel,Gueule Tapée Claudel,Guële Tapée Claudel,auto
+place:guediawaye-09de8285,place,Guédiawaye,Guédiawaye,Guédiawaye,validated
+place:guediawaye-cite-des-enseignants-d0c29c03,place,Guédiawaye Cité des Enseignants,Guédiawaye Cité des Enseignants,Guédiawaye Cité des Enseiñants,auto
 place:hamo-5-fac300f0,place,Hamo 5,Hamo 5,Hamo 5,auto
 place:hamo-6-05df6aad,place,Hamo 6,Hamo 6,Hamo 6,auto
 place:hamo-iii-b6f67d3a,place,Hamo III,Hamo III,Hamo III,auto
 place:hamo-iv-4fbfbc6c,place,Hamo IV,Hamo IV,Hamo IV,auto
 place:hamo-v-vi-1c06c84e,place,Hamo V/vi,Hamo V/vi,Hamo V/vi,auto
 place:hamo-vi-ee24abfd,place,Hamo VI,Hamo VI,Hamo VI,auto
-place:hlm-18eea48f,place,HLM,HLM,HLM,auto
+place:hlm-18eea48f,place,HLM,HLM,HLM,validated
 place:hlm-grand-yoff-10f2a6dd,place,HLM Grand Yoff,HLM Grand Yoff,HLM Grand Yoff,auto
 place:hlm-guediawaye-87985cec,place,HLM Guédiawaye,HLM Guédiawaye,HLM Guédiawaye,auto
 place:hlm-rufisque-7d6db33c,place,HLM Rufisque,HLM Rufisque,HLM Rufisque,auto
 place:hoggy-dfe5473e,place,Hoggy,Hoggy,Hoggy,auto
 place:hydrocarbures-46b8348c,place,Hydrocarbures,Hydrocarbures,Hydrocarbures,auto
 place:hopital-abass-ndao-23cb5324,place,Hôpital Abass Ndao,Hôpital Abass Ndao,Hôpital Abass Ndao,auto
-place:hopital-keur-massar-ad3fb623,place,Hôpital Keur Massar,Hôpital Keur Massar,Hôpital Kër Massar,review
+place:hopital-keur-massar-ad3fb623,place,Hôpital Keur Massar,Hôpital Keur Massar,Hôpital Kër Massar,auto
 place:hopital-principal-0f57b03a,place,Hôpital Principal,Hôpital Principal,Hôpital Principal,auto
-place:hopital-roi-baudouin-577e84b2,place,Hôpital Roi Baudouin,Hôpital Roi Baudouin,Hôpital Roi Bauduin,review
-place:hopital-youssou-mbargane-0d7d2f26,place,Hôpital Youssou Mbargane,Hôpital Youssou Mbargane,Hôpital Yussu Mbargane,review
-place:hopital-youssou-mbargane-diop-58b254b7,place,Hôpital Youssou Mbargane Diop,Hôpital Youssou Mbargane Diop,Hôpital Yussu Mbargane Diop,review
+place:hopital-roi-baudouin-577e84b2,place,Hôpital Roi Baudouin,Hôpital Roi Baudouin,Hôpital Roi Bauduin,auto
+place:hopital-youssou-mbargane-0d7d2f26,place,Hôpital Youssou Mbargane,Hôpital Youssou Mbargane,Hôpital Yussu Mbargane,auto
+place:hopital-youssou-mbargane-diop-58b254b7,place,Hôpital Youssou Mbargane Diop,Hôpital Youssou Mbargane Diop,Hôpital Yussu Mbargane Diop,auto
 place:hotel-de-ville-1af77b3a,place,Hôtel de Ville,Hôtel de Ville,Hôtel de Ville,auto
 place:imprimerie-nationale-92b7d5d3,place,Imprimerie Nationale,Imprimerie Nationale,Imprimerie Nationale,auto
 place:jaxaay-c631eecc,place,Jaxaay,Jaxaay,Jaxaay,auto
@@ -391,142 +391,142 @@ place:jaxaay-1-88ef6043,place,Jaxaay 1,Jaxaay 1,Jaxaay 1,auto
 place:jaxaay-2-d171ba5b,place,Jaxaay 2,Jaxaay 2,Jaxaay 2,auto
 place:jet-d-eau-ad383aa3,place,Jet d'Eau,Jet d'Eau,Jet d'Eau,auto
 place:jvc-8e6a32c1,place,JVC,JVC,JVC,auto
-place:keur-daouda-sarr-f864de94,place,Keur Daouda Sarr,Keur Daouda Sarr,Kër Dauda Sarr,review
-place:keur-massar-415be61a,place,Keur Massar,Keur Massar,Kër Massar,review
-place:keur-massar-cite-mtoa-85b9b7df,place,Keur Massar (Cité MTOA),Keur Massar (Cité MTOA),Kër Massar (Cité MTOA),review
-place:keur-massar-marche-dff123ac,place,Keur Massar (Marché),Keur Massar (Marché),Kër Massar (Marché),review
-place:keur-massar-extension-92cd8690,place,Keur Massar Extension,Keur Massar Extension,Kër Massar Extension,review
-place:keur-mbaye-fall-0ac48844,place,Keur Mbaye Fall,Keur Mbaye Fall,Kër Mbaye Fall,review
-place:keur-ndiaye-lo-be614e45,place,Keur Ndiaye Lo,Keur Ndiaye Lo,Kër Ndiaye Lo,review
-place:keur-ngoor-rond-point-ecole-mariste-6a70e08b,place,Keur Ngoor (Rond-Point École Mariste),Keur Ngoor (Rond-Point École Mariste),Kër Ngoor (Rond-Point École Mariste),review
-place:keurmassar-801c045d,place,Keurmassar,Keurmassar,Kërmassar,review
-place:keurmbaye-fall-f82e29c5,place,Keurmbaye Fall,Keurmbaye Fall,Kërmbaye Fall,review
-place:khaar-8f175fc6,place,Khaar,Khaar,Xaar,review
-place:khar-yalla-61442cdd,place,Khar Yalla,Khar Yalla,Xar Yalla,review
-place:kharyalla-2e1c0c14,place,Kharyalla,Kharyalla,Xaryalla,review
-place:khourounar-e9123271,place,Khourounar,Khourounar,Xurunar,review
-place:kounoune-533f9a0b,place,Kounoune,Kounoune,Kunune,review
-place:kounoune-cite-cardinal-thiandoum-2c7b5eb4,place,Kounoune (Cité Cardinal Thiandoum),Kounoune (Cité Cardinal Thiandoum),Kunune (Cité Cardinal Thiandum),review
-place:kounoune-cite-assurance-b6f8ba8f,place,Kounoune Cité Assurance,Kounoune Cité Assurance,Kunune Cité Assurance,review
-place:kounoune-ngalam-9f9c4e52,place,Kounoune Ngalam,Kounoune Ngalam,Kunune Ngalam,review
+place:keur-daouda-sarr-f864de94,place,Keur Daouda Sarr,Keur Daouda Sarr,Kër Dauda Sarr,auto
+place:keur-massar-415be61a,place,Keur Massar,Keur Massar,Kër Massar,validated
+place:keur-massar-cite-mtoa-85b9b7df,place,Keur Massar (Cité MTOA),Keur Massar (Cité Emtowaa),Kër Massar (Cité MTOA),validated
+place:keur-massar-marche-dff123ac,place,Keur Massar (Marché),Keur Massar (Marché),Kër Massar (Marché),auto
+place:keur-massar-extension-92cd8690,place,Keur Massar Extension,Keur Massar Extension,Kër Massar Extension,auto
+place:keur-mbaye-fall-0ac48844,place,Keur Mbaye Fall,Keur Mbaye Fall,Kër Mbaye Fall,validated
+place:keur-ndiaye-lo-be614e45,place,Keur Ndiaye Lo,Keur Ndiaye Lo,Kër Ndiaye Lo,auto
+place:keur-ngoor-rond-point-ecole-mariste-6a70e08b,place,Keur Ngoor (Rond-Point École Mariste),Keur Ngoor (Rond-Point École Mariste),Kër Ngoor (Rond-Point École Mariste),auto
+place:keurmassar-801c045d,place,Keurmassar,Keurmassar,Kërmassar,auto
+place:keurmbaye-fall-f82e29c5,place,Keurmbaye Fall,Keurmbaye Fall,Kërmbaye Fall,auto
+place:khaar-8f175fc6,place,Khaar,Khaar,Xaar,auto
+place:khar-yalla-61442cdd,place,Khar Yalla,Khar Yalla,Xar Yalla,auto
+place:kharyalla-2e1c0c14,place,Kharyalla,Kharyalla,Xaryalla,auto
+place:khourounar-e9123271,place,Khourounar,Khourounar,Xurunar,auto
+place:kounoune-533f9a0b,place,Kounoune,Kounoune,Kunune,auto
+place:kounoune-cite-cardinal-thiandoum-2c7b5eb4,place,Kounoune (Cité Cardinal Thiandoum),Kounoune (Cité Cardinal Thiandoum),Kunune (Cité Cardinal Thiandum),auto
+place:kounoune-cite-assurance-b6f8ba8f,place,Kounoune Cité Assurance,Kounoune Cité Assurance,Kunune Cité Assurance,auto
+place:kounoune-ngalam-9f9c4e52,place,Kounoune Ngalam,Kounoune Ngalam,Kunune Ngalam,auto
 place:lac-rose-5b9f8fc5,place,Lac Rose,Lac Rose,Lac Rose,auto
-place:lat-dior-e51cc8ea,place,Lat Dior,Lat Dior,Lat Dior,auto
+place:lat-dior-e51cc8ea,place,Lat Dior,Lat Dior,Lat Dior,validated
 place:les-mamelles-monument-renaissance-fbb7b310,place,Les Mamelles (Monument Renaissance),Les Mamelles (Monument Renaissance),Les Mamelles (Monument Renaissance),auto
 place:liberte-b38ad7dc,place,Liberté,Liberté,Liberté,auto
-place:liberte-5-fec89231,place,Liberté 5,Liberté 5,Liberté 5,auto
+place:liberte-5-fec89231,place,Liberté 5,Liberté 5,Liberté 5,validated
 place:liberte-6-4c9765c1,place,Liberté 6,Liberté 6,Liberté 6,auto
 place:lobatt-fall-3d9505cc,place,Lobatt Fall,Lobatt Fall,Lobatt Fall,auto
 place:lycee-canada-00ed9fd5,place,Lycée Canada,Lycée Canada,Lycée Canada,auto
 place:lycee-jaxaay-24b614eb,place,Lycée Jaxaay,Lycée Jaxaay,Lycée Jaxaay,auto
 place:lycee-kennedy-0e2d056d,place,Lycée Kennedy,Lycée Kennedy,Lycée Kennedy,auto
-place:lycee-limamou-laye-00c15287,place,Lycée Limamou Laye,Lycée Limamou Laye,Lycée Limamu Laye,review
-place:lycee-limamoulaye-9f1f1f02,place,Lycée Limamoulaye,Lycée Limamoulaye,Lycée Limamulaye,review
+place:lycee-limamou-laye-00c15287,place,Lycée Limamou Laye,Lycée Limamou Laye,Lycée Limamu Laye,auto
+place:lycee-limamoulaye-9f1f1f02,place,Lycée Limamoulaye,Lycée Limamoulaye,Lycée Limamulaye,auto
 place:maison-du-parti-176edbad,place,Maison du Parti,Maison du Parti,Maison du Parti,auto
 place:malibu-009b7d78,place,Malibu,Malibu,Malibu,auto
-place:malika-cafcce52,place,Malika,Malika,Malika,auto
+place:malika-cafcce52,place,Malika,Malika,Malika,validated
 place:malika-cite-sonatel-29acba4a,place,Malika (Cité Sonatel),Malika (Cité Sonatel),Malika (Cité Sonatel),auto
-place:malika-cimetiere-85508991,place,Malika Cimetière,Malika Cimetière,Malika Cimetiere,review
-place:malika-montagne-9942cef1,place,Malika Montagne,Malika Montagne,Malika Montañe,review
+place:malika-cimetiere-85508991,place,Malika Cimetière,Malika Cimetière,Malika Cimetiere,auto
+place:malika-montagne-9942cef1,place,Malika Montagne,Malika Montagne,Malika Montañe,auto
 place:malika-plage-ebebd77a,place,Malika Plage,Malika Plage,Malika Plage,auto
 place:malika-terminus-df460ca7,place,Malika Terminus,Malika Terminus,Malika Terminus,auto
-place:mame-abdou-9ed88325,place,Mame Abdou,Mame Abdou,Mame Abdu,review
+place:mame-abdou-9ed88325,place,Mame Abdou,Mame Abdou,Mame Abdu,auto
 place:mamelles-c00aad94,place,Mamelles,Mamelles,Mamelles,auto
-place:marche-aux-poissons-cdc93d75,place,Marché aux Poissons,Marché aux Poissons,Marché aux Poissons,review
-place:marche-boubess-0c338713,place,Marché Boubess,Marché Boubess,Marché Bubess,review
-place:marche-camberene-3eaf88a2,place,Marché Cambérène,Marché Cambérène,Marché Cambérene,review
-place:marche-chavanel-2b79e71c,place,Marché Chavanel,Marché Chavanel,Marché Chavanel,review
-place:marche-colobane-rufisque-8529d251,place,Marché Colobane Rufisque,Marché Colobane Rufisque,Marché Colobane Rufisque,review
-place:marche-grand-yoff-9f2f0516,place,Marché Grand Yoff,Marché Grand Yoff,Marché Grand Yoff,review
-place:marche-jeudi-126a42c2,place,Marché Jeudi,Marché Jeudi,Marché Jëdi,review
-place:marche-khelcom-a38131d2,place,Marché Khelcom,Marché Khelcom,Marché Xelcom,review
-place:marche-mardi-6b596d62,place,Marché Mardi,Marché Mardi,Marché Mardi,review
-place:marche-ndiareme-30e6dd66,place,Marché Ndiarème,Marché Ndiarème,Marché Ndiareme,review
-place:marche-tilene-a54ef31d,place,Marché Tilène,Marché Tilène,Marché Tilene,review
+place:marche-aux-poissons-cdc93d75,place,Marché aux Poissons,Marché aux Poissons,Marché aux Poissons,auto
+place:marche-boubess-0c338713,place,Marché Boubess,Marché Boubess,Marché Bubess,validated
+place:marche-camberene-3eaf88a2,place,Marché Cambérène,Marché Cambérène,Marché Cambérene,auto
+place:marche-chavanel-2b79e71c,place,Marché Chavanel,Marché Chavanel,Marché Chavanel,auto
+place:marche-colobane-rufisque-8529d251,place,Marché Colobane Rufisque,Marché Colobane Rufisque,Marché Colobane Rufisque,auto
+place:marche-grand-yoff-9f2f0516,place,Marché Grand Yoff,Marché Grand Yoff,Marché Grand Yoff,auto
+place:marche-jeudi-126a42c2,place,Marché Jeudi,Marché Jeudi,Marché Jëdi,auto
+place:marche-khelcom-a38131d2,place,Marché Khelcom,Marché Khelcom,Marché Xelcom,auto
+place:marche-mardi-6b596d62,place,Marché Mardi,Marché Mardi,Marché Mardi,auto
+place:marche-ndiareme-30e6dd66,place,Marché Ndiarème,Marché Ndiarème,Marché Ndiareme,auto
+place:marche-tilene-a54ef31d,place,Marché Tilène,Marché Tilène,Marché Tilene,auto
 place:marine-francaise-75271775,place,Marine Française,Marine Française,Marine Française,auto
 place:maristes-2b524a10,place,Maristes,Maristes,Maristes,auto
 place:maristes-par-station-titan-7dcf1120,place,Maristes (Par Station Titan),Maristes (Par Station Titan),Maristes (Par Station Titan),auto
-place:mbedou-fass-d075b348,place,Mbédou Fass,Mbédou Fass,Mbédu Fass,review
+place:mbedou-fass-d075b348,place,Mbédou Fass,Mbeddou Faass,Mbédu Fass,validated
 place:mermoz-512ab117,place,Mermoz,Mermoz,Mermoz,auto
-place:mermoz-rond-point-cheikh-bethio-60c09cfa,place,Mermoz Rond-Point Cheikh Bethio,Mermoz Rond-Point Cheikh Bethio,Mermoz Rond-Point Cheix Bethio,review
+place:mermoz-rond-point-cheikh-bethio-60c09cfa,place,Mermoz Rond-Point Cheikh Bethio,Mermoz Rond-Point Cheikh Bethio,Mermoz Rond-Point Cheix Bethio,auto
 place:monument-renaissance-879ca9d4,place,Monument Renaissance,Monument Renaissance,Monument Renaissance,auto
-place:monument-serigne-saliou-3169f74b,place,Monument Serigne Saliou,Monument Serigne Saliou,Monument Seriñe Saliu,review
-place:mosquee-massalikoul-djinane-21f6fb23,place,Mosquée Massalikoul Djinane,Mosquée Massalikoul Djinane,Mosquée Massalikul Jinane,review
-place:mtoa-c5700cc1,place,MTOA,MTOA,MTOA,auto
+place:monument-serigne-saliou-3169f74b,place,Monument Serigne Saliou,Monument Serigne Saliou,Monument Seriñe Saliu,auto
+place:mosquee-massalikoul-djinane-21f6fb23,place,Mosquée Massalikoul Djinane,Mosquée Massalikoul Djinane,Mosquée Massalikul Jinane,auto
+place:mtoa-c5700cc1,place,MTOA,Emtowaa,MTOA,validated
 place:medina-6538c1c5,place,Médina,Médina,Médina,auto
 place:mole-10-37225b38,place,Môle 10,Môle 10,Môle 10,auto
 place:mole-10-et-8-612cdd52,place,Môle 10 et 8,Môle 10 et 8,Môle 10 et 8,auto
 place:mole-8-b616ebaa,place,Môle 8,Môle 8,Môle 8,auto
 place:namora-d3850b41,place,Namora,Namora,Namora,auto
-place:ndiakhirate-79aa97fd,place,Ndiakhirate,Ndiakhirate,Ndiaxirate,review
+place:ndiakhirate-79aa97fd,place,Ndiakhirate,Ndiakhirate,Ndiaxirate,auto
 place:ngor-380af90d,place,Ngor,Ngor,Ngor,auto
-place:niacourab-b65a7142,place,Niacourab,Niacourab,Niacurab,review
+place:niacourab-b65a7142,place,Niacourab,Niacourab,Niacurab,auto
 place:niague-baf7e6de,place,Niague,Niague,Niague,auto
-place:niakourab-450252b8,place,Niakourab,Niakourab,Niakurab,review
+place:niakourab-450252b8,place,Niakourab,Niakourab,Niakurab,auto
 place:niary-tally-4fef8515,place,Niary Tally,Niary Tally,Niary Tally,auto
 place:niarytally-23509ae4,place,Niarytally,Niarytally,Niarytally,auto
 place:nord-foire-7b56c9bc,place,Nord Foire,Nord Foire,Nord Foire,auto
 place:notaire-53e6e05b,place,Notaire,Notaire,Notaire,auto
 place:notaire-guediawaye-3e467e54,place,Notaire (Guédiawaye),Notaire (Guédiawaye),Notaire (Guédiawaye),auto
 place:notaire-guediawaye-3763c359,place,Notaire Guédiawaye,Notaire Guédiawaye,Notaire Guédiawaye,auto
-place:ouakam-9a867868,place,Ouakam,Ouakam,Uakam,review
-place:ouakam-baye-91f8bcad,place,Ouakam Baye,Ouakam Baye,Uakam Baye,review
+place:ouakam-9a867868,place,Ouakam,Wakaam,Uakam,validated
+place:ouakam-baye-91f8bcad,place,Ouakam Baye,Wakaam Baye,Uakam Baye,validated
 place:p11-d4488b13,place,P11,P11,P11,auto
-place:p11-keur-massar-354dbd8c,place,P11 Keur Massar,P11 Keur Massar,P11 Kër Massar,review
+place:p11-keur-massar-354dbd8c,place,P11 Keur Massar,P11 Keur Massar,P11 Kër Massar,auto
 place:pai-b22a0ac4,place,PAI,Paay,Paay,validated
 place:palais-2c7368df,place,Palais,Palais,Palais,auto
-place:palais-1-18de3062,place,Palais 1,Palais 1,Palais 1,auto
-place:palais-2-b6dcc99a,place,Palais 2,Palais 2,Palais 2,auto
+place:palais-1-18de3062,place,Palais 1,Palais 1,Palais 1,validated
+place:palais-2-b6dcc99a,place,Palais 2,Palais 2,Palais 2,validated
 place:parc-lambaye-e3b15f96,place,Parc Lambaye,Parc Lambaye,Parc Lambaye,auto
 place:parcelles-60ed673f,place,Parcelles,Parcelles,Parcelles,auto
 place:parcelles-assainies-a3116d77,place,Parcelles Assainies,Parcelles Assainies,Parcelles Assainies,auto
 place:parcelles-dior-246e0eed,place,Parcelles Dior,Parcelles Dior,Parcelles Dior,auto
 place:parcelles-eglise-52603209,place,Parcelles Église,Parcelles Église,Parcelles Église,auto
 place:passage-a-niveau-59e1f380,place,Passage A Niveau,Passage A Niveau,Passage A Niveau,auto
-place:patte-d-oie-81b30fe2,place,Patte d'Oie,Patte d'Oie,Patte d'Oie,auto
+place:patte-d-oie-81b30fe2,place,Patte d'Oie,Patte d'Oie,Patte d'Oie,validated
 place:pattesd-oie-4687c725,place,Pattesd'oie,Pattesd'oie,Pattesd'oie,auto
 place:penc-mi-c4983f99,place,Penc Mi,Penc Mi,Penc Mi,auto
-place:penc-mi-gueule-tapee-e53fd6c4,place,Penc Mi (Gueule Tapée),Penc Mi (Gueule Tapée),Penc Mi (Guële Tapée),review
-place:petersen-a568f199,place,Petersen,Petersen,Petersen,auto
+place:penc-mi-gueule-tapee-e53fd6c4,place,Penc Mi (Gueule Tapée),Penc Mi (Gueule Tapée),Penc Mi (Guële Tapée),auto
+place:petersen-a568f199,place,Petersen,Petersen,Petersen,validated
 place:petit-mbao-4d2b2d78,place,Petit Mbao,Petit Mbao,Petit Mbao,auto
-place:pharmacie-golf-e009f664,place,Pharmacie Golf,Pharmacie Golf,Pharmacie Golf,auto
-place:pharmicie-abdourahmane-0fb74e0d,place,Pharmicie Abdourahmane,Pharmicie Abdourahmane,Pharmicie Abdurahmane,review
+place:pharmacie-golf-e009f664,place,Pharmacie Golf,Pharmacie Golf,Pharmacie Golf,validated
+place:pharmicie-abdourahmane-0fb74e0d,place,Pharmicie Abdourahmane,Pharmicie Abdourahmane,Pharmicie Abdurahmane,auto
 place:pikine-f00ab657,place,Pikine,Pikine,Pikine,auto
 place:pikine-rue-10-ddcb2af9,place,Pikine Rue 10,Pikine Rue 10,Pikine Rue 10,auto
 place:pikine-texaco-a7d68995,place,Pikine Texaco,Pikine Texaco,Pikine Texaco,auto
 place:piste-d-envol-35a58f7b,place,Piste d'Envol,Piste d'Envol,Piste d'Envol,auto
-place:place-bakou-639118af,place,Place Bakou,Place Bakou,Place Baku,review
+place:place-bakou-639118af,place,Place Bakou,Place Bakou,Place Baku,auto
 place:place-de-l-independance-63ebd505,place,Place de l'Indépendance,Place de l'Indépendance,Place de l'Indépendance,auto
 place:place-de-l-obelisque-72e9a9f1,place,Place de l'Obélisque,Place de l'Obélisque,Place de l'Obélisque,auto
-place:place-leclerc-05798c20,place,Place Leclerc,Place Leclerc,Place Leclerc,auto
+place:place-leclerc-05798c20,place,Place Leclerc,Place Leclerc,Place Leclerc,validated
 place:plateau-57dbed57,place,Plateau,Plateau,Plateau,auto
 place:police-des-parcelles-assainies-ce411780,place,Police des Parcelles Assainies,Police des Parcelles Assainies,Police des Parcelles Assainies,auto
 place:police-guediawaye-0adba55a,place,Police Guédiawaye,Police Guédiawaye,Police Guédiawaye,auto
-place:police-parcelles-41d17fd4,place,Police Parcelles,Police Parcelles,Police Parcelles,auto
-place:police-thiaroye-4174dcf8,place,Police Thiaroye,Police Thiaroye,Police Thiaroye,auto
-place:police-wakhinane-0df5fb99,place,Police Wakhinane,Police Wakhinane,Police Waxinane,review
-place:pont-dangou-4c4249bc,place,Pont Dangou,Pont Dangou,Pont Dangu,review
+place:police-parcelles-41d17fd4,place,Police Parcelles,Police Parcelles,Police Parcelles,validated
+place:police-thiaroye-4174dcf8,place,Police Thiaroye,Police Thiaroye,Police Thiaroye,validated
+place:police-wakhinane-0df5fb99,place,Police Wakhinane,Police Wakhinane,Police Waxinane,auto
+place:pont-dangou-4c4249bc,place,Pont Dangou,Pont Dangou,Pont Dangu,auto
 place:pont-de-colobane-e350fb2c,place,Pont de Colobane,Pont de Colobane,Pont de Colobane,auto
-place:pont-de-l-emergence-f295438d,place,Pont de l'Émergence,Pont de l'Émergence,Pont de l'Émergence,auto
+place:pont-de-l-emergence-f295438d,place,Pont de l'Émergence,Pont de l'Émergence,Pont de l'Émergence,validated
 place:pont-hann-4383da7b,place,Pont Hann,Pont Hann,Pont Hann,auto
-place:pont-stade-lss-bcea95c3,place,Pont Stade LSS,Pont Stade LSS,Pont Stade LSS,auto
+place:pont-stade-lss-bcea95c3,place,Pont Stade LSS,Pont Stade El Ess Ess,Pont Stade LSS,validated
 place:port-mole-10-et-8-b2ac0a54,place,Port (Môle 10 et 8),Port (Môle 10 et 8),Port (Môle 10 et 8),auto
 place:port-de-dakar-26731528,place,Port de Dakar,Port de Dakar,Port de Dakar,auto
-place:poste-courant-cf8d624f,place,Poste Courant,Poste Courant,Poste Curant,review
+place:poste-courant-cf8d624f,place,Poste Courant,Poste Courant,Poste Curant,validated
 place:poste-de-guediawaye-498a0fa9,place,Poste de Guédiawaye,Poste de Guédiawaye,Poste de Guédiawaye,auto
 place:poste-de-police-thiaroye-e60ba902,place,Poste de Police Thiaroye,Poste de Police Thiaroye,Poste de Police Thiaroye,auto
 place:poste-fann-31dbf5b6,place,Poste Fann,Poste Fann,Poste Fann,auto
 place:poste-medina-05ea8bcb,place,Poste Médina,Poste Médina,Poste Médina,auto
 place:poste-medine-1dd635e5,place,Poste Médine,Poste Médine,Poste Médine,auto
-place:poste-thiaroye-eefbd599,place,Poste Thiaroye,Poste Thiaroye,Poste Thiaroye,auto
+place:poste-thiaroye-eefbd599,place,Poste Thiaroye,Poste Thiaroye,Poste Thiaroye,validated
 place:prolongement-rue-10-da4de9c3,place,Prolongement Rue 10,Prolongement Rue 10,Prolongement Rue 10,auto
 place:prefecture-98865b1f,place,Préfecture,Préfecture,Préfecture,auto
 place:prefecture-guediawaye-7ada3922,place,Préfecture Guédiawaye,Préfecture Guédiawaye,Préfecture Guédiawaye,auto
 place:peage-ad841f22,place,Péage,Péage,Péage,auto
-place:quartier-cheikh-wade-4010d8c6,place,Quartier Cheikh Wade,Quartier Cheikh Wade,Quartier Cheix Wade,review
+place:quartier-cheikh-wade-4010d8c6,place,Quartier Cheikh Wade,Quartier Cheikh Wade,Quartier Cheix Wade,auto
 place:rail-ba-7600addd,place,Rail-Ba,Rail-Ba,Rail-Ba,auto
-place:rd-point-seydou-n-tall-b87c6691,place,Rd Point Seydou N Tall,Rd Point Seydou N Tall,Rd Point Seydu N Tall,review
-place:retour-rue-17-9f9aa324,place,Retour Rue 17,Retour Rue 17,Retur Rue 17,review
-place:retour-rue-37-6be4b08b,place,Retour Rue 37,Retour Rue 37,Retur Rue 37,review
+place:rd-point-seydou-n-tall-b87c6691,place,Rd Point Seydou N Tall,Rd Point Seydou N Tall,Rd Point Seydu N Tall,auto
+place:retour-rue-17-9f9aa324,place,Retour Rue 17,Retour Rue 17,Retur Rue 17,auto
+place:retour-rue-37-6be4b08b,place,Retour Rue 37,Retour Rue 37,Retur Rue 37,auto
 place:rocade-fann-bel-air-8dc4e3cc,place,Rocade Fann / Bel Air,Rocade Fann / Bel Air,Rocade Fann / Bel Air,auto
 place:rocade-fann-bel-air-652f688f,place,Rocade Fann Bel Air,Rocade Fann Bel Air,Rocade Fann Bel Air,auto
 place:rocade-fann-bel-air-f4aab4ed,place,Rocade Fann Bel-Air,Rocade Fann Bel-Air,Rocade Fann Bel-Air,auto
@@ -534,95 +534,95 @@ place:rocade-fannbel-air-88b9c85b,place,Rocade Fannbel-Air,Rocade Fannbel-Air,Ro
 place:rond-point-almadies-d445b863,place,Rond-Point Almadies,Rond-Point Almadies,Rond-Point Almadies,auto
 place:rond-point-arafat-8d078141,place,Rond-Point Arafat,Rond-Point Arafat,Rond-Point Arafat,auto
 place:rond-point-caisse-de-securite-sociale-9624bfee,place,Rond-Point Caisse de Sécurité Sociale,Rond-Point Caisse de Sécurité Sociale,Rond-Point Caisse de Sécurité Sociale,auto
-place:rond-point-camberene-case-bi-48a23068,place,Rond-Point Cambérène (Case Bi),Rond-Point Cambérène (Case Bi),Rond-Point Cambérene (Case Bi),review
+place:rond-point-camberene-case-bi-48a23068,place,Rond-Point Cambérène (Case Bi),Rond-Point Cambérène (Case Bi),Rond-Point Cambérene (Case Bi),auto
 place:rond-point-case-bi-19bc22f4,place,Rond-Point Case Bi,Rond-Point Case Bi,Rond-Point Case Bi,auto
 place:rond-point-cite-penitence-08ebc009,place,Rond-Point Cité Pénitence,Rond-Point Cité Pénitence,Rond-Point Cité Pénitence,auto
 place:rond-point-colobane-63f3cc56,place,Rond-Point Colobane,Rond-Point Colobane,Rond-Point Colobane,auto
-place:rond-point-de-camberene-casebi-aafbe728,place,Rond-Point de Cambérène (Casebi),Rond-Point de Cambérène (Casebi),Rond-Point de Cambérene (Casebi),review
+place:rond-point-de-camberene-casebi-aafbe728,place,Rond-Point de Cambérène (Casebi),Rond-Point de Cambérène (Casebi),Rond-Point de Cambérene (Casebi),auto
 place:rond-point-dial-mbaay-0108cb4d,place,Rond-Point Dial Mbaay,Rond-Point Dial Mbaay,Rond-Point Dial Mbaay,auto
-place:rond-point-dioutyba-b9efb58f,place,Rond-Point Dioutyba,Rond-Point Dioutyba,Rond-Point Diutyba,review
-place:rond-point-djouti-ba-rufisque-ae6419a5,place,Rond-Point Djouti Ba Rufisque,Rond-Point Djouti Ba Rufisque,Rond-Point Juti Ba Rufisque,review
+place:rond-point-dioutyba-b9efb58f,place,Rond-Point Dioutyba,Rond-Point Dioutyba,Rond-Point Diutyba,auto
+place:rond-point-djouti-ba-rufisque-ae6419a5,place,Rond-Point Djouti Ba Rufisque,Rond-Point Djouti Ba Rufisque,Rond-Point Juti Ba Rufisque,auto
 place:rond-point-fann-462a4d34,place,Rond-Point Fann,Rond-Point Fann,Rond-Point Fann,auto
 place:rond-point-jet-d-eau-e50d1e0b,place,Rond-Point Jet d'Eau,Rond-Point Jet d'Eau,Rond-Point Jet d'Eau,auto
-place:rond-point-keur-massar-ecf3f9d0,place,Rond-Point Keur Massar,Rond-Point Keur Massar,Rond-Point Kër Massar,review
+place:rond-point-keur-massar-ecf3f9d0,place,Rond-Point Keur Massar,Rond-Point Keur Massar,Rond-Point Kër Massar,auto
 place:rond-point-le-virage-3212a9f7,place,Rond-Point le Virage,Rond-Point le Virage,Rond-Point le Virage,auto
-place:rond-point-liberte-6-1733ee33,place,Rond-Point Liberté 6,Rond-Point Liberté 6,Rond-Point Liberté 6,auto
+place:rond-point-liberte-6-1733ee33,place,Rond-Point Liberté 6,Rond-Point Liberté 6,Rond-Point Liberté 6,validated
 place:rond-point-malibu-489fdcb8,place,Rond-Point Malibu,Rond-Point Malibu,Rond-Point Malibu,auto
 place:rond-point-mole-8-e0c50787,place,Rond-Point Môle 8,Rond-Point Môle 8,Rond-Point Môle 8,auto
 place:rond-point-scoa-bfd23bbf,place,Rond-Point SCOA,Rond-Point SCOA,Rond-Point SCOA,auto
 place:rond-point-seven-up-566fabdb,place,Rond-Point Seven Up,Rond-Point Seven Up,Rond-Point Seven Up,auto
-place:rond-point-shell-keur-massar-93ca7ceb,place,Rond-Point Shell Keur Massar,Rond-Point Shell Keur Massar,Rond-Point Shell Kër Massar,review
-place:rond-point-station-shell-keur-massar-270925e4,place,Rond-Point Station Shell Keur Massar,Rond-Point Station Shell Keur Massar,Rond-Point Station Shell Kër Massar,review
-place:route-de-boune-4d29799c,place,Route de Boune,Route de Boune,Rute de Bune,review
-place:route-de-front-de-terre-04d594b8,place,Route de Front de Terre,Route de Front de Terre,Rute de Front de Terre,review
-place:route-de-hann-36906103,place,Route de Hann,Route de Hann,Rute de Hann,review
-place:route-de-jaxaay-10ff68fa,place,Route de Jaxaay,Route de Jaxaay,Rute de Jaxaay,review
-place:route-de-jaxxay-b4200c86,place,Route de Jaxxay,Route de Jaxxay,Rute de Jaxxay,review
-place:route-de-l-aeroport-e4f69271,place,Route de l'Aéroport,Route de l'Aéroport,Rute de l'Aéroport,review
-place:route-de-l-hopital-general-de-gd-yoff-hoggy-d936418b,place,Route de l'Hôpital Général de Gd Yoff (Hoggy),Route de l'Hôpital Général de Gd Yoff (Hoggy),Rute de l'Hôpital Général de Gd Yoff (Hoggy),review
-place:route-de-l-eglise-512ebc0d,place,Route de l'Église,Route de l'Église,Rute de l'Église,review
-place:route-de-malika-e9365865,place,Route de Malika,Route de Malika,Rute de Malika,review
-place:route-de-ngor-40723997,place,Route de Ngor,Route de Ngor,Rute de Ngor,review
-place:route-de-ouakam-789d1008,place,Route de Ouakam,Route de Ouakam,Rute de Uakam,review
-place:route-de-rufisque-aba9b30a,place,Route de Rufisque,Route de Rufisque,Rute de Rufisque,review
-place:route-de-sangalkam-cc9d1c97,place,Route de Sangalkam,Route de Sangalkam,Rute de Sangalkam,review
-place:route-de-yarakh-7c63fa61,place,Route de Yarakh,Route de Yarakh,Rute de Yarax,review
-place:route-de-yeumbeul-82470140,place,Route de Yeumbeul,Route de Yeumbeul,Rute de Yëmbël,review
-place:route-des-hlm-rufisque-40870b76,place,Route des HLM Rufisque,Route des HLM Rufisque,Rute des HLM Rufisque,review
-place:route-des-niayes-e4ee5176,place,Route des Niayes,Route des Niayes,Rute des Niayes,review
-place:route-des-niayes-guediawaye-02801dac,place,Route des Niayes (Guédiawaye),Route des Niayes (Guédiawaye),Rute des Niayes (Guédiawaye),review
-place:route-des-niayes-prolongee-d42734a5,place,Route des Niayes Prolongée,Route des Niayes Prolongée,Rute des Niayes Prolongée,review
-place:route-des-niayes-prolongee-police-des-p-assainies-b39c431f,place,Route des Niayes Prolongée (Police des P Assainies),Route des Niayes Prolongée (Police des P Assainies),Rute des Niayes Prolongée (Police des P Assainies),review
-place:route-du-college-sacre-cur-020a1b65,place,Route du Collège Sacré Cœur,Route du Collège Sacré Cœur,Rute du College Sacré Cœur,review
-place:route-du-front-de-terre-717c1fef,place,Route du Front de Terre,Route du Front de Terre,Rute du Front de Terre,review
-place:route-du-marche-des-parcelles-assainies-882306a5,place,Route du Marché des Parcelles Assainies,Route du Marché des Parcelles Assainies,Rute du Marché des Parcelles Assainies,review
-place:route-du-stade-taliboubess-032967ac,place,Route du Stade (Taliboubess),Route du Stade (Taliboubess),Rute du Stade (Talibubess),review
-place:route-du-stade-lss-taliboubess-f4b5d502,place,Route du Stade LSS (Taliboubess),Route du Stade LSS (Taliboubess),Rute du Stade LSS (Talibubess),review
-place:route-hlm-grand-medine-1f55a7ab,place,Route HLM Grand Médine,Route HLM Grand Médine,Rute HLM Grand Médine,review
-place:route-nationale-ba2d39ee,place,Route Nationale,Route Nationale,Rute Nationale,review
-place:route-nationale-1-4c1163f3,place,Route Nationale 1,Route Nationale 1,Rute Nationale 1,review
-place:route-nationale-n-1-1b23400b,place,Route Nationale N° 1,Route Nationale N° 1,Rute Nationale N° 1,review
-place:route-nationale-n1-58e6bbdf,place,Route Nationale N°1,Route Nationale N°1,Rute Nationale N°1,review
-place:route-principale-de-grand-yoff-par-bassin-retention-b081005b,place,Route Principale de Grand Yoff (Par Bassin Retention),Route Principale de Grand Yoff (Par Bassin Retention),Rute Principale de Grand Yoff (Par Bassin Retention),review
-place:route-principale-de-ouakam-marche-323c6563,place,Route Principale de Ouakam (Marché),Route Principale de Ouakam (Marché),Rute Principale de Uakam (Marché),review
-place:route-principale-des-parcelles-assainies-9bdb1090,place,Route Principale des Parcelles Assainies,Route Principale des Parcelles Assainies,Rute Principale des Parcelles Assainies,review
-place:rte-corniche-de-hlm-gd-medine-1675ebdb,place,Rte Corniche de HLM Gd Médine,Rte Corniche de HLM Gd Médine,Rte Corniche de HLM Gd Médine,review
+place:rond-point-shell-keur-massar-93ca7ceb,place,Rond-Point Shell Keur Massar,Rond-Point Shell Keur Massar,Rond-Point Shell Kër Massar,auto
+place:rond-point-station-shell-keur-massar-270925e4,place,Rond-Point Station Shell Keur Massar,Rond-Point Station Shell Keur Massar,Rond-Point Station Shell Kër Massar,auto
+place:route-de-boune-4d29799c,place,Route de Boune,Route de Boune,Rute de Bune,auto
+place:route-de-front-de-terre-04d594b8,place,Route de Front de Terre,Route de Front de Terre,Rute de Front de Terre,auto
+place:route-de-hann-36906103,place,Route de Hann,Route de Hann,Rute de Hann,auto
+place:route-de-jaxaay-10ff68fa,place,Route de Jaxaay,Route de Jaxaay,Rute de Jaxaay,auto
+place:route-de-jaxxay-b4200c86,place,Route de Jaxxay,Route de Jaxxay,Rute de Jaxxay,auto
+place:route-de-l-aeroport-e4f69271,place,Route de l'Aéroport,Route de l'Aéroport,Rute de l'Aéroport,auto
+place:route-de-l-hopital-general-de-gd-yoff-hoggy-d936418b,place,Route de l'Hôpital Général de Gd Yoff (Hoggy),Route de l'Hôpital Général de Gd Yoff (Hoggy),Rute de l'Hôpital Général de Gd Yoff (Hoggy),auto
+place:route-de-l-eglise-512ebc0d,place,Route de l'Église,Route de l'Église,Rute de l'Église,auto
+place:route-de-malika-e9365865,place,Route de Malika,Route de Malika,Rute de Malika,auto
+place:route-de-ngor-40723997,place,Route de Ngor,Route de Ngor,Rute de Ngor,auto
+place:route-de-ouakam-789d1008,place,Route de Ouakam,Route de Wakaam,Rute de Uakam,validated
+place:route-de-rufisque-aba9b30a,place,Route de Rufisque,Route de Rufisque,Rute de Rufisque,auto
+place:route-de-sangalkam-cc9d1c97,place,Route de Sangalkam,Route de Sangalkam,Rute de Sangalkam,auto
+place:route-de-yarakh-7c63fa61,place,Route de Yarakh,Route de Yarakh,Rute de Yarax,auto
+place:route-de-yeumbeul-82470140,place,Route de Yeumbeul,Route de Yeumbeul,Rute de Yëmbël,auto
+place:route-des-hlm-rufisque-40870b76,place,Route des HLM Rufisque,Route des HLM Rufisque,Rute des HLM Rufisque,auto
+place:route-des-niayes-e4ee5176,place,Route des Niayes,Route des Niayes,Rute des Niayes,validated
+place:route-des-niayes-guediawaye-02801dac,place,Route des Niayes (Guédiawaye),Route des Niayes (Guédiawaye),Rute des Niayes (Guédiawaye),auto
+place:route-des-niayes-prolongee-d42734a5,place,Route des Niayes Prolongée,Route des Niayes Prolongée,Rute des Niayes Prolongée,auto
+place:route-des-niayes-prolongee-police-des-p-assainies-b39c431f,place,Route des Niayes Prolongée (Police des P Assainies),Route des Niayes Prolongée (Police des P Assainies),Rute des Niayes Prolongée (Police des P Assainies),auto
+place:route-du-college-sacre-cur-020a1b65,place,Route du Collège Sacré Cœur,Route du Collège Sacré Cœur,Rute du College Sacré Cœur,auto
+place:route-du-front-de-terre-717c1fef,place,Route du Front de Terre,Route du Front de Terre,Rute du Front de Terre,validated
+place:route-du-marche-des-parcelles-assainies-882306a5,place,Route du Marché des Parcelles Assainies,Route du Marché des Parcelles Assainies,Rute du Marché des Parcelles Assainies,auto
+place:route-du-stade-taliboubess-032967ac,place,Route du Stade (Taliboubess),Route du Stade (Taliboubess),Rute du Stade (Talibubess),auto
+place:route-du-stade-lss-taliboubess-f4b5d502,place,Route du Stade LSS (Taliboubess),Route du Stade El Ess Ess (Taliboubess),Rute du Stade LSS (Talibubess),validated
+place:route-hlm-grand-medine-1f55a7ab,place,Route HLM Grand Médine,Route HLM Grand Médine,Rute HLM Grand Médine,auto
+place:route-nationale-ba2d39ee,place,Route Nationale,Route Nationale,Rute Nationale,auto
+place:route-nationale-1-4c1163f3,place,Route Nationale 1,Route Nationale 1,Rute Nationale 1,validated
+place:route-nationale-n-1-1b23400b,place,Route Nationale N° 1,Route Nationale N° 1,Rute Nationale N° 1,auto
+place:route-nationale-n1-58e6bbdf,place,Route Nationale N°1,Route Nationale N°1,Rute Nationale N°1,auto
+place:route-principale-de-grand-yoff-par-bassin-retention-b081005b,place,Route Principale de Grand Yoff (Par Bassin Retention),Route Principale de Grand Yoff (Par Bassin Retention),Rute Principale de Grand Yoff (Par Bassin Retention),auto
+place:route-principale-de-ouakam-marche-323c6563,place,Route Principale de Ouakam (Marché),Route Principale de Wakaam (Marché),Rute Principale de Uakam (Marché),validated
+place:route-principale-des-parcelles-assainies-9bdb1090,place,Route Principale des Parcelles Assainies,Route Principale des Parcelles Assainies,Rute Principale des Parcelles Assainies,auto
+place:rte-corniche-de-hlm-gd-medine-1675ebdb,place,Rte Corniche de HLM Gd Médine,Rte Corniche de HLM Gd Médine,Rte Corniche de HLM Gd Médine,auto
 place:rte-des-niayes-police-parcelles-be8b3c78,place,Rte des Niayes (Police Parcelles),Rte des Niayes (Police Parcelles),Rte des Niayes (Police Parcelles),auto
 place:rte-des-niayes-prolongee-police-parcelles-7a52440d,place,Rte des Niayes Prolongée (Police Parcelles),Rte des Niayes Prolongée (Police Parcelles),Rte des Niayes Prolongée (Police Parcelles),auto
 place:rts-b14ee793,place,RTS,RTS,RTS,auto
-place:rue-1-pikine-ouest-08b72003,place,Rue 1 Pikine Ouest,Rue 1 Pikine Ouest,Rue 1 Pikine Uest,review
+place:rue-1-pikine-ouest-08b72003,place,Rue 1 Pikine Ouest,Rue 1 Pikine Ouest,Rue 1 Pikine Uest,auto
 place:rue-10-96b0d661,place,Rue 10,Rue 10,Rue 10,auto
 place:rue-10-grand-dakar-0677028d,place,Rue 10 Grand Dakar,Rue 10 Grand Dakar,Rue 10 Grand Dakar,auto
-place:rue-10-pikine-ouest-r802-34662a9d,place,Rue 10 Pikine Ouest (R802),Rue 10 Pikine Ouest (R802),Rue 10 Pikine Uest (R802),review
+place:rue-10-pikine-ouest-r802-34662a9d,place,Rue 10 Pikine Ouest (R802),Rue 10 Pikine Ouest (R802),Rue 10 Pikine Uest (R802),auto
 place:rue-10-prolongee-f40d3759,place,Rue 10 Prolongée,Rue 10 Prolongée,Rue 10 Prolongée,auto
 place:rue-11-b211df64,place,Rue 11,Rue 11,Rue 11,auto
 place:rue-22-643bb3f3,place,Rue 22,Rue 22,Rue 22,auto
 place:rue-25-8094d322,place,Rue 25,Rue 25,Rue 25,auto
-place:rue-25-retour-par-rue-37-55da9134,place,Rue 25 (Retour Par Rue 37),Rue 25 (Retour Par Rue 37),Rue 25 (Retur Par Rue 37),review
+place:rue-25-retour-par-rue-37-55da9134,place,Rue 25 (Retour Par Rue 37),Rue 25 (Retour Par Rue 37),Rue 25 (Retur Par Rue 37),auto
 place:rue-34-6fccf97a,place,Rue 34,Rue 34,Rue 34,auto
 place:rue-37-79f271c5,place,Rue 37,Rue 37,Rue 37,auto
 place:rue-39-07231978,place,Rue 39,Rue 39,Rue 39,auto
-place:rue-39-retour-par-rue-17-27295f99,place,Rue 39 (Retour Par Rue 17),Rue 39 (Retour Par Rue 17),Rue 39 (Retur Par Rue 17),review
+place:rue-39-retour-par-rue-17-27295f99,place,Rue 39 (Retour Par Rue 17),Rue 39 (Retour Par Rue 17),Rue 39 (Retur Par Rue 17),auto
 place:rue-6-6241def1,place,Rue 6,Rue 6,Rue 6,auto
 place:rue-9-4acad49a,place,Rue 9,Rue 9,Rue 9,auto
 place:rue-9bis-d5b411c2,place,Rue 9bis,Rue 9bis,Rue 9bis,auto
 place:rue-abebebikila-rue-11-prolongee-9ba65e2e,place,Rue Abebebikila (Rue 11 Prolongée),Rue Abebebikila (Rue 11 Prolongée),Rue Abebebikila (Rue 11 Prolongée),auto
-place:rue-cheik-ahmadou-bamba-prolongee-0fcefe0c,place,Rue Cheik Ahmadou Bamba Prolongée,Rue Cheik Ahmadou Bamba Prolongée,Rue Cheik Ahmadu Bamba Prolongée,review
-place:rue-cheikh-wade-8fb5194d,place,Rue Cheikh Wade,Rue Cheikh Wade,Rue Cheix Wade,review
+place:rue-cheik-ahmadou-bamba-prolongee-0fcefe0c,place,Rue Cheik Ahmadou Bamba Prolongée,Rue Cheik Ahmadou Bamba Prolongée,Rue Cheik Ahmadu Bamba Prolongée,auto
+place:rue-cheikh-wade-8fb5194d,place,Rue Cheikh Wade,Rue Cheikh Wade,Rue Cheix Wade,auto
 place:rue-de-la-somme-3c1d627f,place,Rue de la Somme,Rue de la Somme,Rue de la Somme,auto
 place:rue-de-reims-prolongee-ae35a953,place,Rue de Reims Prolongée,Rue de Reims Prolongée,Rue de Reims Prolongée,auto
 place:rue-des-dardanelles-a00ac245,place,Rue des Dardanelles,Rue des Dardanelles,Rue des Dardanelles,auto
-place:rue-el-hadj-amadou-malick-gaye-bopp-0de6f055,place,Rue El Hadj Amadou Malick Gaye (Bopp),Rue El Hadj Amadou Malick Gaye (Bopp),Rue El Haj Amadu Malick Gaye (Bopp),review
+place:rue-el-hadj-amadou-malick-gaye-bopp-0de6f055,place,Rue El Hadj Amadou Malick Gaye (Bopp),Rue El Hadj Amadou Malick Gaye (Bopp),Rue El Haj Amadu Malick Gaye (Bopp),auto
 place:rue-mangin-7ca2167e,place,Rue Mangin,Rue Mangin,Rue Mangin,auto
 place:rue-marsat-rue-127-de32a36f,place,Rue Marsat (Rue 127),Rue Marsat (Rue 127),Rue Marsat (Rue 127),auto
 place:rue-p-17bcc26a,place,Rue P,Rue P,Rue P,auto
 place:rue-sandiniery-c7ad1b55,place,Rue Sandiniery,Rue Sandiniery,Rue Sandiniery,auto
 place:rue10-pikine-7a5be941,place,Rue10 Pikine,Rue10 Pikine,Rue10 Pikine,auto
 place:rues-754-et-759-a5234c96,place,Rues 754 et 759,Rues 754 et 759,Rues 754 et 759,auto
-place:rufisque-2035950a,place,Rufisque,Rufisque,Rufisque,auto
+place:rufisque-2035950a,place,Rufisque,Rufisque,Rufisque,validated
 place:rufisque-arafat-06b15e0f,place,Rufisque Arafat,Rufisque Arafat,Rufisque Arafat,auto
 place:rufisque-cite-tacco-75d09887,place,Rufisque Cité Tacco,Rufisque Cité Tacco,Rufisque Cité Tacco,auto
-place:rufisque-gouye-mouride-d99ef72c,place,Rufisque Gouye Mouride,Rufisque Gouye Mouride,Rufisque Guye Muride,review
+place:rufisque-gouye-mouride-d99ef72c,place,Rufisque Gouye Mouride,Rufisque Gouye Mouride,Rufisque Guye Muride,auto
 place:rufisque-nord-73-4c7c647a,place,Rufisque Nord 73,Rufisque Nord 73,Rufisque Nord 73,auto
 place:rufisque-sonadis-8534f73f,place,Rufisque SONADIS,Rufisque SONADIS,Rufisque SONADIS,auto
 place:rufisque-sonadis-e8082fb0,place,Rufisque Sonadis,Rufisque Sonadis,Rufisque Sonadis,auto
@@ -634,91 +634,91 @@ place:sahm-04241c42,place,Sahm,Saahm,Saahm,validated
 place:sam-notaire-a79df5a9,place,Sam Notaire,Sam Notaire,Sam Notaire,auto
 place:sandaga-8e976261,place,Sandaga,Sandaga,Sandaga,auto
 place:sangalkam-49fdf8b7,place,Sangalkam,Sangalkam,Sangalkam,auto
-place:sapeurs-pompiers-1d653241,place,Sapeurs Pompiers,Sapeurs Pompiers,Sapërs Pompiers,review
-place:sapeurs-pompiers-de-gw-29367e99,place,Sapeurs-Pompiers de Gw,Sapeurs-Pompiers de Gw,Sapërs-Pompiers de Gw,review
-place:sapeurs-pompiers-parcelles-d1afe6ff,place,Sapeurs-Pompiers Parcelles,Sapeurs-Pompiers Parcelles,Sapërs-Pompiers Parcelles,review
+place:sapeurs-pompiers-1d653241,place,Sapeurs Pompiers,Sapeurs Pompiers,Sapërs Pompiers,auto
+place:sapeurs-pompiers-de-gw-29367e99,place,Sapeurs-Pompiers de Gw,Sapeurs-Pompiers de Gw,Sapërs-Pompiers de Gw,auto
+place:sapeurs-pompiers-parcelles-d1afe6ff,place,Sapeurs-Pompiers Parcelles,Sapeurs-Pompiers Parcelles,Sapërs-Pompiers Parcelles,auto
 place:scat-urbam-69e9d7c1,place,SCAT Urbam,SCAT Urbam,SCAT Urbam,auto
 place:scoa-e15de1f1,place,SCOA,SCOA,SCOA,auto
 place:score-liberte-bae29a4c,place,Score Liberté,Score Liberté,Score Liberté,auto
 place:sde-guediawaye-cbaa841d,place,SDE Guédiawaye,SDE Guédiawaye,SDE Guédiawaye,auto
-place:sde-serigne-assane-bd589d28,place,SDE Serigne Assane,SDE Serigne Assane,SDE Seriñe Assane,review
+place:sde-serigne-assane-bd589d28,place,SDE Serigne Assane,SDE Serigne Assane,SDE Seriñe Assane,auto
 place:sedima-4ea9c5c8,place,SEDIMA,SEDIMA,SEDIMA,auto
 place:seras-4de75639,place,SERAS,SERAS,SERAS,auto
-place:serigne-assane-50b7ee4b,place,Serigne Assane,Serigne Assane,Seriñe Assane,review
-place:serigneassane-ac7aef4c,place,Serigneassane,Serigneassane,Seriñeassane,review
-place:service-d-hygiene-3bede482,place,Service d'Hygiène,Service d'Hygiène,Service d'Hygiene,review
+place:serigne-assane-50b7ee4b,place,Serigne Assane,Serigne Assane,Seriñe Assane,auto
+place:serigneassane-ac7aef4c,place,Serigneassane,Serigneassane,Seriñeassane,auto
+place:service-d-hygiene-3bede482,place,Service d'Hygiène,Service d'Hygiène,Service d'Hygiene,auto
 place:sham-e4d36505,place,SHAM,SHAM,SHAM,auto
-place:shell-keur-massar-dbaac018,place,Shell Keur Massar,Shell Keur Massar,Shell Kër Massar,review
+place:shell-keur-massar-dbaac018,place,Shell Keur Massar,Shell Keur Massar,Shell Kër Massar,auto
 place:shell-sedima-1448ab42,place,Shell SEDIMA,Shell SEDIMA,Shell SEDIMA,auto
 place:sicap-mbao-076ed1f7,place,SICAP Mbao,SICAP Mbao,SICAP Mbao,auto
 place:sipres-6b471dab,place,Sipres,Sipres,Sipres,auto
 place:sips-d1e14416,place,SIPS,SIPS,SIPS,auto
-place:siege-expresso-ouakam-35acec9c,place,Siège Expresso Ouakam,Siège Expresso Ouakam,Siege Expresso Uakam,review
+place:siege-expresso-ouakam-35acec9c,place,Siège Expresso Ouakam,Siège Expresso Wakaam,Siege Expresso Uakam,validated
 place:sococim-e3ae7294,place,SOCOCIM,SOCOCIM,SOCOCIM,auto
-place:sonadis-3df26409,place,SONADIS,SONADIS,SONADIS,auto
+place:sonadis-3df26409,place,SONADIS,SONADIS,SONADIS,validated
 place:sonadis-rufisque-1d425731,place,SONADIS Rufisque,SONADIS Rufisque,SONADIS Rufisque,auto
 place:sortie-pikine-83ae007b,place,Sortie Pikine,Sortie Pikine,Sortie Pikine,auto
-place:sphere-ministerielle-8122c207,place,Sphère ministérielle,Sphère ministérielle,Sphere ministérielle,review
-place:stade-amadou-barry-7f4e7e8f,place,Stade Amadou Barry,Stade Amadou Barry,Stade Amadu Barry,review
+place:sphere-ministerielle-8122c207,place,Sphère ministérielle,Sphère ministérielle,Sphere ministérielle,auto
+place:stade-amadou-barry-7f4e7e8f,place,Stade Amadou Barry,Stade Amadou Barry,Stade Amadu Barry,auto
 place:stade-de-rufisque-0b1282d2,place,Stade de Rufisque,Stade de Rufisque,Stade de Rufisque,auto
 place:stade-dembadiop-c4b78712,place,Stade Dembadiop,Stade Dembadiop,Stade Dembadiop,auto
 place:stade-l-s-s-094579cd,place,Stade L.s.s,Stade L.s.s,Stade L.s.s,auto
-place:stade-lss-c97e861c,place,Stade LSS,Stade LSS,Stade LSS,auto
-place:station-keur-massar-62858565,place,Station Keur Massar,Station Keur Massar,Station Kër Massar,review
-place:station-keurmassar-7bb7bafe,place,Station Keurmassar,Station Keurmassar,Station Kërmassar,review
-place:station-mtoa-82d1601a,place,Station MTOA,Station MTOA,Station MTOA,auto
-place:station-toure-40c2568a,place,Station Toure,Station Toure,Station Ture,review
-place:station-yeumbeul-84acefc7,place,Station Yeumbeul,Station Yeumbeul,Station Yëmbël,review
+place:stade-lss-c97e861c,place,Stade LSS,Stade El Ess Ess,Stade LSS,validated
+place:station-keur-massar-62858565,place,Station Keur Massar,Station Keur Massar,Station Kër Massar,validated
+place:station-keurmassar-7bb7bafe,place,Station Keurmassar,Station Keurmassar,Station Kërmassar,auto
+place:station-mtoa-82d1601a,place,Station MTOA,Station Emtowaa,Station MTOA,validated
+place:station-toure-40c2568a,place,Station Toure,Station Toure,Station Ture,auto
+place:station-yeumbeul-84acefc7,place,Station Yeumbeul,Station Yeumbeul,Station Yëmbël,auto
 place:sebikotane-8d3ddee4,place,Sébikotane,Sébikotane,Sébikotane,auto
 place:tableau-ferrailles-e0665774,place,Tableau Ferrailles,Tableau Ferrailles,Tableau Ferrailles,auto
-place:tally-bou-bess-a868e45a,place,Tally Bou Bess,Tally Bou Bess,Tally Bu Bess,review
-place:tally-boubess-38c1553b,place,Tally Boubess,Tally Boubess,Tally Bubess,review
-place:tally-boumack-59c9e36c,place,Tally Boumack,Tally Boumack,Tally Bumack,review
-place:tally-diallo-67e2a49c,place,Tally Diallo,Tally Diallo,Tally Diallo,auto
+place:tally-bou-bess-a868e45a,place,Tally Bou Bess,Tally Bou Bess,Tally Bu Bess,auto
+place:tally-boubess-38c1553b,place,Tally Boubess,Tally Boubess,Tally Bubess,auto
+place:tally-boumack-59c9e36c,place,Tally Boumack,Tally Boumack,Tally Bumack,auto
+place:tally-diallo-67e2a49c,place,Tally Diallo,Tally Diallo,Tally Diallo,validated
 place:tally-icotaf-b40eb6a4,place,Tally Icotaf,Tally Icotaf,Tally Icotaf,auto
 place:tally-icotaf-pikine-2466ca59,place,Tally Icotaf (Pikine),Tally Icotaf (Pikine),Tally Icotaf (Pikine),auto
 place:tally-icotaf-pikine-d013d21e,place,Tally Icotaf Pikine,Tally Icotaf Pikine,Tally Icotaf Pikine,auto
 place:tally-icotaf-x-rte-des-niayes-b6869511,place,Tally Icotaf X Rte des Niayes,Tally Icotaf X Rte des Niayes,Tally Icotaf X Rte des Niayes,auto
 place:tally-icotaf-x-rte-des-niayes-pikine-39077125,place,Tally Icotaf X Rte des Niayes (Pikine),Tally Icotaf X Rte des Niayes (Pikine),Tally Icotaf X Rte des Niayes (Pikine),auto
-place:tallyboumack-2effc68c,place,Tallyboumack,Tallyboumack,Tallybumack,review
+place:tallyboumack-2effc68c,place,Tallyboumack,Tallyboumack,Tallybumack,auto
 place:tallyicotaf-18639d91,place,Tallyicotaf,Tallyicotaf,Tallyicotaf,auto
 place:tawfeex-84e1aec2,place,Tawfeex,Tawfeex,Tawfeex,auto
-place:technopole-2d76846a,place,Technopole,Technopole,Technopole,review
+place:technopole-2d76846a,place,Technopole,Technopole,Technopole,auto
 place:tenn-bi-70338fc2,place,Tenn Bi,Tenn Bi,Tenn Bi,auto
 place:thiaroye-0cfd1fa7,place,Thiaroye,Thiaroye,Thiaroye,auto
-place:thiawlene-84bae930,place,Thiawlène,Thiawlène,Thiawlene,review
-place:thiawlene-rufisque-030a92d4,place,Thiawlène (Rufisque),Thiawlène (Rufisque),Thiawlene (Rufisque),review
+place:thiawlene-84bae930,place,Thiawlène,Thiawlène,Thiawlene,auto
+place:thiawlene-rufisque-030a92d4,place,Thiawlène (Rufisque),Thiawlène (Rufisque),Thiawlene (Rufisque),auto
 place:thierno-ndiaye-0c28ee29,place,Thierno Ndiaye,Thierno Ndiaye,Thierno Ndiaye,auto
-place:tivaouane-peul-d86a345c,place,Tivaouane Peul,Tivaouane Peul,Tivauane Pël,review
-place:tivaouane-peulh-d8f66e84,place,Tivaouane Peulh,Tivaouane Peulh,Tivauane Pëlh,review
-place:toubab-dialaw-f46cc872,place,Toubab Dialaw,Toubab Dialaw,Tubab Dialaw,review
-place:tournal-boune-292ae421,place,Tournal Boune,Tournal Boune,Turnal Bune,review
+place:tivaouane-peul-d86a345c,place,Tivaouane Peul,Tivaouane Peul,Tivauane Pël,auto
+place:tivaouane-peulh-d8f66e84,place,Tivaouane Peulh,Tivaouane Peulh,Tivauane Pëlh,auto
+place:toubab-dialaw-f46cc872,place,Toubab Dialaw,Toubab Dialaw,Tubab Dialaw,auto
+place:tournal-boune-292ae421,place,Tournal Boune,Tournal Boune,Turnal Bune,auto
 place:tribunal-de-pikine-378ebfe1,place,Tribunal de Pikine,Tribunal de Pikine,Tribunal de Pikine,auto
-place:ucad-cba0eb96,place,UCAD,UCAD,UCAD,auto
-place:ucad-claudel-1ea9ec22,place,UCAD (Claudel),UCAD (Claudel),UCAD (Claudel),auto
+place:ucad-cba0eb96,place,UCAD,Ikaad,UCAD,validated
+place:ucad-claudel-1ea9ec22,place,UCAD (Claudel),Ikaad (Claudel),UCAD (Claudel),validated
 place:ue-02-6ec9d3a1,place,UE 02,UE 02,UE 02,auto
 place:unite-15-72b4649c,place,Unité 15,Unité 15,Unité 15,auto
 place:unite-3-cinema-45d9be3c,place,Unité 3 Cinéma,Unité 3 Cinéma,Unité 3 Cinéma,auto
 place:unites-5-a4ea9463,place,Unités 5,Unités 5,Unités 5,auto
 place:unites-de-voisinage-10-2ca56e12,place,Unités de Voisinage : 10,Unités de Voisinage : 10,Unités de Voisinage : 10,auto
 place:universite-abfb230a,place,Université,Université,Université,auto
-place:universite-cheikh-anta-diop-29789aa2,place,Université Cheikh Anta Diop,Université Cheikh Anta Diop,Université Cheix Anta Diop,review
-place:vdn-f04e7a46,place,VDN,VDN,VDN,auto
+place:universite-cheikh-anta-diop-29789aa2,place,Université Cheikh Anta Diop,Université Cheikh Anta Diop,Université Cheix Anta Diop,auto
+place:vdn-f04e7a46,place,VDN,VDN,VDN,validated
 place:vdn-3-6f80d978,place,VDN 3,VDN 3,VDN 3,auto
 place:vdn-prolongee-c079a01a,place,VDN Prolongée,VDN Prolongée,VDN Prolongée,auto
 place:village-de-ngor-61a87d07,place,Village de Ngor,Village de Ngor,Village de Ngor,auto
-place:village-de-ouakam-6eaaefb7,place,Village de Ouakam,Village de Ouakam,Village de Uakam,review
-place:virage-gauche-torino-b4af678b,place,Virage Gauche Torino,Virage Gauche Torino,Virage Gauche Torino,review
+place:village-de-ouakam-6eaaefb7,place,Village de Ouakam,Village de Wakaam,Village de Uakam,validated
+place:virage-gauche-torino-b4af678b,place,Virage Gauche Torino,Virage Gauche Torino,Virage Gauche Torino,auto
 place:voie-de-degagement-nord-vdn-7578acef,place,Voie de Dégagement Nord (VDN),Voie de Dégagement Nord (VDN),Voie de Dégagement Nord (VDN),auto
-place:wakhinane-169a04d8,place,Wakhinane,Wakhinane,Waxinane,review
-place:wakhinanenimzatt-rue-212-b7b02a98,place,Wakhinanenimzatt (Rue 212),Wakhinanenimzatt (Rue 212),Waxinanenimzatt (Rue 212),review
+place:wakhinane-169a04d8,place,Wakhinane,Wakhinane,Waxinane,auto
+place:wakhinanenimzatt-rue-212-b7b02a98,place,Wakhinanenimzatt (Rue 212),Wakhinanenimzatt (Rue 212),Waxinanenimzatt (Rue 212),auto
 place:yenne-1ad9630a,place,Yenne,Yenne,Yenne,auto
-place:yeumbeul-a9e90b4b,place,Yeumbeul,Yeumbeul,Yëmbël,review
-place:yeumbeul-bene-baraque-323b6c67,place,Yeumbeul Bene Baraque,Yeumbeul Bene Baraque,Yëmbël Bene Baraque,review
+place:yeumbeul-a9e90b4b,place,Yeumbeul,Yeumbeul,Yëmbël,auto
+place:yeumbeul-bene-baraque-323b6c67,place,Yeumbeul Bene Baraque,Yeumbeul Bene Baraque,Yëmbël Bene Baraque,auto
 place:yoff-3f96a3b7,place,Yoff,Yoff,Yoff,auto
 place:yoff-village-6c635a34,place,Yoff Village,Yoff Village,Yoff Village,auto
 place:yoff-village-6fbb58cd,place,Yoff-Village,Yoff-Village,Yoff-Village,auto
-place:zac-3-bis-kounoune-6e8a1647,place,ZAC 3 Bis Kounoune,ZAC 3 Bis Kounoune,ZAC 3 Bis Kunune,review
+place:zac-3-bis-kounoune-6e8a1647,place,ZAC 3 Bis Kounoune,ZAC 3 Bis Kounoune,ZAC 3 Bis Kunune,auto
 place:zac-mbao-e30519cc,place,ZAC Mbao,ZAC Mbao,ZAC Mbao,auto
 place:zone-b-4b51d989,place,Zone B,Zone B,Zone B,auto
 place:zone-de-captage-77068589,place,Zone de Captage,Zone de Captage,Zone de Captage,auto

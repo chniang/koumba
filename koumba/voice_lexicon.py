@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import re
 import unicodedata
+from collections.abc import Mapping
 from typing import Any
 
 # Every fixed Wolof group used by the phrase templates.  "Duggal ci" in the
@@ -123,3 +124,28 @@ def place_needs_review(text: Any) -> bool:
 
     lowered = unicodedata.normalize("NFC", str(text or "")).lower()
     return any(marker in lowered for marker in _FRENCH_MARKERS)
+
+
+def apply_word_overrides(
+    text: Any,
+    overrides: Mapping[str, str],
+) -> str:
+    """Replace reviewed whole words while leaving the rest of the name alone.
+
+    Matching is case-insensitive, but the replacement is copied exactly from
+    the CSV.  The lookarounds make ``Fass`` match ``Fass Mbao`` and
+    ``Mbédou Fass`` without touching the made-up name ``Fassa``.
+    """
+
+    result = str(text or "")
+    for word, say_as in overrides.items():
+        if not word:
+            continue
+        pattern = rf"(?<!\w){re.escape(word)}(?!\w)"
+        result = re.sub(
+            pattern,
+            lambda _match, replacement=say_as: replacement,
+            result,
+            flags=re.IGNORECASE,
+        )
+    return result
