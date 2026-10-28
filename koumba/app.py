@@ -7,6 +7,7 @@ never calls the model.
 
 from __future__ import annotations
 
+import hashlib
 import math
 import os
 from functools import lru_cache
@@ -17,12 +18,14 @@ from typing import Any
 os.environ.setdefault("GRADIO_ANALYTICS_ENABLED", "False")
 
 import gradio as gr
+import numpy as np
 
 from .agent import Agent
 from .data import load_data
 from .listen import (
     ASR_MODEL_LABEL,
     CLEANUP_MODEL_LABEL,
+    LISTENING_STATUS,
     VoiceError,
     prepare_audio,
     transcribe,
@@ -388,6 +391,24 @@ def _audio_present(audio: Any) -> bool:
         return False
 
 
+def _audio_fingerprint(audio: Any) -> str | None:
+    """Identify one recording so stop_recording and change cannot both run."""
+
+    if not _audio_present(audio):
+        return None
+    sample_rate, samples = audio
+    try:
+        array = np.asarray(samples)
+        digest = hashlib.sha1()
+        digest.update(str(float(sample_rate)).encode("ascii"))
+        digest.update(str(array.shape).encode("ascii"))
+        digest.update(str(array.dtype).encode("ascii"))
+        digest.update(np.ascontiguousarray(array).tobytes())
+    except (TypeError, ValueError):
+        return None
+    return digest.hexdigest()
+
+
 def _transcribe_audio(audio: Any) -> dict[str, Any]:
     sample_rate, samples = audio
     wav_bytes = prepare_audio(sample_rate, samples)
@@ -415,10 +436,15 @@ def _voice_thoughts(
 
     voice = {
         "raw_asr_text": transcription.get("raw_text") or "",
-        "cleaned_text": transcription.get("text") or "",
+        "cleaned_text": (
+            transcription.get("clean_text")
+            or transcription.get("text")
+            or ""
+        ),
         "language": transcription.get("language") or "",
         "asr_lang": transcription.get("asr_lang") or "",
         "places_fixed": transcription.get("places_fixed") or [],
+        "hints": transcription.get("hints") or [],
         "transcription_model": ASR_MODEL_LABEL,
         "cleanup_model": CLEANUP_MODEL_LABEL,
     }
@@ -484,7 +510,11 @@ def _respond_with_audio(
             None,
         )
 
-    text = str(transcription.get("text") or "").strip()
+    text = str(
+        transcription.get("clean_text")
+        or transcription.get("text")
+        or ""
+    ).strip()
     if not text:
         current.append(
             {
@@ -532,12 +562,39 @@ def _respond_with_audio(
     )
 
 
+def _respond_to_recording(
+    history,
+    image_path: str | None,
+    audio: Any,
+    last_audio_key: str | None,
+):
+    """Auto-send a finished microphone recording exactly once."""
+
+    audio_key = _audio_fingerprint(audio)
+    if audio_key is None or audio_key == last_audio_key:
+        # Another event already handled this waveform.  Leave every component
+        # alone instead of adding the same question to the chat twice.
+        return (
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            last_audio_key,
+        )
+
+    gr.Info(LISTENING_STATUS, duration=4)
+    result = _respond_with_audio("", history, image_path, audio)
+    return (*result, audio_key)
+
+
 def _clear():
     return [], "", _trip_cards(None), [], None
 
 
 def _clear_voice():
-    return (*_clear(), None)
+    return (*_clear(), None, None)
 
 
 def build_app() -> gr.Blocks:
@@ -576,6 +633,7 @@ def build_app() -> gr.Blocks:
                     type="numpy",
                     label="Speak to Koumba (Wolof, French, English)",
                 )
+                voice_guard = gr.State(None)
                 gr.Markdown("Voice recordings are not stored.")
                 image = gr.Image(
                     label="Photo of the bus (optional)",
@@ -616,6 +674,14 @@ def build_app() -> gr.Blocks:
             inputs=[message, chatbot, image, audio],
             outputs=voice_outputs,
         )
+        # Only the microphone stop event auto-sends.  Do not also bind change:
+        # Gradio emits change when recording ends and again when we clear the
+        # audio component, which would send the same question twice.
+        audio.stop_recording(
+            _respond_to_recording,
+            inputs=[chatbot, image, audio, voice_guard],
+            outputs=[*voice_outputs, voice_guard],
+        )
         example_wolof.click(
             lambda history, audio: _respond_with_audio(
                 EXAMPLE_WOLOF,
@@ -636,7 +702,10 @@ def build_app() -> gr.Blocks:
             inputs=[chatbot, audio],
             outputs=voice_outputs,
         )
-        clear.click(_clear_voice, outputs=voice_outputs)
+        clear.click(
+            _clear_voice,
+            outputs=[*voice_outputs, voice_guard],
+        )
 
     return demo
 

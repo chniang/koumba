@@ -130,6 +130,11 @@ def test_prepare_audio_trims_at_thirty_seconds() -> None:
 def test_transcribe_posts_wav_with_the_shared_secret(monkeypatch) -> None:
     _set_voice_env(monkeypatch)
     monkeypatch.setattr(listen, "vocabulary", lambda: "Sahm, Malika")
+    monkeypatch.setattr(
+        listen,
+        "find_place_hints",
+        lambda _raw: ["Sahm (from 'Sam')"],
+    )
     calls = _fake_asr_post(monkeypatch)
     client = _FakeClient(
         "Reasoning first.\n"
@@ -156,8 +161,10 @@ def test_transcribe_posts_wav_with_the_shared_secret(monkeypatch) -> None:
 
     assert result["raw_text"] == "Maa ngi Sam, bëgg naa dem Malika"
     assert result["text"] == "Maa ngi Sahm, bëgg naa dem Malika"
+    assert result["clean_text"] == "Maa ngi Sahm, bëgg naa dem Malika"
     assert result["language"] == "Wolof"
     assert result["places_fixed"] == ["Sahm", "Malika"]
+    assert result["hints"] == ["Sahm (from 'Sam')"]
     assert result["asr_lang"] == "wol_Latn"
     assert result["asr_model"] == "omniASR_CTC_1B"
     assert result["infer_seconds"] == 0.25
@@ -171,6 +178,7 @@ def test_transcribe_posts_wav_with_the_shared_secret(monkeypatch) -> None:
     assert isinstance(prompt, str)
     assert "Maa ngi Sam, bëgg naa dem Malika" in prompt
     assert "Sahm, Malika" in prompt
+    assert "Sahm (from 'Sam')" in prompt
     assert "wol_Latn" in prompt
     assert "audio" not in prompt.lower()
 
@@ -217,6 +225,11 @@ def test_transcribe_keeps_raw_text_when_cleanup_fails(monkeypatch) -> None:
 
 def test_cleanup_uses_the_last_json_after_reasoning(monkeypatch) -> None:
     monkeypatch.setattr(listen, "vocabulary", lambda: "Sahm, Malika")
+    monkeypatch.setattr(
+        listen,
+        "find_place_hints",
+        lambda _raw: ["Sahm (from 'Sam')"],
+    )
     content = (
         "The speaker starts with a place.\n"
         "```json\n"
@@ -236,12 +249,68 @@ def test_cleanup_uses_the_last_json_after_reasoning(monkeypatch) -> None:
         "Maa ngi Sam, bëgg naa dem Malika",
     )
 
-    assert result == {
-        "text": "Maa ngi Sahm, bëgg naa dem Malika",
-        "language": "Wolof",
-        "places_fixed": ["Sahm"],
-    }
+    assert result["raw_text"] == "Maa ngi Sam, bëgg naa dem Malika"
+    assert result["text"] == "Maa ngi Sahm, bëgg naa dem Malika"
+    assert result["clean_text"] == "Maa ngi Sahm, bëgg naa dem Malika"
+    assert result["language"] == "Wolof"
+    assert result["places_fixed"] == ["Sahm"]
+    assert result["hints"] == ["Sahm (from 'Sam')"]
     prompt = client.calls[0]["messages"][0]["content"]
     assert "Maa ngi Sam, bëgg naa dem Malika" in prompt
     assert "Sahm, Malika" in prompt
+    assert "Sahm (from 'Sam')" in prompt
     assert "audio" not in prompt.lower()
+
+
+def test_cleanup_prompt_teaches_wolof_splitting_and_place_hints(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(listen, "vocabulary", lambda: "Sahm, Médina, Malika")
+    monkeypatch.setattr(
+        listen,
+        "find_place_hints",
+        lambda _raw: [
+            "Sahm (from 'mangisam')",
+            "Médina (from 'me dina')",
+        ],
+    )
+    client = _FakeClient(
+        '{"text": "Maa ngi Sahm, bëgg naa dem Malika", '
+        '"language": "Wolof", "places_fixed": ["Sahm", "Malika"]}'
+    )
+
+    cleanup_transcript(client, "mangisam dama bagadam malika")
+
+    prompt = client.calls[0]["messages"][0]["content"]
+    assert "standard Dakar Wolof Latin spelling" in prompt
+    assert "Possible places heard:" in prompt
+    assert "Sahm (from 'mangisam')" in prompt
+    assert "Médina (from 'me dina')" in prompt
+    assert "raw: mangisam" in prompt
+    assert "clean: Maa ngi Sahm" in prompt
+    assert "raw: me dina" in prompt
+    assert "clean: Médina" in prompt
+    assert "clean: bëgga dem" in prompt
+    assert "clean: bëgg naa dem" in prompt
+    assert "clean: dama nekk" in prompt
+    assert "Never invent a place" in prompt
+
+
+def test_place_hints_find_places_inside_merged_asr_words() -> None:
+    hints = listen.find_place_hints("mangisam dama bagadam malika")
+
+    joined = " ".join(hints)
+    assert "Sahm (from 'mangisam')" in joined
+    assert "Malika (from 'malika')" in joined
+
+
+def test_place_hints_join_a_split_place_name() -> None:
+    hints = listen.find_place_hints("me dina")
+
+    assert hints == ["Médina (from 'me dina')"]
+
+
+def test_place_hints_keep_an_exact_place_name() -> None:
+    hints = listen.find_place_hints("malika")
+
+    assert hints == ["Malika (from 'malika')"]

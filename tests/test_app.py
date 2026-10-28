@@ -30,6 +30,23 @@ def test_app_builds_without_api_key(llm_env) -> None:
     assert demo is not None
 
 
+def test_app_auto_sends_only_from_the_microphone_stop_event(llm_env) -> None:
+    import koumba.app as app
+
+    demo = app.build_app()
+    dependencies = demo.config.get("dependencies", [])
+    auto_send = [
+        item
+        for item in dependencies
+        if item.get("api_name") == "_respond_to_recording"
+    ]
+
+    assert len(auto_send) == 1
+    assert [target[1] for target in auto_send[0]["targets"]] == [
+        "stop_recording"
+    ]
+
+
 def test_provider_banner_names_the_configured_provider(
     llm_env,
     monkeypatch,
@@ -411,10 +428,12 @@ def test_voice_flow_uses_cleaned_text_and_shows_both_transcripts(
     cleaned = "Maa ngi Sahm, bëgg naa dem Malika"
     transcription = {
         "text": cleaned,
+        "clean_text": cleaned,
         "raw_text": raw,
         "language": "Wolof",
         "asr_lang": "wol_Latn",
         "places_fixed": ["Sahm"],
+        "hints": ["Sahm (from 'Sam')"],
         "asr_model": "omniASR_CTC_1B",
         "models": {
             "transcription": "Omnilingual ASR on Modal",
@@ -455,6 +474,7 @@ def test_voice_flow_uses_cleaned_text_and_shows_both_transcripts(
     voice = thoughts[0]["voice"]
     assert voice["raw_asr_text"] == raw
     assert voice["cleaned_text"] == cleaned
+    assert voice["hints"] == ["Sahm (from 'Sam')"]
     assert voice["transcription_model"] == "Omnilingual ASR on Modal"
     assert voice["cleanup_model"] == "Muse Spark Open on Baseten"
     assert thoughts[1] == tool_calls[0]
@@ -519,3 +539,136 @@ def test_voice_flow_reports_missing_modal_configuration(
     assert thoughts == []
     assert image is None
     assert audio is None
+
+
+def test_recording_stop_auto_sends_once_per_waveform(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    calls = []
+    statuses: list[str] = []
+
+    def fake_respond(message_text, history, image_path=None, audio=None):
+        calls.append((message_text, history, image_path, audio))
+        return (
+            [{"role": "user", "content": "🎤 Maa ngi Sahm"}],
+            "",
+            app._trip_cards(None),
+            [{"voice": {"raw_asr_text": "Maa ngi Sam"}}],
+            None,
+            None,
+        )
+
+    monkeypatch.setattr(app, "_respond_with_audio", fake_respond)
+    monkeypatch.setattr(
+        app.gr,
+        "Info",
+        lambda message, **_kwargs: statuses.append(message),
+    )
+    first_audio = (16_000, np.zeros(16_000, dtype=np.int16))
+    second_audio = (16_000, np.ones(16_000, dtype=np.int16))
+
+    first = app._respond_to_recording([], None, first_audio, None)
+    duplicate = app._respond_to_recording([], None, first_audio, first[-1])
+    second = app._respond_to_recording([], None, second_audio, first[-1])
+
+    assert len(calls) == 2
+    assert calls[0][0] == ""
+    assert calls[0][3] is first_audio
+    assert calls[1][3] is second_audio
+    assert statuses == [app.LISTENING_STATUS, app.LISTENING_STATUS]
+    assert first[-1] == app._audio_fingerprint(first_audio)
+    assert duplicate[-1] == first[-1]
+    assert second[-1] == app._audio_fingerprint(second_audio)
+
+
+def test_voice_thoughts_refresh_for_each_voice_turn(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    first_raw = "mangisam dama bagadam malika"
+    first_clean = "Maa ngi Sahm, dama bëgga dem Malika."
+    second_raw = "dama nekk medina begga dem yoff"
+    second_clean = "Dama nekk Médina, bëgga dem Yoff."
+    transcriptions = iter(
+        [
+            {
+                "text": first_clean,
+                "clean_text": first_clean,
+                "raw_text": first_raw,
+                "language": "Wolof",
+                "asr_lang": "wol_Latn",
+                "places_fixed": ["Sahm", "Malika"],
+                "hints": [
+                    "Sahm (from 'mangisam')",
+                    "Malika (from 'malika')",
+                ],
+            },
+            {
+                "text": second_clean,
+                "clean_text": second_clean,
+                "raw_text": second_raw,
+                "language": "Wolof",
+                "asr_lang": "wol_Latn",
+                "places_fixed": ["Médina", "Yoff"],
+                "hints": [
+                    "Médina (from 'medina')",
+                    "Yoff (from 'yoff')",
+                ],
+            },
+        ]
+    )
+    fake = _FakeAgent(
+        [
+            AgentResult(
+                reply="First turn",
+                language="Wolof",
+                spoken="First turn",
+            ),
+            AgentResult(
+                reply="Second turn",
+                language="Wolof",
+                spoken="Second turn",
+            ),
+        ]
+    )
+    monkeypatch.setenv("KOUMBA_ASR_URL", "https://example.modal.run")
+    monkeypatch.setenv("KOUMBA_ASR_KEY", "test-secret")
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(
+        app,
+        "_transcribe_audio",
+        lambda _audio: next(transcriptions),
+    )
+    monkeypatch.setattr(app, "_agent", lambda: fake)
+
+    history, _message, _cards, first_thoughts, _image, _audio = (
+        app._respond_with_audio(
+            "",
+            [],
+            None,
+            (16_000, np.zeros(16_000, dtype=np.int16)),
+        )
+    )
+    _history, _message, _cards, second_thoughts, _image, _audio = (
+        app._respond_with_audio(
+            "",
+            history,
+            None,
+            (16_000, np.ones(16_000, dtype=np.int16)),
+        )
+    )
+
+    assert first_thoughts[0]["voice"]["raw_asr_text"] == first_raw
+    assert first_thoughts[0]["voice"]["cleaned_text"] == first_clean
+    assert second_thoughts[0]["voice"]["raw_asr_text"] == second_raw
+    assert second_thoughts[0]["voice"]["cleaned_text"] == second_clean
+    assert second_thoughts[0]["voice"]["hints"] == [
+        "Médina (from 'medina')",
+        "Yoff (from 'yoff')",
+    ]
+    assert [call[0] for call in fake.calls] == [first_clean, second_clean]

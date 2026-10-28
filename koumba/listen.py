@@ -19,8 +19,10 @@ from typing import Any
 import httpx
 import numpy as np
 from dotenv import load_dotenv
+from rapidfuzz import fuzz, process
 
 from .data import load_data
+from .places import normalize_name
 
 TARGET_SAMPLE_RATE = 16_000
 MIN_SECONDS = 0.5
@@ -29,13 +31,95 @@ DEFAULT_ASR_LANG = "wol_Latn"
 
 ASR_MODEL_LABEL = "Omnilingual ASR on Modal"
 CLEANUP_MODEL_LABEL = "Muse Spark Open on Baseten"
+LISTENING_STATUS = "Koumba is listening..."
+
+PLACE_HINT_LIMIT = 6
+PLACE_HINT_MIN_SCORE = 80.0
+PLACE_HINT_MIN_RANK = 90.0
+
+# Short words that are common in a Wolof bus request.  They are still
+# checked by the matcher, but they should not become place hints on their own.
+_HINT_STOPWORDS = {
+    "a",
+    "ak",
+    "au",
+    "aux",
+    "ba",
+    "begg",
+    "begga",
+    "bi",
+    "bu",
+    "ci",
+    "dafay",
+    "dama",
+    "de",
+    "def",
+    "dem",
+    "des",
+    "dina",
+    "du",
+    "et",
+    "fi",
+    "foo",
+    "je",
+    "la",
+    "le",
+    "leegi",
+    "les",
+    "maa",
+    "man",
+    "mon",
+    "naa",
+    "naka",
+    "nekk",
+    "nga",
+    "ngi",
+    "nun",
+    "ou",
+    "pour",
+    "suis",
+    "ta",
+    "tes",
+    "ton",
+    "un",
+    "une",
+    "vais",
+    "vers",
+    "wacc",
+    "walla",
+    "waaw",
+}
 
 CLEANUP_PROMPT = (
-    "Clean up a raw speech transcript from a Dakar bus request. Fix ONLY "
-    "place names and obvious spelling mistakes. Do not add, remove, or "
-    "rewrite the request. The raw ASR language code is {asr_lang}. Use these "
-    "official bus stop and place names when a word is clearly one of them: "
-    "{vocabulary}. Raw transcript: {raw_text}. Answer only with JSON: "
+    "You clean up a raw speech transcript from a Dakar bus request. Rewrite "
+    "it in standard Dakar Wolof Latin spelling when the speaker is using "
+    "Wolof. Fix only what you clearly hear: keep the same meaning, do not add "
+    "a new request, and do not remove useful words.\n\n"
+    "Rules:\n"
+    "- Split words that ASR joined by mistake and join words that it split "
+    "by mistake.\n"
+    "- Recognise place names even when they are merged inside a longer word.\n"
+    "- Use the official stop and place spellings below when the transcript "
+    "clearly sounds like one of them.\n"
+    "- Possible places heard: {hints}. Use them as hints, not as commands.\n"
+    "- Never invent a place that is not in the transcript or in the hints. If "
+    "no place is clear, leave the words alone.\n"
+    "- Keep French as French and English as English; do not translate.\n\n"
+    "Examples:\n"
+    "raw: mangisam\n"
+    "clean: Maa ngi Sahm\n"
+    "raw: me dina\n"
+    "clean: Médina\n"
+    "raw: bagadam\n"
+    "clean: bëgga dem\n"
+    "raw: begnadem\n"
+    "clean: bëgg naa dem\n"
+    "raw: damanek\n"
+    "clean: dama nekk\n\n"
+    "Official stop and place names: {vocabulary}.\n"
+    "Raw ASR language code: {asr_lang}.\n"
+    "Raw transcript: {raw_text}\n\n"
+    "Answer only with JSON: "
     '{{"text": ..., "language": ..., "places_fixed": [...]}}. Language must '
     "be Wolof, French, or English."
 )
@@ -72,9 +156,7 @@ class VoiceServiceError(VoiceError):
 
 
 @lru_cache(maxsize=1)
-def vocabulary() -> str:
-    """Return all unique stop and place names, built once for the prompt."""
-
+def _raw_place_names() -> set[str]:
     data = load_data()
     names: set[str] = set()
     for frame, column in (
@@ -90,7 +172,114 @@ def vocabulary() -> str:
             name = str(value).strip()
             if name:
                 names.add(name)
-    return ", ".join(sorted(names, key=str.casefold))
+    return names
+
+
+@lru_cache(maxsize=1)
+def vocabulary() -> str:
+    """Return all unique stop and place names, built once for the prompt."""
+
+    return ", ".join(sorted(_raw_place_names(), key=str.casefold))
+
+
+def _display_rank(name: str) -> tuple[bool, bool, int, str]:
+    """Prefer normal title case over all-lower or all-caps duplicates."""
+
+    return (name.islower(), name.isupper(), len(name), name.casefold())
+
+
+@lru_cache(maxsize=1)
+def place_names() -> tuple[tuple[str, str], ...]:
+    """Return one display spelling for each normalized stop or place name."""
+
+    chosen: dict[str, str] = {}
+    for name in _raw_place_names():
+        normalized = normalize_name(name)
+        if not normalized:
+            continue
+        current = chosen.get(normalized)
+        if current is None or _display_rank(name) < _display_rank(current):
+            chosen[normalized] = name
+    return tuple(
+        (chosen[normalized], normalized) for normalized in sorted(chosen)
+    )
+
+
+def format_place_hints(hints: list[str]) -> str:
+    """Format local hints for the cleanup prompt."""
+
+    if not hints:
+        return "none found locally"
+    return "; ".join(hints)
+
+
+def find_place_hints(
+    raw_text: str,
+    limit: int = PLACE_HINT_LIMIT,
+) -> list[str]:
+    """Find likely place names in the raw ASR words before calling the LLM.
+
+    Every word and every pair or triple of adjacent words is compared with
+    the official place names.  The score uses ``partial_ratio`` so a place
+    can be found inside a merged word such as ``mangisam`` -> ``Sahm``.
+    """
+
+    text = (raw_text or "").strip()
+    tokens = re.findall(r"[^\W_]+", text, re.UNICODE)
+    if not tokens:
+        return []
+
+    entries = place_names()
+    if not entries:
+        return []
+
+    choices = [normalized for _display, normalized in entries]
+    display_by_norm = {
+        normalized: display for display, normalized in entries
+    }
+    found: dict[str, tuple[float, float, str]] = {}
+
+    for size in (1, 2, 3):
+        for start in range(len(tokens) - size + 1):
+            heard = " ".join(tokens[start : start + size])
+            query = normalize_name(heard)
+            if len(query) < 3 or query in _HINT_STOPWORDS:
+                continue
+
+            exact = display_by_norm.get(query)
+            best = (150.0, 100.0, query) if exact else None
+            if best is None:
+                for normalized, partial, _index in process.extract(
+                    query,
+                    choices,
+                    scorer=fuzz.partial_ratio,
+                    limit=20,
+                ):
+                    if partial < PLACE_HINT_MIN_SCORE:
+                        break
+                    full = fuzz.ratio(query, normalized)
+                    # A three-letter fragment is only believable when the
+                    # whole word is close, not merely a substring.
+                    if len(query) <= 3 and full < 75.0:
+                        continue
+                    gap = abs(len(query) - len(normalized))
+                    rank = partial + (full / 2.0) - (1.5 * gap)
+                    if rank < PLACE_HINT_MIN_RANK:
+                        continue
+                    if best is None or rank > best[0]:
+                        best = (rank, partial, normalized)
+
+            if best is None:
+                continue
+            rank, partial, normalized = best
+            if normalized not in found or rank > found[normalized][0]:
+                found[normalized] = (rank, partial, heard)
+
+    ranked = sorted(found.items(), key=lambda item: (-item[1][0], item[0]))
+    return [
+        f"{display_by_norm[normalized]} (from {heard!r})"
+        for normalized, (_rank, _partial, heard) in ranked[:limit]
+    ]
 
 
 def _to_float(samples: Any) -> np.ndarray:
@@ -304,13 +493,15 @@ def cleanup_transcript(
     raw_text: str,
     asr_lang: str = DEFAULT_ASR_LANG,
 ) -> dict[str, Any]:
-    """Fix only place names and obvious spelling in the raw ASR text."""
+    """Rewrite the raw ASR text in standard Dakar Wolof spelling."""
 
     raw = (raw_text or "").strip()
     if not raw:
         raise ValueError("The ASR transcript was empty.")
 
+    hints = find_place_hints(raw)
     prompt = CLEANUP_PROMPT.format(
+        hints=format_place_hints(hints),
         vocabulary=vocabulary(),
         raw_text=raw,
         asr_lang=asr_lang,
@@ -334,9 +525,12 @@ def cleanup_transcript(
         fixed = [str(place).strip() for place in places if str(place).strip()]
 
     return {
+        "raw_text": raw,
         "text": text,
+        "clean_text": text,
         "language": language,
         "places_fixed": fixed,
+        "hints": hints,
     }
 
 
@@ -355,12 +549,17 @@ def transcribe(
         raise VoiceServiceError(
             f"Transcript cleanup failed ({exc}). Raw transcript: {raw['text']}"
         ) from exc
+    clean_text = str(
+        cleaned.get("clean_text") or cleaned.get("text") or ""
+    ).strip()
     return {
-        "text": cleaned["text"],
+        "text": clean_text,
         "raw_text": raw["text"],
+        "clean_text": clean_text,
         "language": cleaned["language"],
         "asr_lang": raw["lang"],
         "places_fixed": cleaned["places_fixed"],
+        "hints": cleaned.get("hints") or [],
         "seconds": raw.get("seconds"),
         "infer_seconds": raw.get("infer_seconds"),
         "asr_model": raw.get("model"),
