@@ -34,12 +34,6 @@ if ASR_MODEL not in ALLOWED_MODELS:
     allowed = ", ".join(sorted(ALLOWED_MODELS))
     raise ValueError(f"KOUMBA_ASR_MODEL must be one of: {allowed}.")
 
-TORCH_INDEX_URL = (
-    "https://download.pytorch.org/whl/cu128"
-    if ASR_DEVICE == "gpu"
-    else "https://download.pytorch.org/whl/cpu"
-)
-
 if ASR_DEVICE == "gpu":
     hardware = {"gpu": ["L4", "A10G"]}
 else:
@@ -60,7 +54,7 @@ image = (
     .pip_install(
         "torch==2.8.0",
         "torchaudio==2.8.0",
-        index_url=TORCH_INDEX_URL,
+        index_url="https://download.pytorch.org/whl/cu128",
     )
     .pip_install(
         "omnilingual-asr==0.1.0",
@@ -69,8 +63,10 @@ image = (
         "torchaudio==2.8.0",
     )
     .run_commands(
-        'python -c "import torch, torchaudio; print(torch.__version__, torchaudio.__version__); '
-        'assert torch.__version__.split(\'+\')[0] == torchaudio.__version__.split(\'+\')[0]"'
+        'python -c "import torch, torchaudio, fairseq2n; '
+        'print(torch.__version__, torchaudio.__version__); '
+        "assert torch.__version__ == '2.8.0+cu128'; "
+        "assert torchaudio.__version__ == '2.8.0+cu128'\""
     )
 )
 
@@ -118,22 +114,29 @@ class KoumbaASR:
         if not self.languages["wol_Latn"]:
             logger.error("This Omnilingual ASR build does not list wol_Latn")
 
-        if ASR_DEVICE == "gpu":
+        device = "cuda" if ASR_DEVICE == "gpu" else "cpu"
+        if device == "cuda":
             self.pipeline = ASRInferencePipeline(
                 model_card=ASR_MODEL,
-                device="cuda",
+                device=device,
             )
         else:
             self.pipeline = ASRInferencePipeline(
                 model_card=ASR_MODEL,
-                device="cpu",
+                device=device,
                 dtype=torch.float32,
             )
         # Commit the downloaded weights now, so a crash later cannot lose them.
         model_cache.commit()
         # The web workers share one CPU allocation or GPU, so serialize calls.
         self.inference_lock = threading.Lock()
-        logger.info("Loaded %s in %s mode", ASR_MODEL, ASR_DEVICE)
+        logger.info(
+            "Loaded %s: torch=%s, device=%s, wol_Latn=%s",
+            ASR_MODEL,
+            torch.__version__,
+            device,
+            self.languages["wol_Latn"],
+        )
 
     def _authorized(self, supplied_key: str | None) -> bool:
         expected = (os.environ.get("KOUMBA_ASR_KEY") or "").strip()

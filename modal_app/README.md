@@ -10,8 +10,9 @@ of RAM; GPU mode uses an L4 with A10G fallback. The model defaults to
 `omniASR_CTC_1B`; set `omniASR_CTC_300M` for faster CPU inference. Both choices
 are read at deploy time, and the pipeline is loaded once per container in
 `@modal.enter`. The `koumba-asr-cache` Volume caches the model weights. Both
-device modes install matching `torch`/`torchaudio` 2.8.0 wheels (CPU or CUDA
-12.8), as required by the `fairseq2` 0.6 runtime.
+device modes install matching `torch`/`torchaudio` 2.8.0 CUDA 12.8 wheels,
+as required by the `fairseq2` 0.6 runtime; those wheels also run on CPU-only
+containers.
 
 ## 1. Create the shared secret
 
