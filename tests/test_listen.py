@@ -1,8 +1,7 @@
-"""Voice helpers are tested with synthetic audio and a fake model client."""
+"""Voice helpers are tested with synthetic audio, fake HTTP, and a fake LLM."""
 
 from __future__ import annotations
 
-import base64
 import io
 import wave
 from types import SimpleNamespace
@@ -11,7 +10,7 @@ import numpy as np
 import pytest
 
 import koumba.listen as listen
-from koumba.listen import prepare_audio, transcribe
+from koumba.listen import cleanup_transcript, prepare_audio, transcribe
 
 
 def _read_wav(wav_bytes: bytes):
@@ -57,6 +56,34 @@ class _FakeClient:
         return _response(self.content)
 
 
+def _set_voice_env(monkeypatch) -> None:
+    monkeypatch.setenv("KOUMBA_ASR_URL", "https://example.modal.run/")
+    monkeypatch.setenv("KOUMBA_ASR_KEY", "test-secret")
+
+
+def _fake_asr_post(
+    monkeypatch,
+    text: str = "Maa ngi Sam, bëgg naa dem Malika",
+    status_code: int = 200,
+) -> list[dict]:
+    calls: list[dict] = []
+
+    def post(url, **kwargs):
+        calls.append({"url": url, **kwargs})
+        return SimpleNamespace(
+            status_code=status_code,
+            json=lambda: {
+                "text": text,
+                "lang": "wol_Latn",
+                "seconds": 1.0,
+                "model": "omniASR_CTC_1B",
+            },
+        )
+
+    monkeypatch.setattr(listen.httpx, "post", post)
+    return calls
+
+
 def test_prepare_audio_mixes_stereo_to_mono() -> None:
     left = np.full(16_000, 1000, dtype=np.int16)
     right = np.full(16_000, 3000, dtype=np.int16)
@@ -99,10 +126,16 @@ def test_prepare_audio_trims_at_thirty_seconds() -> None:
     assert frames == 16_000 * 30
 
 
-def test_transcribe_sends_one_audio_url_request(monkeypatch) -> None:
+def test_transcribe_posts_wav_with_the_shared_secret(monkeypatch) -> None:
+    _set_voice_env(monkeypatch)
     monkeypatch.setattr(listen, "vocabulary", lambda: "Sahm, Malika")
+    calls = _fake_asr_post(monkeypatch)
     client = _FakeClient(
-        '{"text": "Maa ngi Sahm, bëgg naa dem Malika", "language": "Wolof"}'
+        "Reasoning first.\n"
+        "```json\n"
+        '{"text": "Maa ngi Sahm, bëgg naa dem Malika", '
+        '"language": "Wolof", "places_fixed": ["Sahm", "Malika"]}\n'
+        "```"
     )
     wav_bytes = prepare_audio(
         16_000, np.zeros(16_000, dtype=np.int16)
@@ -110,43 +143,103 @@ def test_transcribe_sends_one_audio_url_request(monkeypatch) -> None:
 
     result = transcribe(client, wav_bytes)
 
-    assert result == {
-        "text": "Maa ngi Sahm, bëgg naa dem Malika",
-        "language": "Wolof",
+    assert len(calls) == 1
+    call = calls[0]
+    assert call["url"] == "https://example.modal.run/transcribe"
+    assert call["params"] == {"lang": "wol_Latn"}
+    assert call["headers"]["X-Koumba-Key"] == "test-secret"
+    assert call["headers"]["Content-Type"] == "audio/wav"
+    assert call["content"] == wav_bytes
+    assert call["content"].startswith(b"RIFF")
+    assert call["timeout"] == 120.0
+
+    assert result["raw_text"] == "Maa ngi Sam, bëgg naa dem Malika"
+    assert result["text"] == "Maa ngi Sahm, bëgg naa dem Malika"
+    assert result["language"] == "Wolof"
+    assert result["places_fixed"] == ["Sahm", "Malika"]
+    assert result["asr_lang"] == "wol_Latn"
+    assert result["asr_model"] == "omniASR_CTC_1B"
+    assert result["models"] == {
+        "transcription": "Omnilingual ASR on Modal",
+        "cleanup": "Muse Spark Open on Baseten",
     }
+
     assert len(client.calls) == 1
-    content = client.calls[0]["messages"][0]["content"]
-    assert content[0]["type"] == "text"
-    assert "Sahm, Malika" in content[0]["text"]
-    assert content[1]["type"] == "audio_url"
-    url = content[1]["audio_url"]["url"]
-    assert url.startswith("data:audio/wav;base64,")
-    audio = base64.b64decode(url.split(",", 1)[1])
-    assert audio.startswith(b"RIFF")
+    prompt = client.calls[0]["messages"][0]["content"]
+    assert isinstance(prompt, str)
+    assert "Maa ngi Sam, bëgg naa dem Malika" in prompt
+    assert "Sahm, Malika" in prompt
+    assert "wol_Latn" in prompt
+    assert "audio" not in prompt.lower()
 
 
-def test_transcribe_uses_the_last_json_object_after_reasoning(
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr(listen, "vocabulary", lambda: "Sahm, Malika")
-    content = (
-        "The speaker starts with a place.\n"
-        "```json\n"
-        '{"text": "wrong", "language": "French"}\n'
-        "```\n"
-        "After listening again, the final answer is:\n"
-        "```json\n"
-        '{"text": "Maa ngi Sahm, bëgg naa dem Malika", '
-        '"language": "wolof"}\n'
-        "```\n"
-        "That is the final JSON."
-    )
-    client = _FakeClient(content)
+def test_transcribe_rejects_a_bad_shared_secret(monkeypatch) -> None:
+    _set_voice_env(monkeypatch)
+    _fake_asr_post(monkeypatch, status_code=401)
+    client = _FakeClient("unused")
     wav_bytes = prepare_audio(
         16_000, np.zeros(16_000, dtype=np.int16)
     )
 
-    assert transcribe(client, wav_bytes) == {
+    with pytest.raises(listen.VoiceServiceError, match="authentication"):
+        transcribe(client, wav_bytes)
+
+    assert client.calls == []
+
+
+def test_transcribe_reports_missing_voice_configuration(monkeypatch) -> None:
+    monkeypatch.setenv("KOUMBA_ASR_URL", "")
+    monkeypatch.setenv("KOUMBA_ASR_KEY", "")
+    client = _FakeClient("unused")
+    wav_bytes = prepare_audio(
+        16_000, np.zeros(16_000, dtype=np.int16)
+    )
+
+    with pytest.raises(listen.VoiceNotConfigured, match="Voice not configured"):
+        transcribe(client, wav_bytes)
+
+
+def test_transcribe_keeps_raw_text_when_cleanup_fails(monkeypatch) -> None:
+    _set_voice_env(monkeypatch)
+    _fake_asr_post(monkeypatch, text="Maa ngi Sam")
+    wav_bytes = prepare_audio(
+        16_000, np.zeros(16_000, dtype=np.int16)
+    )
+
+    with pytest.raises(
+        listen.VoiceServiceError,
+        match="Raw transcript: Maa ngi Sam",
+    ):
+        transcribe(_FakeClient("not json"), wav_bytes)
+
+
+def test_cleanup_uses_the_last_json_after_reasoning(monkeypatch) -> None:
+    monkeypatch.setattr(listen, "vocabulary", lambda: "Sahm, Malika")
+    content = (
+        "The speaker starts with a place.\n"
+        "```json\n"
+        '{"text": "wrong", "language": "French", "places_fixed": []}\n'
+        "```\n"
+        "After checking the bus names, the final answer is:\n"
+        "```json\n"
+        '{"text": "Maa ngi Sahm, bëgg naa dem Malika", '
+        '"language": "wolof", "places_fixed": ["Sahm"]}\n'
+        "```\n"
+        "That is the final JSON."
+    )
+    client = _FakeClient(content)
+
+    result = cleanup_transcript(
+        client,
+        "Maa ngi Sam, bëgg naa dem Malika",
+    )
+
+    assert result == {
         "text": "Maa ngi Sahm, bëgg naa dem Malika",
         "language": "Wolof",
+        "places_fixed": ["Sahm"],
     }
+    prompt = client.calls[0]["messages"][0]["content"]
+    assert "Maa ngi Sam, bëgg naa dem Malika" in prompt
+    assert "Sahm, Malika" in prompt
+    assert "audio" not in prompt.lower()

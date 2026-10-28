@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import numpy as np
 
 from koumba.agent import AgentResult
@@ -403,57 +401,63 @@ def test_trip_cards_use_french_stop_count_and_time_hint() -> None:
     assert "7 stops" not in html
 
 
-def test_voice_flow_transcribes_then_runs_the_agent(
+def test_voice_flow_uses_cleaned_text_and_shows_both_transcripts(
     llm_env,
     monkeypatch,
 ) -> None:
     import koumba.app as app
-    import koumba.listen as listen
 
-    transcript = "Maa ngi Sahm, bëgg naa dem Malika"
-    client = SimpleNamespace(
-        complete=lambda **kwargs: SimpleNamespace(
-            choices=[
-                SimpleNamespace(
-                    message=SimpleNamespace(
-                        content=(
-                            '{"text": "'
-                            + transcript
-                            + '", "language": "Wolof"}'
-                        ),
-                        tool_calls=[],
-                    )
-                )
-            ]
-        )
-    )
+    raw = "Maa ngi Sam, bëgg naa dem Malika"
+    cleaned = "Maa ngi Sahm, bëgg naa dem Malika"
+    transcription = {
+        "text": cleaned,
+        "raw_text": raw,
+        "language": "Wolof",
+        "asr_lang": "wol_Latn",
+        "places_fixed": ["Sahm"],
+        "asr_model": "omniASR_CTC_1B",
+        "models": {
+            "transcription": "Omnilingual ASR on Modal",
+            "cleanup": "Muse Spark Open on Baseten",
+        },
+    }
+    tool_calls = [{"round": 1, "name": "find_trips"}]
     fake = _FakeAgent(
         [
             AgentResult(
                 reply="Long answer.",
                 language="Wolof",
                 spoken="Yaangi Sahm, duggal ci Tata 38 bi jëm Malika.",
+                tool_calls=tool_calls,
             )
         ]
     )
+    monkeypatch.setenv("KOUMBA_ASR_URL", "https://example.modal.run")
+    monkeypatch.setenv("KOUMBA_ASR_KEY", "test-secret")
     monkeypatch.setattr(app, "_api_key_configured", lambda: True)
-    monkeypatch.setattr(app, "_client", lambda: client)
+    monkeypatch.setattr(app, "_transcribe_audio", lambda _audio: transcription)
     monkeypatch.setattr(app, "_agent", lambda: fake)
-    monkeypatch.setattr(listen, "vocabulary", lambda: "Sahm, Malika")
 
-    chatbot, message, _cards, _thoughts, image, audio = app._respond_with_audio(
+    chatbot, message, _cards, thoughts, image, audio = app._respond_with_audio(
         "",
         [],
         "C:/tmp/bus.jpg",
         (16_000, np.zeros(16_000, dtype=np.int16)),
     )
 
-    assert chatbot[-2] == {"role": "user", "content": f"🎤 {transcript}"}
+    assert chatbot[-2] == {"role": "user", "content": f"🎤 {cleaned}"}
     assert chatbot[-1]["role"] == "assistant"
-    assert fake.calls == [(transcript, [], "C:/tmp/bus.jpg")]
+    assert fake.calls == [(cleaned, [], "C:/tmp/bus.jpg")]
     assert message == ""
     assert image is None
     assert audio is None
+
+    voice = thoughts[0]["voice"]
+    assert voice["raw_asr_text"] == raw
+    assert voice["cleaned_text"] == cleaned
+    assert voice["transcription_model"] == "Omnilingual ASR on Modal"
+    assert voice["cleanup_model"] == "Muse Spark Open on Baseten"
+    assert thoughts[1] == tool_calls[0]
 
 
 def test_voice_flow_keeps_the_textbox_after_transcription_failure(
@@ -464,10 +468,12 @@ def test_voice_flow_keeps_the_textbox_after_transcription_failure(
 
     def fail(_audio):
         raise ValueError(
-            "The recording is too short. Please speak for at least half a "
-            "second."
+            "The recording is too short. Please speak for at least 0.5 "
+            "seconds."
         )
 
+    monkeypatch.setenv("KOUMBA_ASR_URL", "https://example.modal.run")
+    monkeypatch.setenv("KOUMBA_ASR_KEY", "test-secret")
     monkeypatch.setattr(app, "_api_key_configured", lambda: True)
     monkeypatch.setattr(app, "_transcribe_audio", fail)
 
@@ -481,5 +487,35 @@ def test_voice_flow_keeps_the_textbox_after_transcription_failure(
     assert chatbot[-1]["role"] == "assistant"
     assert "too short" in chatbot[-1]["content"]
     assert message == "Type this instead"
+    assert image is None
+    assert audio is None
+
+
+def test_voice_flow_reports_missing_modal_configuration(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    monkeypatch.setenv("KOUMBA_ASR_URL", "")
+    monkeypatch.setenv("KOUMBA_ASR_KEY", "")
+
+    def should_not_run(*_args, **_kwargs):
+        raise AssertionError("the agent must not start without voice config")
+
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_transcribe_audio", should_not_run)
+    monkeypatch.setattr(app, "_agent", should_not_run)
+
+    chatbot, message, _cards, thoughts, image, audio = app._respond_with_audio(
+        "Type this instead",
+        [],
+        None,
+        (16_000, np.zeros(16_000, dtype=np.int16)),
+    )
+
+    assert "Voice not configured" in chatbot[-1]["content"]
+    assert message == "Type this instead"
+    assert thoughts == []
     assert image is None
     assert audio is None

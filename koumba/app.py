@@ -20,7 +20,14 @@ import gradio as gr
 
 from .agent import Agent
 from .data import load_data
-from .listen import prepare_audio, transcribe
+from .listen import (
+    ASR_MODEL_LABEL,
+    CLEANUP_MODEL_LABEL,
+    VoiceError,
+    prepare_audio,
+    transcribe,
+    voice_config,
+)
 from .llm import ModelClient, ProviderConfig, api_key_configured, load_config
 from .network import Network
 from .phrases import compose_chat_message
@@ -381,20 +388,41 @@ def _audio_present(audio: Any) -> bool:
         return False
 
 
-def _transcribe_audio(audio: Any) -> dict[str, str]:
+def _transcribe_audio(audio: Any) -> dict[str, Any]:
     sample_rate, samples = audio
     wav_bytes = prepare_audio(sample_rate, samples)
+    voice_config()
     return transcribe(_client(), wav_bytes)
 
 
 def _transcription_error(exc: Exception) -> str:
     message = str(exc or "").strip()
+    if isinstance(exc, VoiceError):
+        return message
     if isinstance(exc, ValueError) and "too short" in message.lower():
         return message
     return (
         "I could not transcribe that recording. Please try again or type your "
         "message."
     )
+
+
+def _voice_thoughts(
+    transcription: dict[str, Any],
+    tool_calls: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    """Keep both transcripts and the two model roles in the thinking panel."""
+
+    voice = {
+        "raw_asr_text": transcription.get("raw_text") or "",
+        "cleaned_text": transcription.get("text") or "",
+        "language": transcription.get("language") or "",
+        "asr_lang": transcription.get("asr_lang") or "",
+        "places_fixed": transcription.get("places_fixed") or [],
+        "transcription_model": ASR_MODEL_LABEL,
+        "cleanup_model": CLEANUP_MODEL_LABEL,
+    }
+    return [{"voice": voice}, *(tool_calls or [])]
 
 
 def _respond_with_audio(
@@ -415,6 +443,19 @@ def _respond_with_audio(
 
     previous = _history_as_dicts(history)
     current = list(previous)
+    try:
+        voice_config()
+    except VoiceError as exc:
+        current.append({"role": "assistant", "content": str(exc)})
+        return (
+            current,
+            message_text or "",
+            _trip_cards(None),
+            [],
+            image_path,
+            None,
+        )
+
     if not _api_key_configured():
         current.append(
             {"role": "assistant", "content": _missing_key_message()}
@@ -485,7 +526,7 @@ def _respond_with_audio(
         current,
         "",
         _cards_for_result(result),
-        result.tool_calls,
+        _voice_thoughts(transcription, result.tool_calls),
         None,
         None,
     )
@@ -559,7 +600,10 @@ def build_app() -> gr.Blocks:
                     container=True,
                 )
                 with gr.Accordion("How Koumba thought", open=False):
-                    thoughts = gr.JSON(value=[], label="Tool calls")
+                    thoughts = gr.JSON(
+                        value=[],
+                        label="Tool calls and voice details",
+                    )
 
         voice_outputs = [chatbot, message, trips, thoughts, image, audio]
         send.click(

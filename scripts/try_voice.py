@@ -3,8 +3,9 @@
 Usage:
     python scripts/try_voice.py path\to\file.wav
 
-This is intentionally not collected by pytest.  It uses the provider in .env
-and makes real transcription and agent requests.
+This is intentionally not collected by pytest.  It sends real audio to the
+Modal ASR endpoint, runs the Muse Spark cleanup, and asks the agent for a
+route.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from koumba.agent import Agent
 from koumba.data import load_data
-from koumba.listen import prepare_audio, transcribe
+from koumba.listen import prepare_audio, transcribe, voice_config
 from koumba.llm import ModelClient
 from koumba.network import Network
 from koumba.places import PlaceIndex
@@ -71,14 +72,18 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     try:
+        voice_config()
         client = ModelClient()
         transcript = transcribe(client, wav_bytes)
     except Exception as exc:
         print(f"Transcription failed: {exc}")
         return 1
 
-    print(f"Transcript: {transcript['text']}")
+    print(f"Raw ASR:    {transcript['raw_text']}")
+    print(f"Cleaned:    {transcript['text']}")
     print(f"Language:   {transcript['language']}")
+    if transcript.get("places_fixed"):
+        print(f"Fixed:      {', '.join(transcript['places_fixed'])}")
 
     try:
         data = load_data()

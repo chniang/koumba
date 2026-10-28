@@ -4,7 +4,8 @@ Koumba is a small bus assistant for Dakar. It finds direct trips first, then
 trips with up to two transfers, using the Dakar Dem Dikk and Tata AFTU lines
 from the public dataset. A Muse Spark agent can understand a request in Wolof,
 French, or English, call the route engine as tools, check a bus photo with its
-vision input, and transcribe a spoken request with Muse Spark Open.
+vision input, and transcribe a spoken request with Meta Omnilingual ASR on
+Modal before a text-only Muse Spark cleanup.
 
 ## Built during the Meta Global AI Developer Hackathon (Oct 26 - Nov 4, 2026)
 
@@ -27,15 +28,17 @@ This repository contains:
 - `koumba/agent.py` - the Muse Spark tool-calling loop with short conversation
   memory and optional image input.
 - `koumba/vision.py` - in-memory image resize and JPEG/base64 encoding.
-- `koumba/listen.py` - in-memory microphone WAV preparation and Muse Spark
-  Open transcription, with no audio stored.
+- `koumba/listen.py` - in-memory microphone WAV preparation, Modal ASR HTTP
+  calls, and Muse Spark place-name cleanup, with no audio stored.
 - `koumba/phrases.py` - deterministic short spoken answers in Wolof, French,
   and English, without travel-time guesses.
 - `koumba/app.py` - the Gradio demo UI with a provider banner, voice and
   bus-photo inputs, bus-check cards, and the honest data note.
-- `scripts/try_voice.py` - manual real-provider WAV transcription test.
+- `modal_app/asr.py` - the Modal Omnilingual ASR service and its cache volume.
+- `modal_app/README.md` - secret creation, deployment, and endpoint tests.
+- `scripts/try_voice.py` - manual WAV -> Modal -> cleanup -> agent test.
 - `data/corrections.json` - human-reviewed field corrections. It starts empty.
-- `.env.example` - provider presets and key placeholders, with no real key.
+- `.env.example` - provider presets and voice endpoint placeholders.
 - `tests/` - route, correction, tool, agent, provider, vision, voice, and app
   tests.
 
@@ -54,9 +57,13 @@ from scratch during the hackathon.
 - `huggingface_hub==2.3.0`
 - `pytest==9.1.1` for the tests
 - `openai==3.39.0`
+- `httpx==0.28.1`
 - `python-dotenv==1.2.4`
 - `gradio==6.30.0`
 - `Pillow==11.3.0`
+
+The `modal` package is needed only to deploy `modal_app/asr.py`; the Koumba app
+uses plain HTTP and does not import it.
 
 ## Setup
 
@@ -77,6 +84,17 @@ Copy-Item .env.example .env
 # KOUMBA_MODEL=muse-spark-1.3
 # MODEL_API_KEY=...
 ```
+
+For voice, deploy `modal_app/asr.py` and add its HTTPS URL and shared secret:
+
+```powershell
+# KOUMBA_ASR_URL=https://your-workspace--koumba-asr-web.modal.run
+# KOUMBA_ASR_KEY=the-same-secret-as-the-modal-secret
+```
+
+See `modal_app/README.md` for secret creation, deployment, and a curl test.
+If either voice setting is missing, the app shows `Voice not configured`
+instead of failing.
 
 `.env.example` also contains commented presets for Baseten and Fireworks.
 Baseten still needs its OpenAI-compatible base URL pasted from the Baseten
@@ -164,9 +182,12 @@ French, English)” microphone/upload box, an optional “Photo of the bus
 (optional)” upload/camera box, Wolof and French example buttons, a chat area,
 mobile-friendly trip cards, and a “How Koumba thought” accordion with the tool
 calls. Voice recordings and photos are not stored. A recording is converted to
-a mono 16 kHz, 16-bit WAV in memory, transcribed by Muse Spark Open, shown in
-the chat as `🎤 {transcript}`, and passed to the normal agent flow. The audio
-input is cleared after the answer.
+a mono 16 kHz, 16-bit WAV in memory and posted to the Modal Omnilingual ASR
+endpoint. The raw transcript is cleaned by a text-only Muse Spark Open request
+using the official stop and place names. The cleaned text is shown in the chat
+as `🎤 {cleaned text}` and passed to the normal agent flow. The audio input is
+cleared after the answer, and the thinking panel shows both the raw ASR text
+and the cleaned text, plus which model did each step.
 
 The app resizes the photo and sends it only for the current turn, then clears
 the image input. After a bus photo, `check_bus_line` fills the cards with the
@@ -195,11 +216,27 @@ server.
 python scripts/try_voice.py path\to\file.wav
 ```
 
-This is not part of pytest. It uses the provider configured in `.env`, prints
-the transcript, detected language, and the agent's deterministic spoken answer.
-The configured model must accept `audio_url` content, such as Muse Spark Open
-on Baseten or Fireworks. The script accepts 8-bit, 16-bit, or 32-bit PCM WAV
-files and still sends a mono 16 kHz, 16-bit WAV to the provider.
+This is not part of pytest. It converts the file to mono 16 kHz, 16-bit WAV,
+posts it to the configured Modal ASR endpoint, runs the Muse Spark cleanup, and
+then asks the agent for a route. It prints the raw ASR text, the cleaned text,
+the detected language, any fixed place names, and the deterministic spoken
+answer. The script accepts 8-bit, 16-bit, or 32-bit PCM WAV files.
+
+### Voice architecture
+
+1. The browser or `try_voice.py` produces a mono 16 kHz, 16-bit PCM WAV.
+2. Koumba posts the raw WAV bytes to `KOUMBA_ASR_URL/transcribe?lang=wol_Latn`
+   with `X-Koumba-Key: KOUMBA_ASR_KEY`.
+3. Modal runs `omniASR_CTC_1B` on an L4 GPU (A10G fallback). The model is
+   loaded once per container and cached in the `koumba-asr-cache` Volume. The
+   temporary WAV is deleted immediately after inference.
+4. Muse Spark Open receives the raw transcript and the official bus stop and
+   place vocabulary, text only. It fixes only place names and obvious spelling
+   and returns the cleaned text, language, and fixed-place list.
+5. The app displays the cleaned text and keeps the raw ASR text in the
+   `How Koumba thought` panel for transparency.
+
+No audio is stored by Koumba or by the Modal service.
 
 ## Data source and cache
 
@@ -291,15 +328,18 @@ never crashes on a bad correction. At startup the console prints:
    limits the longest side to 1024 px, and encodes JPEG quality 85 as a base64
    data URL without saving a copy.
 9. `listen.py` mixes stereo to mono, resamples to 16 kHz with numpy, trims to
-   30 seconds, writes a 16-bit PCM WAV in memory, and sends it to Muse Spark
-   Open with an `audio_url` content part. The prompt includes the cached list
-   of every dataset stop and place name for spelling.
+   30 seconds, writes a 16-bit PCM WAV in memory, and posts it to the Modal
+   Omnilingual ASR endpoint with the `X-Koumba-Key` shared secret. The raw
+   transcript then goes to Muse Spark Open, text only, with the cached list of
+   every dataset stop and place name. The cleanup may fix only place names and
+   obvious spelling, and returns `{"text", "language", "places_fixed"}`.
 10. `phrases.py` turns the best trip or bus check into a short deterministic
     spoken answer, including a walk to the first boarding stop, and can build
     the validated Wolof clarification question. No template includes a travel
     time.
 11. `app.py` renders the chat, voice and bus-photo inputs, trip cards, the
-    check-bus cards, the honest data note, and the current turn's tool calls.
+    check-bus cards, the honest data note, the current turn's tool calls, and
+    the raw/cleaned voice details.
 
 Ride time uses 250 m/min (15 km/h); a segment with a missing coordinate uses
 3 minutes as a fallback. Every bus leg is billed for at least 2 minutes.
@@ -434,8 +474,9 @@ bus-check answers follow the same direct/alternative shape.
 - Place matching is conservative on purpose.
 - A bus photo is sent to the configured model provider for that turn only and
   is not stored by Koumba.
-- A voice recording is sent to the configured provider only for transcription
-  and is not stored by Koumba.
+- A voice recording is sent to the Modal ASR endpoint only for transcription,
+  then the raw text goes to Muse Spark Open for cleanup. The audio is not
+  stored by Koumba or by Modal.
 
 ## Known limitations
 
@@ -451,20 +492,23 @@ bus-check answers follow the same direct/alternative shape.
 - Field corrections are only as reliable as their review. Invalid corrections
   are skipped with a warning, but a wrong accepted correction still changes the
   itinerary.
-- The agent loop, vision content, and voice transcription are tested with
-  scripted fake clients. They have not been tested against a live provider,
-  live camera images, or live microphone audio.
-- Voice transcription depends on the provider. Background noise, code-switching,
-  or a strong accent may produce the wrong place spelling; the user can type or
-  retry the recording.
+- The agent loop and vision content are tested with scripted fake clients.
+  Voice tests use fake HTTP and a fake cleanup LLM. They have not been tested
+  against the live Modal endpoint, a live provider, or real microphone audio.
+- Voice accuracy depends on Omnilingual ASR and the Muse Spark cleanup. Background
+  noise, code-switching, or a strong accent may still produce the wrong place
+  spelling; the user can type or retry the recording.
+- The first Modal request after 300 idle seconds pays the cold-start and model
+  load time. Model weights are cached, but the GPU container is not kept warm.
 - Photo quality depends on the model; glare, motion blur, or an unreadable
   destination can make the operator or line ambiguous.
 - The Baseten preset leaves the base URL as a TODO until it is copied from the
   Baseten docs.
 - The language badge uses a small heuristic and can mislabel very short or
   heavily mixed messages.
-- No local machine-learning model is downloaded and there is no Streamlit app.
-  The optional agent calls the configured OpenAI-compatible provider only when
+- No machine-learning model is downloaded on the local machine and there is no
+  Streamlit app. Omnilingual ASR runs only on Modal when deployed. The optional
+  agent and cleanup call the configured OpenAI-compatible provider only when
   its key env var is set.
 
 ## Tests
@@ -489,23 +533,27 @@ history limits, a follow-up answer, informal Wolof detection, the five-round
 limit, and the missing-key error. Vision tests create a synthetic Pillow image
 and check resize, JPEG/base64 encoding, and the agent content part. Voice tests
 cover stereo mixing, 44.1 kHz to 16 kHz resampling, rejecting recordings under
-half a second, the 30-second trim, the `audio_url` data request, and parsing
-fenced JSON after model reasoning. Phrase tests check the validated `Yaangi`
+half a second, the 30-second trim, the Modal URL and `X-Koumba-Key` header, raw
+WAV body, 401 handling, missing voice configuration, raw-text retention, and
+cleanup JSON parsing after model reasoning. Phrase tests check the validated
+`Yaangi`
 and bus-check templates without travel time, the first-stop walk wording,
 short bus names, and chat composition. Provider tests check the defaults, the
 Fireworks settings, Baseten detection, a custom key env var, and the SDK base
 URL/model plumbing. App tests build the UI, check the provider banner, verify
-history, photo and voice passing, transcript display, photo/audio clearing,
+history, photo and voice passing, cleaned transcript display, raw and cleaned
+text in the thinking panel, missing voice configuration, photo/audio clearing,
 textbox recovery after transcription failure, bus-photo cards, stop counts,
 time hints, the partial-route label, both honest notes, the spoken chat message,
 and that the thinking panel only shows the current turn. The tests never call a
-real provider.
+real provider or the Modal endpoint.
 
 ## Project layout
 
 ```text
-koumba/       package code
-scripts/      manual real-provider voice test
+koumba/       package code; the app only calls the ASR service over HTTP
+modal_app/    Modal Omnilingual ASR service and deployment notes
+scripts/      manual WAV -> Modal -> cleanup -> agent test
 data/         human-reviewed corrections.json
 tests/        route, correction, tool, agent, provider, vision, voice, app tests
 data_cache/   downloaded CSVs (ignored by git)
