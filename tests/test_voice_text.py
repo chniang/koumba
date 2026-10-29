@@ -64,7 +64,7 @@ def test_transfer_replaces_sahm_pai_and_the_two_bus_names() -> None:
     displayed = spoken_answer(trip, "Wolof", "Sahm")
 
     assert tts_text(displayed, trip=trip, origin="Sahm") == (
-        "Yaangi Saahm, duggal ci Tataa fanweer ak juróom ñett bi jëm Cité des "
+        "Yaangi Saam, duggal ci Tataa fanweer ak juróom ñett bi jëm Cité des "
         "Enseignants, wàcci Paay, nga jël Tataa juróom ñett fukk bi jëm Darou "
         "Thioub, wàcci Malika."
     )
@@ -134,7 +134,7 @@ def test_bus_check_no_replaces_the_bus_and_its_alternative() -> None:
         origin="Sahm",
     ) == (
         "Déedéet, Tataa fanweer ak juróom ñett bi du dem Malika. "
-        "Yaangi Saahm, duggal ci Tataa fanweer ak juróom ñett bi jëm Cité des "
+        "Yaangi Saam, duggal ci Tataa fanweer ak juróom ñett bi jëm Cité des "
         "Enseignants, wàcci Paay, nga jël Tataa juróom ñett fukk bi jëm Darou "
         "Thioub, wàcci Malika."
     )
@@ -146,5 +146,5 @@ def test_place_missing_from_the_lexicon_still_uses_word_overrides() -> None:
     )
 
     assert tts_text(displayed, origin="Sahm Extension") == (
-        "Yaangi Saahm Extension, duggal ci Tata 3 bi jëm Yoff-Village."
+        "Yaangi Saam Extension, duggal ci Tata 3 bi jëm Yoff-Village."
     )

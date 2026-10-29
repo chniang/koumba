@@ -617,7 +617,7 @@ def test_typed_wolof_reply_returns_audio_for_autoplay(
     assert values[5] is None
     assert values[-1] == b"RIFF-reply"
     assert calls == [
-        "Yaangi Saahm, duggal ci Tataa fanweer ak juróom ñett bi jëm Malika."
+        "Yaangi Saam, duggal ci Tataa fanweer ak juróom ñett bi jëm Malika."
     ]
 
 

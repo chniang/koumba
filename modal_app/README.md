@@ -186,7 +186,7 @@ Generate a WAV from a Wolof sentence:
 curl.exe -X POST "$env:KOUMBA_TTS_URL/speak" `
   -H "X-Koumba-Key: $env:KOUMBA_ASR_KEY" `
   -H "Content-Type: application/json" `
-  --data-raw '{"text":"Yaangi Saahm, duggal ci Tataa fanweer ak juróom ñett bi jëm Malika."}' `
+  --data-raw '{"text":"Yaangi Saam, duggal ci Tataa fanweer ak juróom ñett bi jëm Malika."}' `
   --output reply.wav
 ```
 

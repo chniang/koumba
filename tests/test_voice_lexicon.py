@@ -18,7 +18,7 @@ from koumba.voice_lexicon import (
 
 ROOT = Path(__file__).resolve().parent.parent
 WORD_OVERRIDES = {
-    "Sahm": "Saahm",
+    "Sahm": "Saam",
     "PAI": "Paay",
     "Ouakam": "Wakaam",
     "Bargny": "Barñi",
@@ -40,7 +40,7 @@ def test_place_suggestion_applies_only_the_safe_letter_conversions() -> None:
 
 def test_place_suggestion_keeps_vowel_length_untouched() -> None:
     assert safe_place_suggestion("Tataa") == "Tataa"
-    assert safe_place_suggestion("Saahm") == "Saahm"
+    assert safe_place_suggestion("Saam") == "Saam"
 
 
 def test_word_overrides_replace_whole_words_case_insensitively() -> None:
@@ -128,8 +128,8 @@ def test_place_overrides_drive_say_as_and_status() -> None:
     rows = _lexicon_rows()
     places = {row["text"]: row for row in rows if row["kind"] == "place"}
 
-    assert places["Sahm"]["say_as"] == "Saahm"
-    assert places["SAHM"]["say_as"] == "Saahm"
+    assert places["Sahm"]["say_as"] == "Saam"
+    assert places["SAHM"]["say_as"] == "Saam"
     assert places["PAI"]["say_as"] == "Paay"
     assert places["Ouakam"]["say_as"] == "Wakaam"
     assert places["Fass Mbao"]["say_as"] == "Faass Mbao"
