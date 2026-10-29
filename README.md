@@ -6,7 +6,7 @@ from the public dataset. A Muse Spark agent can understand a request in Wolof,
 French, or English, call the route engine as tools, check a bus photo with its
 vision input, transcribe a spoken request with Meta Omnilingual ASR on Modal
 before a text-only Muse Spark cleanup, and speak the short Wolof answer with
-Kiriku-Wolof-TTS on Modal.
+Oolel-Voices on Modal.
 
 ## Built during the Meta Global AI Developer Hackathon (Oct 26 - Nov 4, 2026)
 
@@ -31,15 +31,17 @@ This repository contains:
 - `koumba/vision.py` - in-memory image resize and JPEG/base64 encoding.
 - `koumba/listen.py` - in-memory microphone WAV preparation, Modal ASR HTTP
   calls, and Muse Spark place-name cleanup, with no audio stored.
-- `koumba/speak.py` - the Modal Kiriku-Wolof-TTS HTTP client for short spoken
+- `koumba/speak.py` - the Modal Oolel-Voices HTTP client for short spoken
   replies.
 - `koumba/phrases.py` - deterministic short spoken answers in Wolof, French,
   and English, without travel-time guesses.
+- `koumba/voice_text.py` - keeps the displayed Wolof sentence intact and swaps
+  bus and place names for their reviewed TTS spelling.
 - `koumba/app.py` - the Gradio demo UI with a provider banner, voice and
   bus-photo inputs, bus-check cards, spoken Wolof replies, and the honest data
   note.
 - `modal_app/asr.py` - the Modal Omnilingual ASR service and its cache volume.
-- `modal_app/tts.py` - the Modal Kiriku-Wolof-TTS service and its cache volume.
+- `modal_app/tts.py` - the Modal Oolel-Voices service and its cache volume.
 - `modal_app/README.md` - secret creation, deployment, and endpoint tests for
   both Modal services.
 - `scripts/try_voice.py` - manual WAV -> Modal -> cleanup -> agent test.
@@ -105,11 +107,14 @@ For spoken replies, also deploy `modal_app/tts.py` and add its HTTPS URL:
 ```
 
 The TTS service reuses `KOUMBA_ASR_KEY` and needs a Hugging Face token in the
-`koumba-hf` Modal secret. See `modal_app/README.md` for secret creation,
-deployment, and curl tests. Modal ASR deployment defaults to CPU; GPU mode
-requires a payment method. If either voice setting is missing, the app shows
-`Voice not configured` instead of failing. If TTS is missing, the text answer
-still appears and the app shows `Voice reply not configured`.
+`koumba-hf` Modal secret. It serves `soynade-research/Oolel-Voices`, which is
+licensed AGPL-3.0; see the
+[model card](https://huggingface.co/soynade-research/Oolel-Voices) and
+`modal_app/README.md` for secret creation, deployment, and curl tests. Modal
+ASR deployment defaults to CPU; GPU mode requires a payment method. If either
+voice setting is missing, the app shows `Voice not configured` instead of
+failing. If TTS is missing, the text answer still appears and the app shows
+`Voice reply not configured`.
 
 `.env.example` also contains commented presets for Baseten and Fireworks.
 Baseten still needs its OpenAI-compatible base URL pasted from the Baseten
@@ -205,11 +210,14 @@ cleared after the answer, and the thinking panel shows both the raw ASR text
 and the cleaned text, plus which model did each step.
 
 For every Wolof answer, the app sends the short spoken sentence to the Modal
-Kiriku-Wolof-TTS service and plays the returned WAV in a small autoplay player
-under the chat. French and English answers do not request audio. If the TTS
-endpoint is not configured, the app shows `Voice reply not configured` as a
-warning; if the service fails, the chat text remains available. The service
-does not store the text or the audio.
+Oolel-Voices service and plays the returned WAV in a small autoplay player
+under the chat. Before sending it, `koumba/voice_text.py` substitutes the
+reviewed `say_as` spellings for bus and place names while preserving the
+displayed punctuation. French and English answers do not request audio. If the
+TTS endpoint is not configured, the app shows `Voice reply not configured` as a
+warning; if the service fails, the chat text remains available. The app does
+not store the text or the audio; the Modal service caches generated WAVs by
+sentence hash and does not log the sentence.
 
 The app resizes the photo and sends it only for the current turn, then clears
 the image input. After a bus photo, `check_bus_line` fills the cards with the
@@ -260,15 +268,20 @@ answer. The script accepts 8-bit, 16-bit, or 32-bit PCM WAV files.
    and returns the cleaned text, language, and fixed-place list.
 5. The app displays the cleaned text and keeps the raw ASR text in the
    `How Koumba thought` panel for transparency.
-6. For a Wolof answer, the app posts the deterministic spoken sentence to
-   `KOUMBA_TTS_URL/speak` with `X-Koumba-Key: KOUMBA_ASR_KEY` and a 60-second
-   timeout. French and English answers do not request audio.
-7. Modal runs Kiriku-Wolof-TTS on CPU, returns `audio/wav`, and the app plays it
-   in the small autoplay player under the chat. The service caches the model in
-   the `koumba-tts-cache` Volume and accepts at most 400 characters.
+6. For a Wolof answer, `voice_text.py` keeps the displayed sentence and swaps
+   bus and place names for the lexicon's reviewed `say_as` spelling. The app
+   posts that text to `KOUMBA_TTS_URL/speak` with
+   `X-Koumba-Key: KOUMBA_ASR_KEY` and a 60-second timeout. French and English
+   answers do not request audio.
+7. Modal runs Oolel-Voices on CPU with the official female voice prompt, returns
+   `audio/wav`, and the app plays it in the small autoplay player under the
+   chat. Full sentences are synthesized, not concatenated segments. The service
+   caches the model, voice prompt, and generated WAVs in the
+   `koumba-tts-cache` Volume and accepts at most 400 characters.
 
-No audio is stored by Koumba or by either Modal service. If TTS is unavailable,
-the text answer is still shown.
+Koumba does not store the TTS text or audio. The TTS service keeps a WAV cache
+under `/cache/speech` and never logs the sentence. If TTS is unavailable, the
+text answer is still shown.
 
 ## Data source and cache
 
@@ -510,7 +523,8 @@ bus-check answers follow the same direct/alternative shape.
   then the raw text goes to Muse Spark Open for cleanup. The audio is not
   stored by Koumba or by Modal.
 - A Wolof text answer is sent to the Modal TTS endpoint only for synthesis.
-  The sentence and generated audio are not stored by Koumba or by Modal.
+  Koumba does not store the sentence or audio. The Modal service caches
+  generated WAVs by sentence hash in its Volume and does not log the sentence.
 
 ## Known limitations
 
@@ -537,8 +551,9 @@ bus-check answers follow the same direct/alternative shape.
   load time. Model weights are cached, but the container is not kept warm.
   CPU inference is slower than GPU; Modal GPU functions also require a payment
   method.
-- Kiriku-Wolof-TTS is a single-speaker model. Pronunciation of mixed French or
-  English place names may be imperfect, and CPU synthesis adds latency after an
+- Oolel-Voices uses the official demo's female voice prompt. Pronunciation of
+  mixed French or English names may still be imperfect. CPU synthesis takes
+  roughly 6 seconds per sentence on two cores, plus cold-start time after an
   idle period. Autoplay can also be blocked by a browser's media policy until
   the user interacts with the page.
 - Photo quality depends on the model; glare, motion blur, or an unreadable
@@ -548,7 +563,7 @@ bus-check answers follow the same direct/alternative shape.
 - The language badge uses a small heuristic and can mislabel very short or
   heavily mixed messages.
 - No machine-learning model is downloaded on the local machine and there is no
-  Streamlit app. Omnilingual ASR and Kiriku-Wolof-TTS run only on Modal when
+  Streamlit app. Omnilingual ASR and Oolel-Voices run only on Modal when
   deployed. The optional agent and cleanup call the configured
   OpenAI-compatible provider only when its key env var is set.
 

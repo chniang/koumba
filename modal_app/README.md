@@ -1,9 +1,9 @@
 # Koumba ASR and TTS on Modal
 
 This folder contains two separate Modal services: Meta Omnilingual ASR for
-voice input and Kiriku-Wolof-TTS for spoken Wolof replies. They are separate
-from the Koumba app: the app only posts WAV bytes or text to the deployed
-HTTPS URLs. The local app never imports Modal or loads either model.
+voice input and Oolel-Voices for spoken Wolof replies. They are separate from
+the Koumba app: the app only posts WAV bytes or text to the deployed HTTPS URLs.
+The local app never imports Modal or loads either model.
 
 The ASR service uses Meta's Apache-2.0 Omnilingual ASR and defaults to CPU
 because Modal GPU functions require a payment method. CPU mode uses 8 cores and
@@ -125,13 +125,25 @@ For the full local flow (Modal ASR, Muse Spark cleanup, then the route agent):
 
 ## Wolof TTS service
 
-`modal_app/tts.py` serves `AIHubSN/Kiriku-Wolof-TTS` with Coqui TTS 0.19.0.
-The service runs on CPU with 4 cores and 8 GiB of RAM, keeps the model in the
-`koumba-tts-cache` Volume, and loads the Synthesizer once per container. The
-model is gated on Hugging Face, so request access to the model first.
+`modal_app/tts.py` serves
+[`soynade-research/Oolel-Voices`](https://huggingface.co/soynade-research/Oolel-Voices),
+a Wolof TTS model. The service uses the official demo's female voice prompt,
+`8_1_c.wav`. Oolel-Voices is licensed
+[AGPL-3.0](https://huggingface.co/soynade-research/Oolel-Voices); keep that
+license in mind if you redistribute the service. The model, voice prompt, and
+finished speech are cached in the `koumba-tts-cache` Volume.
+
+The service runs on CPU with 8 cores and 16 GiB of RAM. Native review found
+that short, isolated words sound much worse than complete sentences, so the app
+sends the whole displayed Wolof sentence with its normal punctuation. The
+service does not concatenate lexicon clips. Generation is deterministic: it
+seeds `torch`, `random`, and NumPy with `2`, then calls `generate` with
+exaggeration `0.3`, temperature `0.05`, and CFG weight `0.5`. Digits are
+converted to French words with `num2words`, matching the official demo. A
+sentence takes roughly 6 seconds on two CPU cores.
 
 The TTS endpoint uses the same `koumba-asr` secret and `KOUMBA_ASR_KEY` as the
-ASR endpoint. Create a separate Hugging Face secret for the model download:
+ASR endpoint. Create a separate Hugging Face secret for the downloads:
 
 ```powershell
 .\.venv\Scripts\python.exe -m modal secret create koumba-hf "HF_TOKEN=<your-token>"
@@ -163,23 +175,25 @@ curl.exe "$env:KOUMBA_TTS_URL/health" `
 Expected:
 
 ```json
-{"ok":true,"model":"Kiriku-Wolof-TTS"}
+{"ok":true,"model":"Oolel-Voices"}
 ```
 
-Generate a WAV from a short Wolof sentence:
+Generate a WAV from a Wolof sentence:
 
 ```powershell
 curl.exe -X POST "$env:KOUMBA_TTS_URL/speak" `
   -H "X-Koumba-Key: $env:KOUMBA_ASR_KEY" `
   -H "Content-Type: application/json" `
-  --data-raw '{"text":"Maa ngi Sahm, bëgg naa dem Malika"}' `
+  --data-raw '{"text":"Yaangi Saahm, duggal ci Tataa fanweer ak juróom ñett bi jëm Malika."}' `
   --output reply.wav
 ```
 
-The first request downloads the model into the Volume. Later containers reuse
-the cached weights. The endpoint accepts up to 400 characters, returns
-`audio/wav`, and times out after 120 seconds. Requests with a missing or wrong
-key return HTTP 401; empty, malformed, or overlong text returns HTTP 400. The
-service logs synthesis time and character count, but does not store or log the
-sentence or the audio. The first request after the 300-second idle window pays
-the container start and model load cost.
+The first container downloads the model and voice prompt into the Volume, then
+loads the model once in `@modal.enter`; the startup allowance is 900 seconds.
+Later containers reuse the cached files. The endpoint accepts up to 400
+characters, returns `audio/wav`, and times out after 180 seconds. Requests with a missing or wrong key return HTTP 401; empty,
+malformed, or overlong text returns HTTP 400. Each new sentence is cached as
+`/cache/speech/<sha256>.wav` and later requests for the same final text serve
+that file. The service logs cache hits, synthesis time, and character count,
+but never logs the sentence. The first request after the 300-second idle window
+pays the container start and model load cost.

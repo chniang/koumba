@@ -37,6 +37,7 @@ from .phrases import compose_chat_message
 from .places import PlaceIndex
 from .router import RouteEngine
 from .speak import SpeakError, speak
+from .voice_text import tts_text
 
 EXAMPLE_WOLOF = "Maa ngi Sahm, bëgg naa dem Malika"
 EXAMPLE_FRENCH = "Je suis à Ouakam, je vais au Palais"
@@ -402,17 +403,46 @@ def _respond(message_text: str, history, image_path: str | None = None):
     return chatbot, message, cards, thoughts, image
 
 
+def _tts_text_for_result(result: Any) -> str:
+    """Use the displayed sentence, with reviewed bus and place spellings."""
+
+    text = str(
+        getattr(result, "spoken", "") or getattr(result, "reply", "") or ""
+    ).strip()
+    if not text:
+        return ""
+
+    trips = getattr(result, "trips", None)
+    best_trip = (
+        trips[0]
+        if isinstance(trips, list) and trips and isinstance(trips[0], dict)
+        else None
+    )
+    check = getattr(result, "bus_check", None)
+    alternative = (
+        check.get("best_alternative")
+        if isinstance(check, dict)
+        else None
+    )
+    return tts_text(
+        text,
+        trip=best_trip,
+        origin=getattr(result, "origin", None),
+        check=check if isinstance(check, dict) else None,
+        destination=getattr(result, "destination", None),
+        alternative=alternative if isinstance(alternative, dict) else None,
+    )
+
+
 def _reply_audio_for_result(result: Any) -> bytes | None:
     """Return a WAV reply for Wolof turns, and no audio for other languages."""
 
     if result is None or not _is_wolof(getattr(result, "language", None)):
         return None
-    text = str(
-        getattr(result, "spoken", "") or getattr(result, "reply", "") or ""
-    ).strip()
-    if not text:
-        return None
     try:
+        text = _tts_text_for_result(result)
+        if not text:
+            return None
         return speak(text)
     except SpeakError as exc:
         gr.Warning(str(exc))

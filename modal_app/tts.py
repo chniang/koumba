@@ -1,16 +1,23 @@
-"""Modal service for Kiriku Wolof text-to-speech.
+"""Modal service for Oolel-Voices Wolof text-to-speech.
 
-Deploy this file with Modal.  The Koumba app only calls its HTTPS endpoint;
-the local app never imports Modal or loads the TTS model.  The image is kept
-separate from the ASR image so the two dependency trees cannot disturb each
-other.  The model is downloaded once into a Modal Volume and the Synthesizer
-is loaded once per container.
+The app sends one complete Wolof sentence and gets one WAV back.  Native review
+found that short, isolated words sound much worse than full sentences with their
+normal punctuation, so this service does not concatenate lexicon clips.  The
+model, its voice prompt, and finished sentences are kept in a Modal Volume
+because CPU generation takes several seconds per request.
+
+Deploy this file with Modal.  The local app only calls the HTTPS endpoint and
+never imports Modal or loads the model.  The image is separate from the ASR
+image so the two dependency trees cannot disturb each other.
 """
 
 import contextlib
+import hashlib
 import io
 import logging
 import os
+import random
+import re
 import secrets
 import threading
 import time
@@ -24,19 +31,26 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 APP_NAME = "koumba-tts"
-MODEL_ID = "AIHubSN/Kiriku-Wolof-TTS"
-MODEL_NAME = "Kiriku-Wolof-TTS"
+MODEL_ID = "soynade-research/Oolel-Voices"
+MODEL_NAME = "Oolel-Voices"
+VOICE_REPO_ID = "soynade-research/Oolel-Voices-Demo"
+VOICE_FILENAME = "8_1_c.wav"
 CACHE_ROOT = "/cache"
-MODEL_DIR = f"{CACHE_ROOT}/kiriku-wolof-tts"
+MODEL_DIR = f"{CACHE_ROOT}/oolel-voices"
+VOICE_PROMPT_PATH = f"{CACHE_ROOT}/{VOICE_FILENAME}"
+SPEECH_DIR = f"{CACHE_ROOT}/speech"
 MAX_TEXT_CHARS = 400
+SEED = 2
 
-# These pins match TTS 0.19.0's Python 3.10 era.  torch and torchaudio must
-# stay on the same release, and TTS itself pins NumPy 1.22 on this Python.
-TORCH_VERSION = "2.1.2"
-NUMPY_VERSION = "1.22.0"
+TORCH_VERSION = "2.8.0"
 TRANSFORMERS_VERSION = "4.46.3"
+DIFFUSERS_VERSION = "0.29.0"
+CONFORMER_VERSION = "0.3.2"
+TORCHCODEC_VERSION = "0.7.0"
 
 logger = logging.getLogger("koumba-tts")
+
+_NUMBER_PATTERN = re.compile(r"\b\d+(?:[.,]\d+)*\b")
 
 
 class SpeakIn(BaseModel):
@@ -60,34 +74,65 @@ auth_secret = modal.Secret.from_name(
 )
 
 image = (
-    modal.Image.debian_slim(python_version="3.10")
-    .apt_install("espeak-ng", "libsndfile1")
+    modal.Image.debian_slim(python_version="3.11")
+    .apt_install("ffmpeg", "libsndfile1")
     .pip_install(
-        f"torch=={TORCH_VERSION}+cpu",
-        f"torchaudio=={TORCH_VERSION}+cpu",
+        f"torch=={TORCH_VERSION}",
+        f"torchaudio=={TORCH_VERSION}",
         index_url="https://download.pytorch.org/whl/cpu",
     )
     .pip_install(
-        f"numpy=={NUMPY_VERSION}",
-        "TTS==0.19.0",
+        f"transformers=={TRANSFORMERS_VERSION}",
+        f"diffusers=={DIFFUSERS_VERSION}",
+        f"conformer=={CONFORMER_VERSION}",
+        "s3tokenizer",
+        "librosa>=0.10.2",
+        "numpy>=2.0",
+        "num2words",
+        "soundfile",
+        f"torchcodec=={TORCHCODEC_VERSION}",
+        "huggingface_hub",
         "fastapi[standard]",
     )
-    # TTS 0.19.0's metadata pins transformers 4.33.*, but the Kiriku model
-    # card asks for 4.46.3.  Install it in a separate layer so pip upgrades
-    # its shared dependencies instead of trying to solve both pins at once.
-    .pip_install(f"transformers=={TRANSFORMERS_VERSION}")
     .run_commands(
-        'python -c "import numpy, torch, torchaudio, transformers; '
-        "from TTS.utils.synthesizer import Synthesizer; "
-        "print('numpy', numpy.__version__, 'torch', torch.__version__, "
-        "'torchaudio', torchaudio.__version__, 'transformers', "
-        "transformers.__version__); "
-        "assert numpy.__version__ == '1.22.0'; "
-        "assert torch.__version__.split('+')[0] == '2.1.2'; "
-        "assert torchaudio.__version__.split('+')[0] == '2.1.2'; "
-        "assert transformers.__version__ == '4.46.3'\""
+        "python -c \"import transformers, diffusers, s3tokenizer; "
+        "print('transformers', transformers.__version__); "
+        "print('diffusers', diffusers.__version__); "
+        "print('s3tokenizer', getattr(s3tokenizer, '__version__', 'unknown'))\""
     )
 )
+
+
+def convert_numbers_to_french(text: str) -> str:
+    """Replace digits with French words, as the official Oolel demo does."""
+
+    from num2words import num2words
+
+    def replace_match(match: re.Match[str]) -> str:
+        raw = match.group(0)
+        normalized = raw.replace(",", ".")
+        parts = normalized.split(".")
+        try:
+            if len(parts) == 2:
+                number: float | int = float(normalized)
+            else:
+                number = int(parts[0])
+            return num2words(number, lang="fr")
+        except (ValueError, NotImplementedError):
+            return raw
+
+    return _NUMBER_PATTERN.sub(replace_match, str(text or ""))
+
+
+def set_seed(seed: int = SEED) -> None:
+    """Seed the three random sources used by the model."""
+
+    import numpy as np
+    import torch
+
+    torch.manual_seed(seed)
+    random.seed(seed)
+    np.random.seed(seed)
 
 
 def create_api(
@@ -124,8 +169,6 @@ def create_api(
         if not text:
             raise HTTPException(status_code=400, detail="Text is empty")
 
-        # Keep Wolof letters and digits, but the model speaks lower case.
-        text = text.lower()
         try:
             audio = await run_in_threadpool(synthesize, text)
         except Exception as exc:
@@ -145,21 +188,21 @@ def create_api(
 
 @app.cls(
     image=image,
-    cpu=4.0,
-    memory=8192,
+    cpu=8.0,
+    memory=16384,
     volumes={CACHE_ROOT: model_cache},
     secrets=[hf_secret, auth_secret],
     scaledown_window=300,
-    timeout=120,
+    timeout=180,
     startup_timeout=900,
 )
 class KoumbaTTS:
     @modal.enter()
     def load(self) -> None:
-        """Download the gated model once, then load the Synthesizer."""
+        """Download the model and voice prompt once, then load the model."""
 
-        from huggingface_hub import snapshot_download
-        from TTS.utils.synthesizer import Synthesizer
+        from huggingface_hub import hf_hub_download, snapshot_download
+        from transformers import AutoModel
 
         token = (os.environ.get("HF_TOKEN") or "").strip()
         if not token:
@@ -167,35 +210,46 @@ class KoumbaTTS:
 
         model_dir = Path(MODEL_DIR)
         model_dir.mkdir(parents=True, exist_ok=True)
-        checkpoint = model_dir / "model.pth"
-        config = model_dir / "config.json"
-        cached = (
-            checkpoint.is_file()
-            and checkpoint.stat().st_size > 0
-            and config.is_file()
-            and config.stat().st_size > 0
-        )
-        if not cached:
+        config_path = model_dir / "config.json"
+        weights_path = model_dir / "model.safetensors"
+        downloaded = False
+        if not (config_path.is_file() and weights_path.is_file()):
             snapshot_download(
                 repo_id=MODEL_ID,
                 local_dir=str(model_dir),
                 token=token,
             )
-            # Commit only after a complete download.  A later crash cannot
-            # leave the volume with a half-written checkpoint.
+            downloaded = True
+
+        voice_path = Path(VOICE_PROMPT_PATH)
+        if not voice_path.is_file():
+            hf_hub_download(
+                repo_id=VOICE_REPO_ID,
+                filename=VOICE_FILENAME,
+                repo_type="space",
+                local_dir=CACHE_ROOT,
+                token=token,
+            )
+            downloaded = True
+
+        Path(SPEECH_DIR).mkdir(parents=True, exist_ok=True)
+        if downloaded:
+            # Commit only after every file is complete, so a crash cannot leave
+            # the Volume with a half-written model.
             model_cache.commit()
 
-        self.synthesizer = Synthesizer(
-            tts_checkpoint=str(checkpoint),
-            tts_config_path=str(config),
+        self.model = AutoModel.from_pretrained(
+            str(model_dir),
+            trust_remote_code=True,
         )
-        # The web workers share four CPUs, so serialize model calls.
+        self.voice_prompt = str(voice_path)
+        # The web workers share the container, so serialize CPU generation.
         self.synthesis_lock = threading.Lock()
         logger.info(
             "Loaded %s at %s (sample_rate=%s)",
             MODEL_NAME,
             model_dir,
-            self.synthesizer.output_sample_rate,
+            self.model.sr,
         )
 
     def _authorized(self, supplied_key: str | None) -> bool:
@@ -205,35 +259,60 @@ class KoumbaTTS:
         return secrets.compare_digest(expected, supplied_key)
 
     def _synthesize(self, text: str) -> bytes:
-        """Return WAV bytes without writing text or audio to disk."""
+        """Return cached or freshly generated WAV bytes for one sentence."""
 
         import numpy as np
         import soundfile as sf
+        import torch
 
-        started = time.perf_counter()
+        final_text = convert_numbers_to_french(text)
+        digest = hashlib.sha256(final_text.encode("utf-8")).hexdigest()
+        cache_path = Path(SPEECH_DIR) / f"{digest}.wav"
+
         with self.synthesis_lock:
-            # TTS prints the sentence while it splits text.  Redirect that
-            # chatter so user text never reaches the service logs.
-            with contextlib.redirect_stdout(io.StringIO()):
-                waveform = self.synthesizer.tts(text=text)
-        elapsed = time.perf_counter() - started
+            if cache_path.is_file() and cache_path.stat().st_size > 0:
+                logger.info(
+                    "Speech cache hit (chars=%d)",
+                    len(final_text),
+                )
+                return cache_path.read_bytes()
 
-        sample_rate = int(self.synthesizer.output_sample_rate)
-        with io.BytesIO() as buffer:
-            sf.write(
-                buffer,
-                np.asarray(waveform, dtype=np.float32),
-                sample_rate,
-                format="WAV",
-                subtype="PCM_16",
-            )
-            audio = buffer.getvalue()
+            started = time.perf_counter()
+            set_seed()
+            # The model may print the sentence while preparing it.  Keep user
+            # text out of the service logs.
+            with contextlib.redirect_stdout(io.StringIO()):
+                with torch.inference_mode():
+                    waveform = self.model.generate(
+                        final_text,
+                        audio_prompt_path=self.voice_prompt,
+                        exaggeration=0.3,
+                        temperature=0.05,
+                        cfg_weight=0.5,
+                    )
+            elapsed = time.perf_counter() - started
+
+            samples = waveform.squeeze(0).detach().cpu().float().numpy()
+            with io.BytesIO() as buffer:
+                sf.write(
+                    buffer,
+                    np.asarray(samples, dtype=np.float32),
+                    int(self.model.sr),
+                    format="WAV",
+                    subtype="PCM_16",
+                )
+                audio = buffer.getvalue()
+
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            temporary = cache_path.with_suffix(".tmp")
+            temporary.write_bytes(audio)
+            os.replace(temporary, cache_path)
 
         logger.info(
             "Synthesis time: %.3fs (chars=%d, sample_rate=%d)",
             elapsed,
-            len(text),
-            sample_rate,
+            len(final_text),
+            int(self.model.sr),
         )
         return audio
 

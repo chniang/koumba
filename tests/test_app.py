@@ -576,12 +576,27 @@ def test_typed_wolof_reply_returns_audio_for_autoplay(
     import koumba.app as app
 
     spoken = "Yaangi Sahm, duggal ci Tata 38 bi jëm Malika."
+    trip = {
+        "total_minutes": 40,
+        "legs": [
+            {
+                "operator": "Tata AFTU",
+                "line": "Ligne 38",
+                "board_stop": "Sahm",
+                "alight_stop": "Malika",
+                "direction": "Malika",
+            }
+        ],
+        "walks": [],
+    }
     fake = _FakeAgent(
         [
             AgentResult(
                 reply="Long model answer.",
                 language="Wolof",
+                origin="Sahm",
                 spoken=spoken,
+                trips=[trip],
             )
         ]
     )
@@ -598,9 +613,12 @@ def test_typed_wolof_reply_returns_audio_for_autoplay(
     values = app._respond_with_audio("Maa ngi Sahm", [], None, None)
 
     assert len(values) == 7
+    assert values[0][-1]["content"] == spoken
     assert values[5] is None
     assert values[-1] == b"RIFF-reply"
-    assert calls == [spoken]
+    assert calls == [
+        "Yaangi Saahm, duggal ci Tataa fanweer ak juróom ñett bi jëm Malika."
+    ]
 
 
 def test_french_reply_does_not_request_audio(
