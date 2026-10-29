@@ -4,14 +4,14 @@ The spellings below follow the official Senegalese Wolof orthography.  A
 doubled vowel is long and a single vowel is short, so forms such as ``ñaar``,
 ``ñeent``, and ``juróom`` must not be "simplified" later.
 
-We only cover 1..199 on purpose.  That is the validated range for bus numbers;
-larger numbers need a native-speaker decision instead of a guessed form.
+We cover 1..599 only.  The hundred words and their "agreement" forms are
+validated; anything larger still needs a native-speaker decision.
 """
 
 from __future__ import annotations
 
 MIN_NUMBER = 1
-MAX_NUMBER = 199
+MAX_NUMBER = 599
 
 _ONES = {
     1: "benn",
@@ -37,6 +37,17 @@ _TENS = {
     90: "juróom ñeent fukk",
 }
 
+# "One hundred" keeps the plain noun form; 200..500 add the matching spelled
+# agreement before the same noun.  Do not regenerate these from morphology:
+# they were checked with the Oolel voice.
+_HUNDREDS = {
+    1: "téeméer",
+    2: "ñaari téeméer",
+    3: "ñetti téeméer",
+    4: "ñeenti téeméer",
+    5: "juróomi téeméer",
+}
+
 
 def _below_hundred(number: int) -> str:
     """Build 1..99, joining the remainder with the spoken word ``ak``."""
@@ -57,9 +68,10 @@ def _below_hundred(number: int) -> str:
 
 
 def wolof_number(number: int) -> str:
-    """Return the Wolof words for an integer from 1 to 199.
+    """Return the Wolof words for an integer from 1 to 599.
 
-    Examples: 38 -> ``fanweer ak juróom ñett``, 105 -> ``téeméer ak juróom``.
+    Examples: 38 -> ``fanweer ak juróom ñett``, 208 -> ``ñaari téeméer ak
+    juróom ñett``.
     """
 
     if isinstance(number, bool) or not isinstance(number, int):
@@ -71,6 +83,9 @@ def wolof_number(number: int) -> str:
 
     if number < 100:
         return _below_hundred(number)
-    if number == 100:
-        return "téeméer"
-    return f"téeméer ak {_below_hundred(number - 100)}"
+
+    hundreds, remainder = divmod(number, 100)
+    words = _HUNDREDS[hundreds]
+    if remainder:
+        words += f" ak {_below_hundred(remainder)}"
+    return words

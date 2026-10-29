@@ -1,4 +1,4 @@
-"""Wolof number words stay within the validated 1..199 vocabulary."""
+"""Wolof number words stay within the validated 1..599 vocabulary."""
 
 from __future__ import annotations
 
@@ -33,13 +33,24 @@ from koumba.wolof_numbers import wolof_number
         (130, "téeméer ak fanweer"),
         (138, "téeméer ak fanweer ak juróom ñett"),
         (199, "téeméer ak juróom ñeent fukk ak juróom ñeent"),
+        (200, "ñaari téeméer"),
+        (208, "ñaari téeméer ak juróom ñett"),
+        (213, "ñaari téeméer ak fukk ak ñett"),
+        (300, "ñetti téeméer"),
+        (400, "ñeenti téeméer"),
+        (500, "juróomi téeméer"),
+        (501, "juróomi téeméer ak benn"),
+        (502, "juróomi téeméer ak ñaar"),
+        (509, "juróomi téeméer ak juróom ñeent"),
+        (510, "juróomi téeméer ak fukk"),
+        (599, "juróomi téeméer ak juróom ñeent fukk ak juróom ñeent"),
     ],
 )
 def test_wolof_number_words(number: int, expected: str) -> None:
     assert wolof_number(number) == expected
 
 
-@pytest.mark.parametrize("number", [0, 200, -1])
+@pytest.mark.parametrize("number", [0, 600, -1])
 def test_numbers_outside_the_validated_range_are_rejected(number: int) -> None:
     with pytest.raises(ValueError):
         wolof_number(number)

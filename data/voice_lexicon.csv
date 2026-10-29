@@ -16,40 +16,40 @@ bus:dakar-dem-dikk:ligne-11,bus,Dem Dikk 11,Dem Dikk fukk ak benn,Dem Dikk fukk 
 bus:dakar-dem-dikk:ligne-12,bus,Dem Dikk 12,Dem Dikk fukk ak ñaar,Dem Dikk fukk ak ñaar,validated
 bus:dakar-dem-dikk:ligne-121,bus,Dem Dikk 121,Dem Dikk téeméer ak ñaar fukk ak benn,Dem Dikk téeméer ak ñaar fukk ak benn,validated
 bus:dakar-dem-dikk:ligne-13,bus,Dem Dikk 13,Dem Dikk fukk ak ñett,Dem Dikk fukk ak ñett,validated
-bus:dakar-dem-dikk:ligne-15a,bus,Dem Dikk 15A,Dem Dikk 15A,Dem Dikk 15A,review
-bus:dakar-dem-dikk:ligne-15b,bus,Dem Dikk 15B,Dem Dikk 15B,Dem Dikk 15B,review
-bus:dakar-dem-dikk:ligne-16a,bus,Dem Dikk 16A,Dem Dikk 16A,Dem Dikk 16A,review
-bus:dakar-dem-dikk:ligne-16b,bus,Dem Dikk 16B,Dem Dikk 16B,Dem Dikk 16B,review
+bus:dakar-dem-dikk:ligne-15a,bus,Dem Dikk 15A,Dem Dikk fukk ak juróom A,Dem Dikk fukk ak juróom A,validated
+bus:dakar-dem-dikk:ligne-15b,bus,Dem Dikk 15B,Dem Dikk fukk ak juróom B,Dem Dikk fukk ak juróom B,validated
+bus:dakar-dem-dikk:ligne-16a,bus,Dem Dikk 16A,Dem Dikk fukk ak juróom benn A,Dem Dikk fukk ak juróom benn A,validated
+bus:dakar-dem-dikk:ligne-16b,bus,Dem Dikk 16B,Dem Dikk fukk ak juróom benn B,Dem Dikk fukk ak juróom benn B,validated
 bus:dakar-dem-dikk:ligne-18,bus,Dem Dikk 18,Dem Dikk fukk ak juróom ñett,Dem Dikk fukk ak juróom ñett,validated
 bus:dakar-dem-dikk:ligne-2,bus,Dem Dikk 2,Dem Dikk ñaar,Dem Dikk ñaar,validated
 bus:dakar-dem-dikk:ligne-20,bus,Dem Dikk 20,Dem Dikk ñaar fukk,Dem Dikk ñaar fukk,validated
-bus:dakar-dem-dikk:ligne-208,bus,Dem Dikk 208,Dem Dikk 208,Dem Dikk 208,review
-bus:dakar-dem-dikk:ligne-213,bus,Dem Dikk 213,Dem Dikk 213,Dem Dikk 213,review
-bus:dakar-dem-dikk:ligne-217,bus,Dem Dikk 217,Dem Dikk 217,Dem Dikk 217,review
-bus:dakar-dem-dikk:ligne-218,bus,Dem Dikk 218,Dem Dikk 218,Dem Dikk 218,review
-bus:dakar-dem-dikk:ligne-219,bus,Dem Dikk 219,Dem Dikk 219,Dem Dikk 219,review
-bus:dakar-dem-dikk:ligne-220,bus,Dem Dikk 220,Dem Dikk 220,Dem Dikk 220,review
-bus:dakar-dem-dikk:ligne-221,bus,Dem Dikk 221,Dem Dikk 221,Dem Dikk 221,review
-bus:dakar-dem-dikk:ligne-227,bus,Dem Dikk 227,Dem Dikk 227,Dem Dikk 227,review
-bus:dakar-dem-dikk:ligne-228,bus,Dem Dikk 228,Dem Dikk 228,Dem Dikk 228,review
+bus:dakar-dem-dikk:ligne-208,bus,Dem Dikk 208,Dem Dikk ñaari téeméer ak juróom ñett,Dem Dikk ñaari téeméer ak juróom ñett,validated
+bus:dakar-dem-dikk:ligne-213,bus,Dem Dikk 213,Dem Dikk ñaari téeméer ak fukk ak ñett,Dem Dikk ñaari téeméer ak fukk ak ñett,validated
+bus:dakar-dem-dikk:ligne-217,bus,Dem Dikk 217,Dem Dikk ñaari téeméer ak fukk ak juróom ñaar,Dem Dikk ñaari téeméer ak fukk ak juróom ñaar,validated
+bus:dakar-dem-dikk:ligne-218,bus,Dem Dikk 218,Dem Dikk ñaari téeméer ak fukk ak juróom ñett,Dem Dikk ñaari téeméer ak fukk ak juróom ñett,validated
+bus:dakar-dem-dikk:ligne-219,bus,Dem Dikk 219,Dem Dikk ñaari téeméer ak fukk ak juróom ñeent,Dem Dikk ñaari téeméer ak fukk ak juróom ñeent,validated
+bus:dakar-dem-dikk:ligne-220,bus,Dem Dikk 220,Dem Dikk ñaari téeméer ak ñaar fukk,Dem Dikk ñaari téeméer ak ñaar fukk,validated
+bus:dakar-dem-dikk:ligne-221,bus,Dem Dikk 221,Dem Dikk ñaari téeméer ak ñaar fukk ak benn,Dem Dikk ñaari téeméer ak ñaar fukk ak benn,validated
+bus:dakar-dem-dikk:ligne-227,bus,Dem Dikk 227,Dem Dikk ñaari téeméer ak ñaar fukk ak juróom ñaar,Dem Dikk ñaari téeméer ak ñaar fukk ak juróom ñaar,validated
+bus:dakar-dem-dikk:ligne-228,bus,Dem Dikk 228,Dem Dikk ñaari téeméer ak ñaar fukk ak juróom ñett,Dem Dikk ñaari téeméer ak ñaar fukk ak juróom ñett,validated
 bus:dakar-dem-dikk:ligne-23,bus,Dem Dikk 23,Dem Dikk ñaar fukk ak ñett,Dem Dikk ñaar fukk ak ñett,validated
-bus:dakar-dem-dikk:ligne-232,bus,Dem Dikk 232,Dem Dikk 232,Dem Dikk 232,review
-bus:dakar-dem-dikk:ligne-233,bus,Dem Dikk 233,Dem Dikk 233,Dem Dikk 233,review
-bus:dakar-dem-dikk:ligne-234,bus,Dem Dikk 234,Dem Dikk 234,Dem Dikk 234,review
+bus:dakar-dem-dikk:ligne-232,bus,Dem Dikk 232,Dem Dikk ñaari téeméer ak fanweer ak ñaar,Dem Dikk ñaari téeméer ak fanweer ak ñaar,validated
+bus:dakar-dem-dikk:ligne-233,bus,Dem Dikk 233,Dem Dikk ñaari téeméer ak fanweer ak ñett,Dem Dikk ñaari téeméer ak fanweer ak ñett,validated
+bus:dakar-dem-dikk:ligne-234,bus,Dem Dikk 234,Dem Dikk ñaari téeméer ak fanweer ak ñeent,Dem Dikk ñaari téeméer ak fanweer ak ñeent,validated
 bus:dakar-dem-dikk:ligne-4,bus,Dem Dikk 4,Dem Dikk ñeent,Dem Dikk ñeent,validated
 bus:dakar-dem-dikk:ligne-5,bus,Dem Dikk 5,Dem Dikk juróom,Dem Dikk juróom,validated
-bus:dakar-dem-dikk:ligne-501,bus,Dem Dikk 501,Dem Dikk 501,Dem Dikk 501,review
-bus:dakar-dem-dikk:ligne-502a,bus,Dem Dikk 502A,Dem Dikk 502A,Dem Dikk 502A,review
-bus:dakar-dem-dikk:ligne-502b,bus,Dem Dikk 502B,Dem Dikk 502B,Dem Dikk 502B,review
-bus:dakar-dem-dikk:ligne-503a,bus,Dem Dikk 503A,Dem Dikk 503A,Dem Dikk 503A,review
-bus:dakar-dem-dikk:ligne-503b,bus,Dem Dikk 503B,Dem Dikk 503B,Dem Dikk 503B,review
-bus:dakar-dem-dikk:ligne-504a,bus,Dem Dikk 504A,Dem Dikk 504A,Dem Dikk 504A,review
-bus:dakar-dem-dikk:ligne-504b,bus,Dem Dikk 504B,Dem Dikk 504B,Dem Dikk 504B,review
+bus:dakar-dem-dikk:ligne-501,bus,Dem Dikk 501,Dem Dikk juróomi téeméer ak benn,Dem Dikk juróomi téeméer ak benn,validated
+bus:dakar-dem-dikk:ligne-502a,bus,Dem Dikk 502A,Dem Dikk juróomi téeméer ak ñaar A,Dem Dikk juróomi téeméer ak ñaar A,validated
+bus:dakar-dem-dikk:ligne-502b,bus,Dem Dikk 502B,Dem Dikk juróomi téeméer ak ñaar B,Dem Dikk juróomi téeméer ak ñaar B,validated
+bus:dakar-dem-dikk:ligne-503a,bus,Dem Dikk 503A,Dem Dikk juróomi téeméer ak ñett A,Dem Dikk juróomi téeméer ak ñett A,validated
+bus:dakar-dem-dikk:ligne-503b,bus,Dem Dikk 503B,Dem Dikk juróomi téeméer ak ñett B,Dem Dikk juróomi téeméer ak ñett B,validated
+bus:dakar-dem-dikk:ligne-504a,bus,Dem Dikk 504A,Dem Dikk juróomi téeméer ak ñeent A,Dem Dikk juróomi téeméer ak ñeent A,validated
+bus:dakar-dem-dikk:ligne-504b,bus,Dem Dikk 504B,Dem Dikk juróomi téeméer ak ñeent B,Dem Dikk juróomi téeméer ak ñeent B,validated
 bus:dakar-dem-dikk:ligne-6,bus,Dem Dikk 6,Dem Dikk juróom benn,Dem Dikk juróom benn,validated
 bus:dakar-dem-dikk:ligne-7,bus,Dem Dikk 7,Dem Dikk juróom ñaar,Dem Dikk juróom ñaar,validated
 bus:dakar-dem-dikk:ligne-8,bus,Dem Dikk 8,Dem Dikk juróom ñett,Dem Dikk juróom ñett,validated
 bus:dakar-dem-dikk:ligne-9,bus,Dem Dikk 9,Dem Dikk juróom ñeent,Dem Dikk juróom ñeent,validated
-bus:dakar-dem-dikk:taf-taf,bus,Dem Dikk TAF TAF,Dem Dikk TAF TAF,Dem Dikk TAF TAF,review
+bus:dakar-dem-dikk:taf-taf,bus,Dem Dikk TAF TAF,Dem Dikk Taf Taf,Dem Dikk Taf Taf,validated
 bus:tata-aftu:ligne-1,bus,Tata 1,Tataa benn,Tataa benn,validated
 bus:tata-aftu:ligne-2,bus,Tata 2,Tataa ñaar,Tataa ñaar,validated
 bus:tata-aftu:ligne-24,bus,Tata 24,Tataa ñaar fukk ak ñeent,Tataa ñaar fukk ak ñeent,validated

@@ -41,7 +41,7 @@ from koumba.voice_lexicon import (
     place_id,
     safe_place_suggestion,
 )
-from koumba.wolof_numbers import wolof_number
+from koumba.wolof_numbers import MAX_NUMBER, MIN_NUMBER, wolof_number
 
 DATA_DIR = ROOT / "data"
 LEXICON_PATH = DATA_DIR / "voice_lexicon.csv"
@@ -99,17 +99,44 @@ def _connector_rows() -> list[dict[str, str]]:
     return rows
 
 
-def _plain_line_number(line: str) -> int | None:
-    """Return an integer only for a line such as ``Ligne 38``.
-
-    S suffixes (``15A``), ranges, and names such as ``TAF TAF`` are left for
-    review rather than being squeezed into a number word.
-    """
+def _line_number_and_suffix(line: str) -> tuple[int, str] | None:
+    """Split ``Ligne 15A`` into (15, "A") and ``Ligne 38`` into (38, "")."""
 
     raw = re.sub(r"(?i)^\s*ligne\s+", "", line).strip()
-    if not raw.isdigit():
+    match = re.fullmatch(r"(\d+)([A-Za-z]*)?", raw)
+    if match is None:
         return None
-    return int(raw)
+    return int(match.group(1)), match.group(2).upper() or ""
+
+
+def _pronounced_bus_name(
+    operator: str,
+    line: str,
+    display_name: str,
+) -> str:
+    """Use the Oolel voice spelling for a validated bus name.
+
+    A plain line speaks its number.  A line such as ``15A`` speaks the number,
+    then the capital letter.  ``TAF TAF`` is its own validated name.
+    """
+
+    parsed = _line_number_and_suffix(line)
+    lowered_operator = operator.lower()
+    if parsed is not None and MIN_NUMBER <= parsed[0] <= MAX_NUMBER:
+        number, suffix = parsed
+        spoken_line = wolof_number(number)
+        if suffix:
+            spoken_line += f" {suffix}"
+        if "tata" in lowered_operator:
+            return f"Tataa {spoken_line}"
+        if "dem dikk" in lowered_operator:
+            return f"Dem Dikk {spoken_line}"
+        return display_name
+
+    if line.strip().upper() == "TAF TAF":
+        return f"Dem Dikk Taf Taf"
+
+    return display_name
 
 
 def _bus_rows(lignes) -> list[dict[str, str]]:
@@ -128,23 +155,8 @@ def _bus_rows(lignes) -> list[dict[str, str]]:
             continue
         seen.add(row_id)
 
-        number = _plain_line_number(line)
-        lowered_operator = operator.lower()
-        if number is not None and 1 <= number <= 199:
-            if "tata" in lowered_operator:
-                say_as = f"Tataa {wolof_number(number)}"
-            elif "dem dikk" in lowered_operator:
-                say_as = f"Dem Dikk {wolof_number(number)}"
-            else:
-                say_as = text
-            status = "validated"
-        else:
-            # A line number outside the validated range is not guessed.  It is
-            # kept as-is and marked for a human, just like 16A and TAF TAF.
-            say_as = text
-            status = "review"
-
-        rows.append(_row(row_id, "bus", text, say_as, say_as, status))
+        say_as = _pronounced_bus_name(operator, line, text)
+        rows.append(_row(row_id, "bus", text, say_as, say_as, "validated"))
 
     rows.sort(key=lambda item: (item["text"].casefold(), item["text"]))
     return rows

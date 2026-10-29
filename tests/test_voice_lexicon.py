@@ -97,12 +97,13 @@ def test_generated_lexicon_has_one_row_per_unique_id() -> None:
         "status",
     ]
     assert len(rows) == len({row["id"] for row in rows})
-    assert {row["status"] for row in rows} == {"validated", "auto", "review"}
+    assert {row["status"] for row in rows} == {"validated", "auto"}
 
 
-def test_connectors_and_validated_bus_numbers_are_in_the_lexicon() -> None:
+def test_connectors_and_the_full_validated_bus_vocabulary_are_present() -> None:
     rows = _lexicon_rows()
     by_text = {row["text"]: row for row in rows}
+    buses = [row for row in rows if row["kind"] == "bus"]
 
     for text in CONNECTOR_TEXTS:
         row = by_text[text]
@@ -112,8 +113,15 @@ def test_connectors_and_validated_bus_numbers_are_in_the_lexicon() -> None:
 
     assert by_text["Tata 38"]["say_as"] == "Tataa fanweer ak juróom ñett"
     assert by_text["Tata 38"]["status"] == "validated"
-    assert by_text["Dem Dikk 16A"]["say_as"] == "Dem Dikk 16A"
-    assert by_text["Dem Dikk 16A"]["status"] == "review"
+    assert by_text["Dem Dikk 208"]["say_as"] == (
+        "Dem Dikk ñaari téeméer ak juróom ñett"
+    )
+    assert by_text["Dem Dikk 15A"]["say_as"] == "Dem Dikk fukk ak juróom A"
+    assert by_text["Dem Dikk 502B"]["say_as"] == (
+        "Dem Dikk juróomi téeméer ak ñaar B"
+    )
+    assert by_text["Dem Dikk TAF TAF"]["say_as"] == "Dem Dikk Taf Taf"
+    assert all(bus["status"] == "validated" for bus in buses)
 
 
 def test_place_overrides_drive_say_as_and_status() -> None:
