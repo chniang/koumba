@@ -130,7 +130,9 @@ For the full local flow (Modal ASR, Muse Spark cleanup, then the route agent):
 a Wolof TTS model. The service uses the official demo's female voice prompt,
 `8_1_c.wav`. Oolel-Voices is licensed
 [AGPL-3.0](https://huggingface.co/soynade-research/Oolel-Voices); keep that
-license in mind if you redistribute the service. The model, voice prompt, and
+license in mind if you redistribute the service. The model is downloaded into
+the image and loaded once during the build, so a missing runtime dependency
+fails the deploy instead of crash-looping the service. The voice prompt and
 finished speech are cached in the `koumba-tts-cache` Volume.
 
 The service runs on CPU with 8 cores and 16 GiB of RAM. Native review found
@@ -188,9 +190,11 @@ curl.exe -X POST "$env:KOUMBA_TTS_URL/speak" `
   --output reply.wav
 ```
 
-The first container downloads the model and voice prompt into the Volume, then
-loads the model once in `@modal.enter`; the startup allowance is 900 seconds.
-Later containers reuse the cached files. The endpoint accepts up to 400
+The image build downloads Oolel-Voices into `/opt/oolel-voices` and loads it
+once, so missing dependencies fail the build. The first container downloads
+only the voice prompt into the Volume, then loads the baked-in model in
+`@modal.enter`; the startup allowance is 900 seconds. Later containers reuse the
+cached prompt. The endpoint accepts up to 400
 characters, returns `audio/wav`, and times out after 180 seconds. Requests with a missing or wrong key return HTTP 401; empty,
 malformed, or overlong text returns HTTP 400. Each new sentence is cached as
 `/cache/speech/<sha256>.wav` and later requests for the same final text serve

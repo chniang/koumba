@@ -275,9 +275,11 @@ answer. The script accepts 8-bit, 16-bit, or 32-bit PCM WAV files.
    answers do not request audio.
 7. Modal runs Oolel-Voices on CPU with the official female voice prompt, returns
    `audio/wav`, and the app plays it in the small autoplay player under the
-   chat. Full sentences are synthesized, not concatenated segments. The service
-   caches the model, voice prompt, and generated WAVs in the
-   `koumba-tts-cache` Volume and accepts at most 400 characters.
+   chat. Full sentences are synthesized, not concatenated segments. The model
+   is baked into the image and loaded once during the build, so a missing
+   dependency fails the deploy. The voice prompt and generated WAVs are cached
+   in the `koumba-tts-cache` Volume. The endpoint accepts at most 400
+   characters.
 
 Koumba does not store the TTS text or audio. The TTS service keeps a WAV cache
 under `/cache/speech` and never logs the sentence. If TTS is unavailable, the
@@ -548,9 +550,9 @@ bus-check answers follow the same direct/alternative shape.
   noise, code-switching, or a strong accent may still produce the wrong place
   spelling; the user can type or retry the recording.
 - The first Modal request after 300 idle seconds pays the cold-start and model
-  load time. Model weights are cached, but the container is not kept warm.
-  CPU inference is slower than GPU; Modal GPU functions also require a payment
-  method.
+  load time. Oolel weights are baked into the image and the voice prompt is
+  cached, but the container is not kept warm. CPU inference is slower than GPU;
+  Modal GPU functions also require a payment method.
 - Oolel-Voices uses the official demo's female voice prompt. Pronunciation of
   mixed French or English names may still be imperfect. CPU synthesis takes
   roughly 6 seconds per sentence on two cores, plus cold-start time after an

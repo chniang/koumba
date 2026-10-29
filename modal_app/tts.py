@@ -3,8 +3,9 @@
 The app sends one complete Wolof sentence and gets one WAV back.  Native review
 found that short, isolated words sound much worse than full sentences with their
 normal punctuation, so this service does not concatenate lexicon clips.  The
-model, its voice prompt, and finished sentences are kept in a Modal Volume
-because CPU generation takes several seconds per request.
+model is baked into the image and loaded during the build once, so a missing
+runtime module fails the deploy instead of crash-looping every container.  The
+voice prompt and finished sentences are cached in a Modal Volume.
 
 Deploy this file with Modal.  The local app only calls the HTTPS endpoint and
 never imports Modal or loads the model.  The image is separate from the ASR
@@ -36,7 +37,7 @@ MODEL_NAME = "Oolel-Voices"
 VOICE_REPO_ID = "soynade-research/Oolel-Voices-Demo"
 VOICE_FILENAME = "8_1_c.wav"
 CACHE_ROOT = "/cache"
-MODEL_DIR = f"{CACHE_ROOT}/oolel-voices"
+MODEL_DIR = "/opt/oolel-voices"
 VOICE_PROMPT_PATH = f"{CACHE_ROOT}/{VOICE_FILENAME}"
 SPEECH_DIR = f"{CACHE_ROOT}/speech"
 MAX_TEXT_CHARS = 400
@@ -73,6 +74,37 @@ auth_secret = modal.Secret.from_name(
     required_keys=["KOUMBA_ASR_KEY"],
 )
 
+
+def _preload_oolel_model() -> None:
+    """Download and import the model while the image is being built."""
+
+    import os
+    from pathlib import Path
+
+    from huggingface_hub import snapshot_download
+    from transformers import AutoModel
+
+    token = (os.environ.get("HF_TOKEN") or "").strip()
+    if not token:
+        raise RuntimeError("HF_TOKEN is missing from the koumba-hf secret.")
+
+    model_dir = Path(MODEL_DIR)
+    model_dir.mkdir(parents=True, exist_ok=True)
+    snapshot_download(
+        repo_id=MODEL_ID,
+        local_dir=str(model_dir),
+        token=token,
+    )
+    # The remote code imports the actual runtime modules.  Loading here makes a
+    # missing dependency fail this build step instead of every container start.
+    model = AutoModel.from_pretrained(
+        str(model_dir),
+        trust_remote_code=True,
+    )
+    del model
+    print(f"Oolel build check passed: {model_dir}")
+
+
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("ffmpeg", "libsndfile1")
@@ -93,12 +125,26 @@ image = (
         f"torchcodec=={TORCHCODEC_VERSION}",
         "huggingface_hub",
         "fastapi[standard]",
+        "omegaconf",
+        "einops",
+        "safetensors",
+        "scipy",
+        "resampy",
+        "pyloudnorm",
+        "resemble-perth",
     )
     .run_commands(
         "python -c \"import transformers, diffusers, s3tokenizer; "
         "print('transformers', transformers.__version__); "
         "print('diffusers', diffusers.__version__); "
         "print('s3tokenizer', getattr(s3tokenizer, '__version__', 'unknown'))\""
+    )
+    .run_function(
+        _preload_oolel_model,
+        secrets=[hf_secret],
+        cpu=8.0,
+        memory=16384,
+        timeout=900,
     )
 )
 
@@ -199,9 +245,9 @@ def create_api(
 class KoumbaTTS:
     @modal.enter()
     def load(self) -> None:
-        """Download the model and voice prompt once, then load the model."""
+        """Load the baked-in model and fetch the voice prompt if needed."""
 
-        from huggingface_hub import hf_hub_download, snapshot_download
+        from huggingface_hub import hf_hub_download
         from transformers import AutoModel
 
         token = (os.environ.get("HF_TOKEN") or "").strip()
@@ -209,19 +255,13 @@ class KoumbaTTS:
             raise RuntimeError("HF_TOKEN is missing from the koumba-hf secret.")
 
         model_dir = Path(MODEL_DIR)
-        model_dir.mkdir(parents=True, exist_ok=True)
-        config_path = model_dir / "config.json"
-        weights_path = model_dir / "model.safetensors"
-        downloaded = False
-        if not (config_path.is_file() and weights_path.is_file()):
-            snapshot_download(
-                repo_id=MODEL_ID,
-                local_dir=str(model_dir),
-                token=token,
+        if not (model_dir / "config.json").is_file():
+            raise RuntimeError(
+                f"{MODEL_NAME} is missing from the image at {model_dir}."
             )
-            downloaded = True
 
         voice_path = Path(VOICE_PROMPT_PATH)
+        downloaded = False
         if not voice_path.is_file():
             hf_hub_download(
                 repo_id=VOICE_REPO_ID,
@@ -234,8 +274,6 @@ class KoumbaTTS:
 
         Path(SPEECH_DIR).mkdir(parents=True, exist_ok=True)
         if downloaded:
-            # Commit only after every file is complete, so a crash cannot leave
-            # the Volume with a half-written model.
             model_cache.commit()
 
         self.model = AutoModel.from_pretrained(

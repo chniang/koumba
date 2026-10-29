@@ -140,3 +140,42 @@ def test_numbers_are_converted_to_french(monkeypatch) -> None:
     assert convert_numbers_to_french("Tata 38, 3.5") == (
         "Tata <38:fr>, <3.5:fr>"
     )
+
+
+def test_build_step_downloads_and_loads_model(monkeypatch, tmp_path) -> None:
+    from modal_app import tts
+
+    calls: dict[str, object] = {}
+
+    hub = types.ModuleType("huggingface_hub")
+
+    def snapshot_download(**kwargs) -> None:
+        calls["download"] = kwargs
+
+    hub.snapshot_download = snapshot_download
+
+    transformers = types.ModuleType("transformers")
+
+    def from_pretrained(path: str, trust_remote_code: bool) -> object:
+        calls["load"] = (path, trust_remote_code)
+        return object()
+
+    transformers.AutoModel = types.SimpleNamespace(
+        from_pretrained=from_pretrained
+    )
+
+    monkeypatch.setitem(sys.modules, "huggingface_hub", hub)
+    monkeypatch.setitem(sys.modules, "transformers", transformers)
+    monkeypatch.setenv("HF_TOKEN", "test-token")
+    monkeypatch.setattr(tts, "MODEL_ID", "fake/model")
+    monkeypatch.setattr(tts, "MODEL_DIR", str(tmp_path / "model"))
+
+    tts._preload_oolel_model()
+
+    assert calls["download"] == {
+        "repo_id": "fake/model",
+        "local_dir": str(tmp_path / "model"),
+        "token": "test-token",
+    }
+    assert calls["load"] == (str(tmp_path / "model"), True)
+    assert (tmp_path / "model").is_dir()
