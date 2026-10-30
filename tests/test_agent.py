@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import koumba.agent as agent_module
 from koumba.agent import Agent, detect_language
 from koumba.llm import MissingAPIKeyError, ModelClient
 
@@ -81,10 +82,6 @@ def test_wolof_request_runs_the_real_engine_and_returns_trips(engine) -> None:
                     )
                 ]
             ),
-            _response(
-                "Maa ngi jàngal: Tata AFTU Ligne 38 + Ligne 80, "
-                "1 transfer, about 80 min."
-            ),
         ]
     )
     agent = Agent(client, engine)
@@ -104,16 +101,9 @@ def test_wolof_request_runs_the_real_engine_and_returns_trips(engine) -> None:
     assert result.tool_calls[0]["result"]["trips"] == result.trips
     assert result.spoken.startswith("Yaangi Sahm, duggal ci Tata 38 bi jëm")
     assert result.spoken.endswith("wàcci Malika.")
-    assert client.call_count == 2
-
-    # The second model call must contain the real tool output.
-    second_call = client.calls[1]["messages"]
-    tool_messages = [
-        message for message in second_call if message.get("role") == "tool"
-    ]
-    assert tool_messages
-    assert tool_messages[-1]["tool_call_id"] == "call_1"
-    assert "trips" in tool_messages[-1]["content"]
+    assert result.reply == result.spoken
+    assert result.llm_calls == 1
+    assert client.call_count == 1
 
 
 def test_unknown_place_returns_suggestions_and_asks_a_question(engine) -> None:
@@ -144,6 +134,7 @@ def test_unknown_place_returns_suggestions_and_asks_a_question(engine) -> None:
     assert tool_result["error"] == "place_not_found"
     assert tool_result["suggestions"]
     assert "?" in result.reply
+    assert result.llm_calls == 2
     assert client.call_count == 2
 
 
@@ -167,6 +158,7 @@ def test_agent_stops_after_five_tool_rounds(engine) -> None:
 
     assert client.call_count == 5
     assert result.rounds == 5
+    assert result.llm_calls == 5
     assert result.reply
     assert len(result.tool_calls) == 5
 
@@ -222,6 +214,70 @@ def test_history_keeps_the_last_six_text_messages_only(engine) -> None:
     assert messages[-1] == {"role": "user", "content": "Grand Yoff"}
 
 
+def test_place_hints_are_added_to_the_agent_context(engine) -> None:
+    client = FakeClient([_response("Short answer.")])
+    agent = Agent(client, engine)
+
+    result = agent.run(
+        "Maa ngi Sam, bëgg naa dem Malika",
+        hints=["Sahm (from 'Sam')"],
+    )
+
+    content = client.calls[0]["messages"][-1]["content"]
+    assert content == (
+        "Maa ngi Sam, bëgg naa dem Malika\n\n"
+        "possible places heard: Sahm (from 'Sam')"
+    )
+    assert result.language == "Wolof"
+    assert result.llm_calls == 1
+
+
+def test_ambiguous_resolve_place_uses_the_clarification_template(
+    engine,
+    monkeypatch,
+) -> None:
+    def fake_execute_tool(name, arguments, _engine, _place_index):
+        assert name == "resolve_place"
+        return {
+            "query": arguments["query"],
+            "candidates": [
+                {
+                    "name": "Yoff-Village",
+                    "normalized": "yoff village",
+                    "score": 92.0,
+                },
+                {
+                    "name": "Grand Yoff",
+                    "normalized": "grand yoff",
+                    "score": 91.0,
+                },
+            ],
+        }
+
+    monkeypatch.setattr(agent_module, "execute_tool", fake_execute_tool)
+    client = FakeClient(
+        [
+            _response(
+                tool_calls=[
+                    _tool_call(
+                        "call_1",
+                        "resolve_place",
+                        {"query": "Yoff"},
+                    )
+                ]
+            )
+        ]
+    )
+    agent = Agent(client, engine)
+
+    result = agent.run("Maa ngi Yoff, bëgg naa dem")
+
+    assert result.reply == "Yoff-Village nga bëgga dem walla Grand Yoff ?"
+    assert result.spoken == result.reply
+    assert result.llm_calls == 1
+    assert client.call_count == 1
+
+
 def test_follow_up_uses_history_and_keeps_the_earlier_language(engine) -> None:
     client = FakeClient(
         [
@@ -234,7 +290,6 @@ def test_follow_up_uses_history_and_keeps_the_earlier_language(engine) -> None:
                     )
                 ]
             ),
-            _response("Voici une réponse longue que l'interface remplacera."),
         ]
     )
     history = [
@@ -256,6 +311,8 @@ def test_follow_up_uses_history_and_keeps_the_earlier_language(engine) -> None:
     assert result.trips
     assert result.spoken.startswith("Yaangi Sahm, duggal ci Tata 38")
     assert result.spoken.endswith(".")
+    assert result.llm_calls == 1
+    assert client.call_count == 1
 
 
 def test_official_place_name_is_used_in_the_spoken_answer(engine) -> None:
@@ -270,7 +327,6 @@ def test_official_place_name_is_used_in_the_spoken_answer(engine) -> None:
                     )
                 ]
             ),
-            _response("Voici la ligne 3."),
         ]
     )
     agent = Agent(client, engine)
@@ -282,6 +338,8 @@ def test_official_place_name_is_used_in_the_spoken_answer(engine) -> None:
         "Yaangi Médina, doxal ba Avenue Blaise Diagne, duggal ci Tata 3"
     )
     assert result.trips[0]["legs"][0]["board_stop"] == "Avenue Blaise Diagne"
+    assert result.llm_calls == 1
+    assert client.call_count == 1
 
 
 def test_bus_check_yes_uses_the_short_spoken_answer(engine) -> None:
@@ -301,7 +359,6 @@ def test_bus_check_yes_uses_the_short_spoken_answer(engine) -> None:
                     )
                 ]
             ),
-            _response("Long model answer that the UI replaces."),
         ]
     )
     agent = Agent(client, engine)
@@ -313,6 +370,9 @@ def test_bus_check_yes_uses_the_short_spoken_answer(engine) -> None:
     assert result.spoken == (
         "Waaw, Tata 38 bi dafay dem PAI. Duggal ci, wàcci PAI."
     )
+    assert result.reply == result.spoken
+    assert result.llm_calls == 1
+    assert client.call_count == 1
 
 
 def test_bus_check_no_speaks_the_alternative(engine) -> None:
@@ -332,7 +392,6 @@ def test_bus_check_no_speaks_the_alternative(engine) -> None:
                     )
                 ]
             ),
-            _response("Long model answer that the UI replaces."),
         ]
     )
     agent = Agent(client, engine)
@@ -344,6 +403,9 @@ def test_bus_check_no_speaks_the_alternative(engine) -> None:
     assert result.spoken.endswith("wàcci Malika.")
     assert "minit." not in result.spoken
     assert result.bus_check["best_alternative"]["legs"]
+    assert result.reply == result.spoken
+    assert result.llm_calls == 1
+    assert client.call_count == 1
 
 
 def test_missing_model_api_key_has_a_clear_error(llm_env) -> None:

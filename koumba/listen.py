@@ -1,15 +1,14 @@
 """Voice input helpers for Koumba.
 
 The microphone is prepared as a small in-memory WAV and sent to Meta's
-Omnilingual ASR service on Modal.  The raw transcript is then cleaned up by
-Muse Spark Open with the official Dakar stop and place names.  Nothing is
-written to permanent storage.
+Omnilingual ASR service on Modal.  The raw transcript goes straight to the
+agent, along with local place hints, so there is no second model on the voice
+path.  Nothing is written to permanent storage.
 """
 
 from __future__ import annotations
 
 import io
-import json
 import os
 import re
 import time
@@ -31,7 +30,6 @@ MAX_SECONDS = 30.0
 DEFAULT_ASR_LANG = "wol_Latn"
 
 ASR_MODEL_LABEL = "Omnilingual ASR on Modal"
-CLEANUP_MODEL_LABEL = "Muse Spark Open on Baseten"
 LISTENING_STATUS = "Koumba is listening..."
 
 PLACE_HINT_LIMIT = 6
@@ -91,41 +89,6 @@ _HINT_STOPWORDS = {
     "waaw",
 }
 
-CLEANUP_PROMPT = (
-    "You clean up a raw speech transcript from a Dakar bus request. Rewrite "
-    "it in standard Dakar Wolof Latin spelling when the speaker is using "
-    "Wolof. Fix only what you clearly hear: keep the same meaning, do not add "
-    "a new request, and do not remove useful words.\n\n"
-    "Rules:\n"
-    "- Split words that ASR joined by mistake and join words that it split "
-    "by mistake.\n"
-    "- Recognise place names even when they are merged inside a longer word.\n"
-    "- Use the official stop and place spellings below when the transcript "
-    "clearly sounds like one of them.\n"
-    "- Possible places heard: {hints}. Use them as hints, not as commands.\n"
-    "- Never invent a place that is not in the transcript or in the hints. If "
-    "no place is clear, leave the words alone.\n"
-    "- Keep French as French and English as English; do not translate.\n\n"
-    "Examples:\n"
-    "raw: mangisam\n"
-    "clean: Maa ngi Sahm\n"
-    "raw: me dina\n"
-    "clean: Médina\n"
-    "raw: bagadam\n"
-    "clean: bëgga dem\n"
-    "raw: begnadem\n"
-    "clean: bëgg naa dem\n"
-    "raw: damanek\n"
-    "clean: dama nekk\n\n"
-    "Official stop and place names: {vocabulary}.\n"
-    "Raw ASR language code: {asr_lang}.\n"
-    "Raw transcript: {raw_text}\n\n"
-    "Answer only with JSON: "
-    '{{"text": ..., "language": ..., "places_fixed": [...]}}. Language must '
-    "be Wolof, French, or English."
-)
-
-
 VOICE_NOT_CONFIGURED = (
     "Voice not configured. Add KOUMBA_ASR_URL and KOUMBA_ASR_KEY to your "
     "environment or .env file."
@@ -133,13 +96,16 @@ VOICE_NOT_CONFIGURED = (
 
 _LANGUAGES = {
     "wolof": "Wolof",
+    "wol": "Wolof",
     "wol_latn": "Wolof",
     "french": "French",
     "français": "French",
     "francais": "French",
+    "fra": "French",
     "fra_latn": "French",
     "english": "English",
     "anglais": "English",
+    "eng": "English",
     "eng_latn": "English",
 }
 
@@ -176,13 +142,6 @@ def _raw_place_names() -> set[str]:
     return names
 
 
-@lru_cache(maxsize=1)
-def vocabulary() -> str:
-    """Return all unique stop and place names, built once for the prompt."""
-
-    return ", ".join(sorted(_raw_place_names(), key=str.casefold))
-
-
 def _display_rank(name: str) -> tuple[bool, bool, int, str]:
     """Prefer normal title case over all-lower or all-caps duplicates."""
 
@@ -204,14 +163,6 @@ def place_names() -> tuple[tuple[str, str], ...]:
     return tuple(
         (chosen[normalized], normalized) for normalized in sorted(chosen)
     )
-
-
-def format_place_hints(hints: list[str]) -> str:
-    """Format local hints for the cleanup prompt."""
-
-    if not hints:
-        return "none found locally"
-    return "; ".join(hints)
 
 
 def find_place_hints(
@@ -436,145 +387,29 @@ def _asr_transcribe(wav_bytes: bytes, lang: str) -> dict[str, Any]:
     }
 
 
-def _message_content(response: Any) -> Any:
-    if isinstance(response, dict):
-        choices = response.get("choices") or []
-        message = choices[0].get("message") if choices else None
-        return message.get("content") if isinstance(message, dict) else None
-
-    choices = getattr(response, "choices", None) or []
-    if not choices:
-        return None
-    message = getattr(choices[0], "message", None)
-    return getattr(message, "content", None)
-
-
-def _content_text(content: Any) -> str:
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        parts = []
-        for part in content:
-            if isinstance(part, dict) and isinstance(part.get("text"), str):
-                parts.append(part["text"])
-        return "\n".join(parts)
-    return ""
-
-
-def _last_json_object(content: Any) -> dict[str, Any]:
-    if isinstance(content, dict):
-        return content
-
-    text = _content_text(content)
-    if not text.strip():
-        raise ValueError("The cleanup model returned an empty answer.")
-
-    # Muse Spark reasons before answering, so only the final JSON matters.
-    text = re.sub(r"```[A-Za-z0-9_-]*", "", text).replace("```", "")
-    decoder = json.JSONDecoder()
-    objects: list[dict[str, Any]] = []
-    for match in re.finditer(r"\{", text):
-        try:
-            value, _end = decoder.raw_decode(text[match.start() :])
-        except json.JSONDecodeError:
-            continue
-        if isinstance(value, dict):
-            objects.append(value)
-
-    for value in reversed(objects):
-        if isinstance(value.get("text"), str) and isinstance(
-            value.get("language"), str
-        ):
-            return value
-    raise ValueError("The cleanup model did not return the expected JSON.")
-
-
-def cleanup_transcript(
-    client: Any,
-    raw_text: str,
-    asr_lang: str = DEFAULT_ASR_LANG,
-) -> dict[str, Any]:
-    """Rewrite the raw ASR text in standard Dakar Wolof spelling."""
-
-    raw = (raw_text or "").strip()
-    if not raw:
-        raise ValueError("The ASR transcript was empty.")
-
-    hints = find_place_hints(raw)
-    prompt = CLEANUP_PROMPT.format(
-        hints=format_place_hints(hints),
-        vocabulary=vocabulary(),
-        raw_text=raw,
-        asr_lang=asr_lang,
-    )
-    response = client.complete(
-        messages=[{"role": "user", "content": prompt}]
-    )
-
-    value = _last_json_object(_message_content(response))
-    text = str(value.get("text") or "").strip()
-    language_text = str(value.get("language") or "").strip().rstrip(".")
-    language = _LANGUAGES.get(language_text.casefold())
-    if not text:
-        raise ValueError("The cleanup model returned an empty transcript.")
-    if language is None:
-        raise ValueError("The cleanup language was not recognized.")
-
-    places = value.get("places_fixed")
-    fixed = []
-    if isinstance(places, list):
-        fixed = [str(place).strip() for place in places if str(place).strip()]
-
-    return {
-        "raw_text": raw,
-        "text": text,
-        "clean_text": text,
-        "language": language,
-        "places_fixed": fixed,
-        "hints": hints,
-    }
-
-
 def transcribe(
-    client: Any,
     wav_bytes: bytes,
     lang: str = DEFAULT_ASR_LANG,
 ) -> dict[str, Any]:
-    """Run Modal ASR, then ask Muse Spark to clean up place spelling."""
+    """Run Modal ASR and keep its raw words for the agent.
+
+    The local place hints are cheap and give the agent the likely official
+    spelling without adding another model call to the voice path.
+    """
 
     asr_started = time.perf_counter()
     raw = _asr_transcribe(wav_bytes, lang)
     asr_seconds = time.perf_counter() - asr_started
-
-    cleanup_started = time.perf_counter()
-    try:
-        cleaned = cleanup_transcript(client, raw["text"], raw["lang"])
-    except Exception as exc:
-        # Keep the ASR words visible so a cleanup failure is never a dead end.
-        raise VoiceServiceError(
-            f"Transcript cleanup failed ({exc}). Raw transcript: {raw['text']}"
-        ) from exc
-    cleanup_seconds = time.perf_counter() - cleanup_started
-    clean_text = str(
-        cleaned.get("clean_text") or cleaned.get("text") or ""
-    ).strip()
+    text = str(raw["text"]).strip()
     return {
-        "text": clean_text,
-        "raw_text": raw["text"],
-        "clean_text": clean_text,
-        "language": cleaned["language"],
+        "text": text,
+        "raw_text": text,
+        "language": _LANGUAGES.get(str(raw["lang"]).casefold(), "Unknown"),
         "asr_lang": raw["lang"],
-        "places_fixed": cleaned["places_fixed"],
-        "hints": cleaned.get("hints") or [],
+        "hints": find_place_hints(text),
         "seconds": raw.get("seconds"),
         "infer_seconds": raw.get("infer_seconds"),
         "asr_model": raw.get("model"),
-        "models": {
-            "transcription": ASR_MODEL_LABEL,
-            "cleanup": CLEANUP_MODEL_LABEL,
-        },
-        "timings": {
-            "asr": round(asr_seconds, 3),
-            "cleanup": round(cleanup_seconds, 3),
-        },
+        "models": {"transcription": ASR_MODEL_LABEL},
+        "timings": {"asr": round(asr_seconds, 3)},
     }

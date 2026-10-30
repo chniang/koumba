@@ -5,8 +5,8 @@ trips with up to two transfers, using the Dakar Dem Dikk and Tata AFTU lines
 from the public dataset. A Muse Spark agent can understand a request in Wolof,
 French, or English, call the route engine as tools, check a bus photo with its
 vision input, transcribe a spoken request with Meta Omnilingual ASR on Modal
-before a text-only Muse Spark cleanup, and speak the short Wolof answer with
-Oolel-Voices on Modal.
+before passing the raw words and local place hints to the agent, and speak the
+short Wolof answer with Oolel-Voices on Modal.
 
 ## Built during the Meta Global AI Developer Hackathon (Oct 26 - Nov 4, 2026)
 
@@ -30,7 +30,7 @@ This repository contains:
   memory and optional image input.
 - `koumba/vision.py` - in-memory image resize and JPEG/base64 encoding.
 - `koumba/listen.py` - in-memory microphone WAV preparation, Modal ASR HTTP
-  calls, and Muse Spark place-name cleanup, with no audio stored.
+  calls, and local place hints, with no audio stored.
 - `koumba/speak.py` - the Modal Oolel-Voices HTTP client for short spoken
   replies.
 - `koumba/phrases.py` - deterministic short spoken answers in Wolof, French,
@@ -44,7 +44,7 @@ This repository contains:
 - `modal_app/tts.py` - the Modal Oolel-Voices service and its cache volume.
 - `modal_app/README.md` - secret creation, deployment, and endpoint tests for
   both Modal services.
-- `scripts/try_voice.py` - manual WAV -> Modal -> cleanup -> agent test.
+- `scripts/try_voice.py` - manual WAV -> Modal ASR -> agent test.
 - `data/corrections.json` - human-reviewed field corrections. It starts empty.
 - `.env.example` - provider presets and voice endpoint placeholders.
 - `tests/` - route, correction, tool, agent, provider, vision, voice, TTS, and
@@ -203,11 +203,10 @@ French, English)” microphone/upload box, an optional “Photo of the bus
 mobile-friendly trip cards, and a “How Koumba thought” accordion with the tool
 calls. Voice recordings and photos are not stored. A recording is converted to
 a mono 16 kHz, 16-bit WAV in memory and posted to the Modal Omnilingual ASR
-endpoint. The raw transcript is cleaned by a text-only Muse Spark Open request
-using the official stop and place names. The cleaned text is shown in the chat
-as `🎤 {cleaned text}` and passed to the normal agent flow. The audio input is
-cleared after the answer, and the thinking panel shows both the raw ASR text
-and the cleaned text, plus which model did each step.
+endpoint. The raw transcript is shown in the chat as `🎤 {raw ASR text}` and
+passed to the normal agent flow with local fuzzy place hints. The audio input
+is cleared after the answer, and the thinking panel shows the raw ASR text and
+those hints, plus which model did each step.
 
 For every Wolof answer, the app sends the short spoken sentence to the Modal
 Oolel-Voices service and plays the returned WAV in a small autoplay player
@@ -247,10 +246,10 @@ python scripts/try_voice.py path\to\file.wav
 ```
 
 This is not part of pytest. It converts the file to mono 16 kHz, 16-bit WAV,
-posts it to the configured Modal ASR endpoint, runs the Muse Spark cleanup, and
-then asks the agent for a route. It prints the raw ASR text, the cleaned text,
-the detected language, any fixed place names, and the deterministic spoken
-answer. The script accepts 8-bit, 16-bit, or 32-bit PCM WAV files.
+posts it to the configured Modal ASR endpoint, then asks the agent for a route
+with the raw words and local place hints. It prints the raw ASR text, the
+detected language, the hints, and the deterministic spoken answer. The script
+accepts 8-bit, 16-bit, or 32-bit PCM WAV files.
 
 ### Voice architecture
 
@@ -263,10 +262,10 @@ answer. The script accepts 8-bit, 16-bit, or 32-bit PCM WAV files.
    container and cached in the `koumba-asr-cache` Volume. The temporary WAV is
    deleted immediately after inference, and the response includes
    `infer_seconds`.
-4. Muse Spark Open receives the raw transcript and the official bus stop and
-   place vocabulary, text only. It fixes only place names and obvious spelling
-   and returns the cleaned text, language, and fixed-place list.
-5. The app displays the cleaned text and keeps the raw ASR text in the
+4. `find_place_hints` compares the raw words with the official stop and place
+   names using rapidfuzz. The agent receives the raw transcript plus a
+   `possible places heard: ...` context line.
+5. The app displays the raw ASR text and keeps it, with the local hints, in the
    `How Koumba thought` panel for transparency.
 6. For a Wolof answer, `voice_text.py` keeps the displayed sentence and swaps
    bus and place names for the lexicon's reviewed `say_as` spelling. The app
@@ -370,23 +369,23 @@ never crashes on a bad correction. At startup the console prints:
    `line_info` as JSON tools and turns route errors into JSON errors.
 7. `agent.py` sends the last six history messages and the new user message to
    the model, optionally with one image content part, runs requested tools
-   against the real engine, and repeats for at most five tool rounds.
+   against the real engine, and repeats for at most five tool rounds. When a
+   successful tool result already fills a validated phrase template, it returns
+   that answer without a second model call.
 8. `vision.py` opens a local image with Pillow, applies EXIF orientation,
    limits the longest side to 1024 px, and encodes JPEG quality 85 as a base64
    data URL without saving a copy.
 9. `listen.py` mixes stereo to mono, resamples to 16 kHz with numpy, trims to
    30 seconds, writes a 16-bit PCM WAV in memory, and posts it to the Modal
-   Omnilingual ASR endpoint with the `X-Koumba-Key` shared secret. The raw
-   transcript then goes to Muse Spark Open, text only, with the cached list of
-   every dataset stop and place name. The cleanup may fix only place names and
-   obvious spelling, and returns `{"text", "language", "places_fixed"}`.
+   Omnilingual ASR endpoint with the `X-Koumba-Key` shared secret. It returns
+   the raw text plus local fuzzy place hints; no second model runs on this path.
 10. `phrases.py` turns the best trip or bus check into a short deterministic
     spoken answer, including a walk to the first boarding stop, and can build
     the validated Wolof clarification question. No template includes a travel
     time.
 11. `app.py` renders the chat, voice and bus-photo inputs, trip cards, the
     check-bus cards, the honest data note, the current turn's tool calls, and
-    the raw/cleaned voice details.
+    the raw voice transcript with hints.
 
 Ride time uses 250 m/min (15 km/h); a segment with a missing coordinate uses
 3 minutes as a fallback. Every bus leg is billed for at least 2 minutes.
@@ -521,9 +520,9 @@ bus-check answers follow the same direct/alternative shape.
 - Place matching is conservative on purpose.
 - A bus photo is sent to the configured model provider for that turn only and
   is not stored by Koumba.
-- A voice recording is sent to the Modal ASR endpoint only for transcription,
-  then the raw text goes to Muse Spark Open for cleanup. The audio is not
-  stored by Koumba or by Modal.
+- A voice recording is sent to the Modal ASR endpoint only for transcription.
+  The raw text and local place hints go to the agent. The audio is not stored by
+  Koumba or by Modal.
 - A Wolof text answer is sent to the Modal TTS endpoint only for synthesis.
   Koumba does not store the sentence or audio. The Modal service caches
   generated WAVs by sentence hash in its Volume and does not log the sentence.
@@ -543,12 +542,11 @@ bus-check answers follow the same direct/alternative shape.
   are skipped with a warning, but a wrong accepted correction still changes the
   itinerary.
 - The agent loop and vision content are tested with scripted fake clients.
-  Voice and TTS tests use fake HTTP and a fake cleanup LLM. They have not been
-  tested against the live Modal endpoints, a live provider, or real microphone
-  audio.
-- Voice accuracy depends on Omnilingual ASR and the Muse Spark cleanup. Background
-  noise, code-switching, or a strong accent may still produce the wrong place
-  spelling; the user can type or retry the recording.
+  Voice and TTS tests use fake HTTP. They have not been tested against the live
+  Modal endpoints, a live provider, or real microphone audio.
+- Voice accuracy depends on Omnilingual ASR and the local place hints.
+  Background noise, code-switching, or a strong accent may still produce the
+  wrong place spelling; the user can type or retry the recording.
 - The first Modal request after 300 idle seconds pays the cold-start and model
   load time. Oolel weights are baked into the image and the voice prompt is
   cached, but the container is not kept warm. CPU inference is slower than GPU;
@@ -566,8 +564,8 @@ bus-check answers follow the same direct/alternative shape.
   heavily mixed messages.
 - No machine-learning model is downloaded on the local machine and there is no
   Streamlit app. Omnilingual ASR and Oolel-Voices run only on Modal when
-  deployed. The optional agent and cleanup call the configured
-  OpenAI-compatible provider only when its key env var is set.
+  deployed. The agent calls the configured OpenAI-compatible provider only when
+  its key env var is set.
 
 ## Tests
 
@@ -592,8 +590,8 @@ limit, and the missing-key error. Vision tests create a synthetic Pillow image
 and check resize, JPEG/base64 encoding, and the agent content part. Voice tests
 cover stereo mixing, 44.1 kHz to 16 kHz resampling, rejecting recordings under
 half a second, the 30-second trim, the Modal URL and `X-Koumba-Key` header, raw
-WAV body, 401 handling, missing voice configuration, raw-text retention,
-inference-time propagation, and cleanup JSON parsing after model reasoning.
+WAV body, 401 handling, missing voice configuration, raw-text retention, local
+place hints, and inference-time propagation.
 TTS client tests cover the endpoint URL, JSON body, shared key, 60-second
 timeout, missing configuration, authentication, HTTP and network failures, and
 empty audio. App tests cover Wolof autoplay audio, French silence, warning on
@@ -604,8 +602,8 @@ and bus-check templates without travel time, the first-stop walk wording,
 short bus names, and chat composition. Provider tests check the defaults, the
 Fireworks settings, Baseten detection, a custom key env var, and the SDK base
 URL/model plumbing. App tests build the UI, check the provider banner, verify
-history, photo and voice passing, cleaned transcript display, raw and cleaned
-text in the thinking panel, missing voice configuration, photo/audio clearing,
+history, photo and voice passing, raw transcript display, raw text and hints
+in the thinking panel, missing voice configuration, photo/audio clearing,
 textbox recovery after transcription failure, bus-photo cards, stop counts,
 time hints, the partial-route label, both honest notes, the spoken chat message,
 and that the thinking panel only shows the current turn. The tests never call a
@@ -616,7 +614,7 @@ real provider or the Modal endpoint.
 ```text
 koumba/       package code; the app only calls the Modal services over HTTP
 modal_app/    Modal ASR and TTS services plus deployment notes
-scripts/      manual WAV -> Modal -> cleanup -> agent test
+scripts/      manual WAV -> Modal ASR -> agent test
 data/         human-reviewed corrections.json
 tests/        route, correction, tool, agent, provider, vision, voice, TTS,
               and app tests

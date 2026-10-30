@@ -4,8 +4,8 @@ Usage:
     python scripts/try_voice.py path\to\file.wav
 
 This is intentionally not collected by pytest.  It sends real audio to the
-Modal ASR endpoint, runs the Muse Spark cleanup, and asks the agent for a
-route.
+Modal ASR endpoint, passes the raw words and place hints to the agent, and
+prints the route.
 """
 
 from __future__ import annotations
@@ -74,16 +74,15 @@ def main(argv: list[str] | None = None) -> int:
     try:
         voice_config()
         client = ModelClient()
-        transcript = transcribe(client, wav_bytes)
+        transcript = transcribe(wav_bytes)
     except Exception as exc:
         print(f"Transcription failed: {exc}")
         return 1
 
     print(f"Raw ASR:    {transcript['raw_text']}")
-    print(f"Cleaned:    {transcript['text']}")
     print(f"Language:   {transcript['language']}")
-    if transcript.get("places_fixed"):
-        print(f"Fixed:      {', '.join(transcript['places_fixed'])}")
+    if transcript.get("hints"):
+        print(f"Hints:      {'; '.join(transcript['hints'])}")
 
     try:
         data = load_data()
@@ -91,7 +90,10 @@ def main(argv: list[str] | None = None) -> int:
             Network.from_data(data),
             PlaceIndex.from_data(data),
         )
-        result = Agent(client, engine).run(transcript["text"])
+        result = Agent(client, engine).run(
+            transcript["text"],
+            hints=transcript["hints"],
+        )
     except Exception as exc:
         print(f"Agent failed: {exc}")
         return 1

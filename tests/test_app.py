@@ -10,15 +10,18 @@ from koumba.agent import AgentResult
 class _FakeAgent:
     def __init__(self, results: list[AgentResult]) -> None:
         self.results = list(results)
-        self.calls: list[tuple[str, list[dict] | None, str | None]] = []
+        self.calls: list[
+            tuple[str, list[dict] | None, str | None, list[str] | None]
+        ] = []
 
     def run(
         self,
         text: str,
         history=None,
         image_path: str | None = None,
+        hints: list[str] | None = None,
     ) -> AgentResult:
-        self.calls.append((text, history, image_path))
+        self.calls.append((text, history, image_path, hints))
         return self.results.pop(0)
 
 
@@ -170,7 +173,7 @@ def test_respond_passes_history_and_uses_the_spoken_answer(
     )
 
     assert message == ""
-    assert fake.calls == [("Grand Yoff", history, None)]
+    assert fake.calls == [("Grand Yoff", history, None, None)]
     assert chatbot[-1] == {
         "role": "assistant",
         "content": f"{spoken} Yoff-Village walla Grand Yoff?",
@@ -203,7 +206,7 @@ def test_respond_passes_the_bus_photo_and_clears_it(
         "C:/tmp/bus.jpg",
     )
 
-    assert fake.calls == [("Is this my bus?", [], "C:/tmp/bus.jpg")]
+    assert fake.calls == [("Is this my bus?", [], "C:/tmp/bus.jpg", None)]
     assert chatbot[-1]["content"] == "Waaw, Tata 38 bi dafay dem PAI."
     assert image is None
 
@@ -483,27 +486,23 @@ def test_non_same_walk_keeps_the_two_places() -> None:
     assert "entrée : Médina &rarr; Avenue Blaise Diagne (2 min)" in french
 
 
-def test_voice_flow_uses_cleaned_text_and_shows_both_transcripts(
+def test_voice_flow_uses_raw_asr_and_shows_hints(
     llm_env,
     monkeypatch,
 ) -> None:
     import koumba.app as app
 
     raw = "Maa ngi Sam, bëgg naa dem Malika"
-    cleaned = "Maa ngi Sahm, bëgg naa dem Malika"
+    hints = ["Sahm (from 'Sam')"]
     transcription = {
-        "text": cleaned,
-        "clean_text": cleaned,
+        "text": raw,
         "raw_text": raw,
         "language": "Wolof",
         "asr_lang": "wol_Latn",
-        "places_fixed": ["Sahm"],
-        "hints": ["Sahm (from 'Sam')"],
+        "hints": hints,
         "asr_model": "omniASR_CTC_1B",
-        "models": {
-            "transcription": "Omnilingual ASR on Modal",
-            "cleanup": "Muse Spark Open on Baseten",
-        },
+        "models": {"transcription": "Omnilingual ASR on Modal"},
+        "timings": {"asr": 1.25},
     }
     tool_calls = [{"round": 1, "name": "find_trips"}]
     fake = _FakeAgent(
@@ -513,6 +512,7 @@ def test_voice_flow_uses_cleaned_text_and_shows_both_transcripts(
                 language="Wolof",
                 spoken="Yaangi Sahm, duggal ci Tata 38 bi jëm Malika.",
                 tool_calls=tool_calls,
+                llm_calls=1,
             )
         ]
     )
@@ -538,9 +538,9 @@ def test_voice_flow_uses_cleaned_text_and_shows_both_transcripts(
         (16_000, np.zeros(16_000, dtype=np.int16)),
     )
 
-    assert chatbot[-2] == {"role": "user", "content": f"🎤 {cleaned}"}
+    assert chatbot[-2] == {"role": "user", "content": f"🎤 {raw}"}
     assert chatbot[-1]["role"] == "assistant"
-    assert fake.calls == [(cleaned, [], "C:/tmp/bus.jpg")]
+    assert fake.calls == [(raw, [], "C:/tmp/bus.jpg", hints)]
     assert message == ""
     assert image is None
     assert audio is None
@@ -548,10 +548,10 @@ def test_voice_flow_uses_cleaned_text_and_shows_both_transcripts(
 
     voice = thoughts[0]["voice"]
     assert voice["raw_asr_text"] == raw
-    assert voice["cleaned_text"] == cleaned
-    assert voice["hints"] == ["Sahm (from 'Sam')"]
+    assert voice["hints"] == hints
     assert voice["transcription_model"] == "Omnilingual ASR on Modal"
-    assert voice["cleanup_model"] == "Muse Spark Open on Baseten"
+    assert "cleaned_text" not in voice
+    assert "cleanup_model" not in voice
     assert thoughts[1] == tool_calls[0]
 
 
@@ -692,13 +692,13 @@ def test_timing_line_names_each_step_and_marks_a_failed_voice() -> None:
     line = app._format_timings(
         {
             "asr": 9.06,
-            "cleanup": 2.34,
             "agent": 6.0,
+            "agent_calls": 1,
             "voice": 8.44,
         }
     )
 
-    assert line == "ASR 9.1 s · cleanup 2.3 s · agent 6.0 s · voice 8.4 s"
+    assert line == "ASR 9.1 s · agent: 1 LLM call · voice 8.4 s"
     assert (
         app._format_timings({"voice": 8.44, "voice_failed": True})
         == "voice 8.4 s (failed)"
@@ -751,19 +751,19 @@ def test_text_phase_returns_before_tts_and_then_adds_voice(
     assert calls == [job_text]
 
 
-def test_voice_phase_reports_asr_and_cleanup_timings(
+def test_voice_phase_reports_asr_and_agent_call_count(
     llm_env,
     monkeypatch,
 ) -> None:
     import koumba.app as app
 
     transcription = {
-        "text": "Maa ngi Sahm, bëgg naa dem Malika",
-        "clean_text": "Maa ngi Sahm, bëgg naa dem Malika",
+        "text": "Maa ngi Sam, bëgg naa dem Malika",
         "raw_text": "Maa ngi Sam, bëgg naa dem Malika",
         "language": "Wolof",
         "asr_lang": "wol_Latn",
-        "timings": {"asr": 1.25, "cleanup": 0.5},
+        "hints": ["Sahm (from 'Sam')"],
+        "timings": {"asr": 1.25},
     }
     fake = _FakeAgent(
         [
@@ -771,6 +771,7 @@ def test_voice_phase_reports_asr_and_cleanup_timings(
                 reply="Long answer.",
                 language="Wolof",
                 spoken="Yaangi Sahm, duggal ci Tata 38 bi jëm Malika.",
+                llm_calls=1,
             )
         ]
     )
@@ -787,7 +788,8 @@ def test_voice_phase_reports_asr_and_cleanup_timings(
         (16_000, np.zeros(16_000, dtype=np.int16)),
     )
 
-    assert values[7].startswith("ASR 1.2 s · cleanup 0.5 s · agent ")
+    assert values[7].startswith("ASR 1.2 s · agent: 1 LLM call")
+    assert "cleanup" not in values[7]
     assert values[8] is not None
 
 
@@ -964,34 +966,30 @@ def test_voice_thoughts_refresh_for_each_voice_turn(
     import koumba.app as app
 
     first_raw = "mangisam dama bagadam malika"
-    first_clean = "Maa ngi Sahm, dama bëgga dem Malika."
     second_raw = "dama nekk medina begga dem yoff"
-    second_clean = "Dama nekk Médina, bëgga dem Yoff."
+    first_hints = [
+        "Sahm (from 'mangisam')",
+        "Malika (from 'malika')",
+    ]
+    second_hints = [
+        "Médina (from 'medina')",
+        "Yoff (from 'yoff')",
+    ]
     transcriptions = iter(
         [
             {
-                "text": first_clean,
-                "clean_text": first_clean,
+                "text": first_raw,
                 "raw_text": first_raw,
                 "language": "Wolof",
                 "asr_lang": "wol_Latn",
-                "places_fixed": ["Sahm", "Malika"],
-                "hints": [
-                    "Sahm (from 'mangisam')",
-                    "Malika (from 'malika')",
-                ],
+                "hints": first_hints,
             },
             {
-                "text": second_clean,
-                "clean_text": second_clean,
+                "text": second_raw,
                 "raw_text": second_raw,
                 "language": "Wolof",
                 "asr_lang": "wol_Latn",
-                "places_fixed": ["Médina", "Yoff"],
-                "hints": [
-                    "Médina (from 'medina')",
-                    "Yoff (from 'yoff')",
-                ],
+                "hints": second_hints,
             },
         ]
     )
@@ -1044,11 +1042,9 @@ def test_voice_thoughts_refresh_for_each_voice_turn(
     )
 
     assert first_thoughts[0]["voice"]["raw_asr_text"] == first_raw
-    assert first_thoughts[0]["voice"]["cleaned_text"] == first_clean
+    assert first_thoughts[0]["voice"]["hints"] == first_hints
     assert second_thoughts[0]["voice"]["raw_asr_text"] == second_raw
-    assert second_thoughts[0]["voice"]["cleaned_text"] == second_clean
-    assert second_thoughts[0]["voice"]["hints"] == [
-        "Médina (from 'medina')",
-        "Yoff (from 'yoff')",
-    ]
-    assert [call[0] for call in fake.calls] == [first_clean, second_clean]
+    assert second_thoughts[0]["voice"]["hints"] == second_hints
+    assert "cleaned_text" not in first_thoughts[0]["voice"]
+    assert "cleanup_model" not in first_thoughts[0]["voice"]
+    assert [call[0] for call in fake.calls] == [first_raw, second_raw]

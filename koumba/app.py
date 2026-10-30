@@ -25,7 +25,6 @@ from .agent import Agent
 from .data import load_data
 from .listen import (
     ASR_MODEL_LABEL,
-    CLEANUP_MODEL_LABEL,
     LISTENING_STATUS,
     VoiceError,
     prepare_audio,
@@ -191,14 +190,19 @@ def _minutes(value: Any) -> str:
 def _format_timings(timings: dict[str, Any] | None) -> str:
     """Show each turn step without ever including the user's words."""
 
-    labels = (
-        ("asr", "ASR"),
-        ("cleanup", "cleanup"),
-        ("agent", "agent"),
-        ("voice", "voice"),
-    )
+    labels = (("asr", "ASR"), ("agent", "agent"), ("voice", "voice"))
     parts: list[str] = []
     for key, label in labels:
+        if key == "agent":
+            try:
+                calls = int((timings or {}).get("agent_calls"))
+            except (TypeError, ValueError):
+                calls = 0
+            if calls > 0:
+                noun = "call" if calls == 1 else "calls"
+                parts.append(f"agent: {calls} LLM {noun}")
+                continue
+
         try:
             seconds = float((timings or {}).get(key))
         except (TypeError, ValueError):
@@ -456,7 +460,11 @@ def _respond_turn(
             }
         )
         return current, "", _trip_cards(None), [], None, None, {}
-    timings = {"agent": round(time.perf_counter() - started, 3)}
+    timings = {
+        "agent": round(time.perf_counter() - started, 3),
+        "agent_calls": getattr(result, "llm_calls", 0)
+        or getattr(result, "rounds", 0),
+    }
 
     current.append(
         {
@@ -596,7 +604,7 @@ def _transcribe_audio(audio: Any) -> dict[str, Any]:
     sample_rate, samples = audio
     wav_bytes = prepare_audio(sample_rate, samples)
     voice_config()
-    return transcribe(_client(), wav_bytes)
+    return transcribe(wav_bytes)
 
 
 def _transcription_error(exc: Exception) -> str:
@@ -615,21 +623,14 @@ def _voice_thoughts(
     transcription: dict[str, Any],
     tool_calls: list[dict[str, Any]] | None,
 ) -> list[dict[str, Any]]:
-    """Keep both transcripts and the two model roles in the thinking panel."""
+    """Keep the raw transcript and local place hints in the thinking panel."""
 
     voice = {
         "raw_asr_text": transcription.get("raw_text") or "",
-        "cleaned_text": (
-            transcription.get("clean_text")
-            or transcription.get("text")
-            or ""
-        ),
         "language": transcription.get("language") or "",
         "asr_lang": transcription.get("asr_lang") or "",
-        "places_fixed": transcription.get("places_fixed") or [],
         "hints": transcription.get("hints") or [],
         "transcription_model": ASR_MODEL_LABEL,
-        "cleanup_model": CLEANUP_MODEL_LABEL,
     }
     return [{"voice": voice}, *(tool_calls or [])]
 
@@ -723,10 +724,11 @@ def _respond_phase_one(
 
     timings = dict(transcription.get("timings") or {})
     text = str(
-        transcription.get("clean_text")
+        transcription.get("raw_text")
         or transcription.get("text")
         or ""
     ).strip()
+    hints = transcription.get("hints") or []
     if not text:
         current.append(
             {
@@ -752,7 +754,7 @@ def _respond_phase_one(
     current.append({"role": "user", "content": f"🎤 {text}"})
     started = time.perf_counter()
     try:
-        result = _agent().run(text, previous, image_path)
+        result = _agent().run(text, previous, image_path, hints=hints)
     except Exception as exc:
         timings["agent"] = round(time.perf_counter() - started, 3)
         current.append(
@@ -773,6 +775,9 @@ def _respond_phase_one(
             None,
         )
     timings["agent"] = round(time.perf_counter() - started, 3)
+    timings["agent_calls"] = getattr(result, "llm_calls", 0) or getattr(
+        result, "rounds", 0
+    )
 
     current.append(
         {

@@ -144,7 +144,7 @@ model, and device. A missing or wrong key returns HTTP 401. Requests without a
 WAV body return HTTP 400. The temporary WAV is deleted after inference; no
 audio is retained.
 
-For the full local flow (Modal ASR, Muse Spark cleanup, then the route agent):
+For the full local flow (Modal ASR, local place hints, then the route agent):
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\try_voice.py path\to\sample.wav

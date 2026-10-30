@@ -13,8 +13,12 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from .places import PlaceIndex, prefer_exact_matches
-from .phrases import bus_check_spoken, spoken_answer
+from .places import PlaceIndex, normalize_name, prefer_exact_matches
+from .phrases import (
+    bus_check_spoken,
+    clarification_question,
+    spoken_answer,
+)
 from .router import RouteEngine
 from .tools import TOOL_SCHEMAS, execute_tool
 from .vision import image_data_url
@@ -29,8 +33,9 @@ names are often written in French or with Wolof spelling. For example,
 "Maa ngi Sahm, bëgg naa dem Malika" means "I am at Sahm, I want to go to
 Malika".
 
-Always use the tools to resolve places and find trips. Never invent a bus
-line, a stop, or a route. The tools are:
+Call find_trips directly when both places are clear. Use resolve_place only
+when a place is ambiguous or missing. Never invent a bus line, a stop, or a
+route. The tools are:
 - resolve_place(query): find the best matching stops or places.
 - find_trips(origin, destination, max_trips, operator): run the real Koumba
   route engine. Leave operator empty unless the user asks for a specific bus
@@ -42,6 +47,11 @@ line, a stop, or a route. The tools are:
 Use the conversation history to understand follow-up answers. If the user
 answers a clarification with just a place name, reuse the earlier origin or
 destination.
+
+The app may add a line "possible places heard: ..." after the user's words.
+Those are local spelling hints from the speech tool. Use them to pick the
+intended place, but never treat them as a new request or as a place the user
+did not say.
 
 When a photo is attached, read the operator and line number or sign first. If
 they are unreadable, say so and ask for the number; never guess. If you can
@@ -162,6 +172,7 @@ class AgentResult:
     rounds: int = 0
     spoken: str = ""
     bus_check: dict[str, Any] | None = None
+    llm_calls: int = 0
 
 
 def _clean_history(history: Any) -> list[dict[str, str]]:
@@ -222,6 +233,21 @@ def detect_language(text: str) -> str:
     ):
         return "English"
     return "Unknown"
+
+
+def _prompt_text(text: str, hints: Any) -> str:
+    """Append local place hints to the user message for the model only."""
+
+    if isinstance(hints, str):
+        items = [hints]
+    elif isinstance(hints, (list, tuple)):
+        items = hints
+    else:
+        items = []
+    cleaned = [str(item).strip() for item in items if str(item).strip()]
+    if not cleaned:
+        return text
+    return f"{text}\n\npossible places heard: {'; '.join(cleaned)}"
 
 
 def _field(value: Any, name: str, default: Any = None) -> Any:
@@ -315,21 +341,26 @@ class Agent:
         trips: list[dict[str, Any]] | None,
         tool_calls: list[dict[str, Any]],
         rounds: int,
+        llm_calls: int,
         bus_check: dict[str, Any] | None = None,
+        spoken_override: str | None = None,
     ) -> AgentResult:
         best_trip = trips[0] if trips else None
-        spoken = ""
-        if bus_check is not None:
-            alternative = bus_check.get("best_alternative")
-            spoken = bus_check_spoken(
-                bus_check,
-                language,
-                destination,
-                alternative if isinstance(alternative, dict) else None,
-                origin,
-            )
-        if not spoken:
-            spoken = spoken_answer(best_trip, language, origin)
+        if spoken_override is not None:
+            spoken = spoken_override
+        else:
+            spoken = ""
+            if bus_check is not None:
+                alternative = bus_check.get("best_alternative")
+                spoken = bus_check_spoken(
+                    bus_check,
+                    language,
+                    destination,
+                    alternative if isinstance(alternative, dict) else None,
+                    origin,
+                )
+            if not spoken:
+                spoken = spoken_answer(best_trip, language, origin)
         return AgentResult(
             reply=reply,
             language=language,
@@ -339,24 +370,136 @@ class Agent:
             trips=trips,
             tool_calls=tool_calls,
             rounds=rounds,
+            llm_calls=llm_calls,
             bus_check=bus_check,
         )
+
+    def _clarification_from_tool(
+        self,
+        tool_calls: list[dict[str, Any]],
+        language: str,
+    ) -> str:
+        """Ask between the top two fuzzy matches when no exact place won."""
+
+        for item in reversed(tool_calls):
+            if item.get("name") != "resolve_place":
+                continue
+            result = item.get("result")
+            if not isinstance(result, dict) or result.get("error"):
+                continue
+            candidates = result.get("candidates")
+            if not isinstance(candidates, list) or len(candidates) < 2:
+                continue
+            first, second = candidates[0], candidates[1]
+            if not isinstance(first, dict) or not isinstance(second, dict):
+                continue
+
+            query = normalize_name(str(result.get("query") or ""))
+            exact = False
+            for candidate in candidates:
+                if not isinstance(candidate, dict):
+                    continue
+                normalized = normalize_name(
+                    str(candidate.get("normalized") or candidate.get("name") or "")
+                )
+                if query and normalized == query:
+                    exact = True
+                    break
+            if exact:
+                continue
+
+            option_a = str(first.get("name") or "").strip()
+            option_b = str(second.get("name") or "").strip()
+            question = clarification_question(option_a, option_b, language)
+            if question:
+                return question
+        return ""
+
+    def _template_result(
+        self,
+        *,
+        language: str,
+        origin: str | None,
+        destination: str | None,
+        trips: list[dict[str, Any]] | None,
+        bus_check: dict[str, Any] | None,
+        tool_calls: list[dict[str, Any]],
+        llm_calls: int,
+    ) -> AgentResult | None:
+        """Return a validated phrase when the tool result is enough."""
+
+        if bus_check is not None:
+            alternative = bus_check.get("best_alternative")
+            answer = bus_check_spoken(
+                bus_check,
+                language,
+                destination,
+                alternative if isinstance(alternative, dict) else None,
+                origin,
+            )
+            if answer:
+                return self._result(
+                    reply=answer,
+                    language=language,
+                    origin=origin,
+                    destination=destination,
+                    trips=trips,
+                    tool_calls=tool_calls,
+                    rounds=llm_calls,
+                    llm_calls=llm_calls,
+                    bus_check=bus_check,
+                    spoken_override=answer,
+                )
+
+        best_trip = trips[0] if trips else None
+        answer = spoken_answer(best_trip, language, origin)
+        if answer:
+            return self._result(
+                reply=answer,
+                language=language,
+                origin=origin,
+                destination=destination,
+                trips=trips,
+                tool_calls=tool_calls,
+                rounds=llm_calls,
+                llm_calls=llm_calls,
+                bus_check=bus_check,
+                spoken_override=answer,
+            )
+
+        question = self._clarification_from_tool(tool_calls, language)
+        if question:
+            return self._result(
+                reply=question,
+                language=language,
+                origin=origin,
+                destination=destination,
+                trips=trips,
+                tool_calls=tool_calls,
+                rounds=llm_calls,
+                llm_calls=llm_calls,
+                bus_check=bus_check,
+                spoken_override=question,
+            )
+        return None
 
     def run(
         self,
         user_text: str,
         history: list[dict[str, Any]] | None = None,
         image_path: str | None = None,
+        hints: list[str] | str | None = None,
     ) -> AgentResult:
         text = (user_text or "").strip()
         memory = _clean_history(history)
         language = detect_language(text)
         if language == "Unknown":
             language = _history_language(memory)
-        user_content: str | list[dict[str, Any]] = text
+        prompt_text = _prompt_text(text, hints)
+        user_content: str | list[dict[str, Any]] = prompt_text
         if image_path:
             user_content = [
-                {"type": "text", "text": text},
+                {"type": "text", "text": prompt_text},
                 {
                     "type": "image_url",
                     "image_url": {"url": image_data_url(image_path)},
@@ -374,9 +517,11 @@ class Agent:
         trips: list[dict[str, Any]] | None = None
         bus_check: dict[str, Any] | None = None
         rounds_used = 0
+        llm_calls = 0
 
         for round_number in range(1, self.max_tool_rounds + 1):
             rounds_used = round_number
+            llm_calls += 1
             try:
                 response = self.client.complete(
                     messages=messages,
@@ -396,6 +541,7 @@ class Agent:
                     trips=trips,
                     tool_calls=tool_calls_made,
                     rounds=rounds_used,
+                    llm_calls=llm_calls,
                     bus_check=bus_check,
                 )
 
@@ -415,6 +561,7 @@ class Agent:
                     trips=trips,
                     tool_calls=tool_calls_made,
                     rounds=rounds_used,
+                    llm_calls=llm_calls,
                     bus_check=bus_check,
                 )
 
@@ -474,6 +621,20 @@ class Agent:
                     }
                 )
 
+            # A successful tool result already contains everything the short
+            # spoken templates need, so do not spend another model call.
+            fast_result = self._template_result(
+                language=language,
+                origin=origin,
+                destination=destination,
+                trips=trips,
+                bus_check=bus_check,
+                tool_calls=tool_calls_made,
+                llm_calls=llm_calls,
+            )
+            if fast_result is not None:
+                return fast_result
+
         return self._result(
             reply=_FALLBACK_REPLIES.get(language, _FALLBACK_REPLIES["Unknown"]),
             language=language,
@@ -482,5 +643,6 @@ class Agent:
             trips=trips,
             tool_calls=tool_calls_made,
             rounds=rounds_used,
+            llm_calls=llm_calls,
             bus_check=bus_check,
         )
