@@ -40,6 +40,8 @@ DOWNTOWN_RADIUS_M = 1_500.0
 MIN_LEG_MINUTES = 2.0
 TRANSFER_SCORE_MINUTES = 15.0
 DIRECT_ALLOWANCE_MINUTES = 15.0
+MIN_TRANSFER_ADVANTAGE_MINUTES = 10.0
+MAX_WALKABLE_BUS_LEG_M = 600.0
 # A trip three times slower than the best option is not a useful
 # alternative.  This also catches routes with missing coordinates that
 # escape the distance-based detour check.
@@ -175,6 +177,57 @@ def rank_trips(trips: list[Trip], max_trips: int | None = None) -> list[Trip]:
     rest = [trip for trip in ordered if trip.line_combo not in direct_keys]
     ranked = direct + rest
     return ranked if max_trips is None else ranked[:max_trips]
+
+
+def _has_walkable_one_stop_leg(trip: Trip, network: Network) -> bool:
+    """A one-stop bus ride under 600 m is not worth waiting for a bus."""
+
+    for leg in trip.legs:
+        if leg.num_stops != 1:
+            continue
+        distance = leg.distance_m
+        if distance is None:
+            board = network.coords(leg.board_stop)
+            alight = network.coords(leg.alight_stop)
+            if board is None or alight is None:
+                continue
+            distance = haversine_m(board, alight)
+        if distance <= MAX_WALKABLE_BUS_LEG_M:
+            return True
+    return False
+
+
+def remove_dominated_trips(trips: list[Trip], network: Network) -> list[Trip]:
+    """Hide slow transfer-heavy trips and pointless one-stop bus rides.
+
+    A trip with more transfers must save at least ten minutes over the best
+    trip with fewer transfers.  One-stop bus legs under 600 m are hidden too.
+    If every trip is filtered, keep the best one so the answer is never empty.
+    """
+
+    if not trips:
+        return []
+
+    candidates = [
+        trip for trip in trips if not _has_walkable_one_stop_leg(trip, network)
+    ]
+    if not candidates:
+        return trips[:1]
+
+    kept: list[Trip] = []
+    for trip in candidates:
+        faster_fewer = [
+            other.total_minutes
+            for other in candidates
+            if other.transfers < trip.transfers
+        ]
+        if faster_fewer:
+            best_fewer = min(faster_fewer)
+            advantage = best_fewer - trip.total_minutes
+            if advantage < MIN_TRANSFER_ADVANTAGE_MINUTES - 1e-9:
+                continue
+        kept.append(trip)
+    return kept or candidates[:1]
 
 
 @dataclass(frozen=True)
@@ -452,7 +505,8 @@ class RouteEngine:
                 if trip.transfers == 0 or not _has_endpoint_walk(trip)
             ]
 
-        return rank_trips(trips, max_trips)
+        ranked = rank_trips(trips)
+        return remove_dominated_trips(ranked, self.network)[:max_trips]
 
     # ------------------------------------------------------------------
     # Search.

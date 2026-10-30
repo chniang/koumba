@@ -39,6 +39,16 @@ if ASR_DEVICE == "gpu":
 else:
     hardware = {"cpu": 8.0, "memory": 16384}
 
+
+def _read_keep_warm() -> int:
+    value = (os.environ.get("KOUMBA_KEEP_WARM") or "0").strip()
+    if value not in {"0", "1"}:
+        raise ValueError("KOUMBA_KEEP_WARM must be '0' or '1'.")
+    return int(value)
+
+
+MIN_CONTAINERS = _read_keep_warm()
+
 logger = logging.getLogger("koumba-asr")
 
 app = modal.App(APP_NAME)
@@ -97,6 +107,7 @@ image = (
     timeout=120,
     startup_timeout=900,
     max_containers=1,
+    min_containers=MIN_CONTAINERS,
 )
 class KoumbaASR:
     @modal.enter()

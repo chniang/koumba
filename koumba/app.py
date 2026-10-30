@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import math
 import os
+import time
 from functools import lru_cache
 from html import escape
 from typing import Any
@@ -34,7 +35,7 @@ from .listen import (
 from .llm import ModelClient, ProviderConfig, api_key_configured, load_config
 from .network import Network
 from .phrases import compose_chat_message
-from .places import PlaceIndex
+from .places import PlaceIndex, normalize_name
 from .router import RouteEngine
 from .speak import SpeakError, speak
 from .voice_text import tts_text
@@ -108,6 +109,7 @@ CSS = """
   border-radius: 10px;
 }
 .reply-audio { max-width: 420px; }
+.timings { color: #475569; font-size: 13px; margin-bottom: 8px; }
 @media (max-width: 640px) {
   .trip-grid { grid-template-columns: 1fr; }
 }
@@ -186,6 +188,79 @@ def _minutes(value: Any) -> str:
         return "unknown time"
 
 
+def _format_timings(timings: dict[str, Any] | None) -> str:
+    """Show each turn step without ever including the user's words."""
+
+    labels = (
+        ("asr", "ASR"),
+        ("cleanup", "cleanup"),
+        ("agent", "agent"),
+        ("voice", "voice"),
+    )
+    parts: list[str] = []
+    for key, label in labels:
+        try:
+            seconds = float((timings or {}).get(key))
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(seconds) or seconds < 0:
+            continue
+        suffix = (
+            " (failed)"
+            if key == "voice" and (timings or {}).get("voice_failed")
+            else ""
+        )
+        parts.append(f"{label} {seconds:.1f} s{suffix}")
+    return " · ".join(parts)
+
+
+def _same_place(left: Any, right: Any) -> bool:
+    first = normalize_name(str(left or ""))
+    second = normalize_name(str(right or ""))
+    return bool(first and second and first == second)
+
+
+def _walk_note(walk: dict[str, Any], language: str | None) -> str:
+    kind = str(walk.get("kind") or "walk")
+    from_place = str(walk.get("from_place") or "")
+    to_place = str(walk.get("to_place") or "")
+    french = _is_french(language)
+    labels = {
+        "access": ("entry", "entrée"),
+        "transfer": ("transfer", "correspondance"),
+        "egress": ("exit", "sortie"),
+    }
+    english_label, french_label = labels.get(kind, ("walk", "marche"))
+
+    if _same_place(from_place, to_place):
+        if kind == "access":
+            note = (
+                "entrée : à pied jusqu'à l'arrêt"
+                if french
+                else "entry: walk to the stop"
+            )
+        elif kind == "transfer":
+            note = (
+                "correspondance : à pied jusqu'à l'arrêt"
+                if french
+                else "transfer: walk to the stop"
+            )
+        else:
+            note = (
+                "sortie : à pied jusqu'à destination"
+                if french
+                else "exit: walk to destination"
+            )
+    else:
+        arrow = f"{escape(from_place)} &rarr; {escape(to_place)}"
+        note = (
+            f"{french_label} : {arrow}"
+            if french
+            else f"{english_label}: {arrow}"
+        )
+    return f"{note} ({_minutes(walk.get('minutes'))})"
+
+
 def _stop_count(value: Any, language: str | None) -> str:
     try:
         count = max(0, int(value or 0))
@@ -257,15 +332,12 @@ def _trip_cards(
             )
 
         walk_notes = [
-            f"{escape(str(walk.get('kind', 'walk')))}: "
-            f"{escape(str(walk.get('from_place', '')))} &rarr; "
-            f"{escape(str(walk.get('to_place', '')))} "
-            f"({_minutes(walk.get('minutes'))})"
+            _walk_note(walk, language)
             for walk in trip.get("walks", [])
             if float(walk.get("minutes") or 0) > 0
         ]
         walk_html = (
-            f"<div class='muted'>Walk: {'; '.join(walk_notes)}</div>"
+            f"<div class='muted'>{'; '.join(walk_notes)}</div>"
             if walk_notes
             else ""
         )
@@ -349,7 +421,15 @@ def _respond_turn(
     previous = _history_as_dicts(history)
     current = list(previous)
     if not text:
-        return current, "", gr.update(), gr.update(), image_path, None
+        return (
+            current,
+            "",
+            gr.update(),
+            gr.update(),
+            image_path,
+            None,
+            {},
+        )
 
     current.append({"role": "user", "content": text})
 
@@ -360,8 +440,9 @@ def _respond_turn(
                 "content": _missing_key_message(),
             }
         )
-        return current, "", _trip_cards(None), [], None, None
+        return current, "", _trip_cards(None), [], None, None, {}
 
+    started = time.perf_counter()
     try:
         result = _agent().run(text, previous, image_path)
     except Exception as exc:
@@ -374,7 +455,8 @@ def _respond_turn(
                 ),
             }
         )
-        return current, "", _trip_cards(None), [], None, None
+        return current, "", _trip_cards(None), [], None, None, {}
+    timings = {"agent": round(time.perf_counter() - started, 3)}
 
     current.append(
         {
@@ -389,13 +471,14 @@ def _respond_turn(
         result.tool_calls,
         None,
         result,
+        timings,
     )
 
 
 def _respond(message_text: str, history, image_path: str | None = None):
     """Handle one chat submission and return the five UI values."""
 
-    chatbot, message, cards, thoughts, image, _result = _respond_turn(
+    chatbot, message, cards, thoughts, image, _result, _timings = _respond_turn(
         message_text,
         history,
         image_path,
@@ -434,21 +517,49 @@ def _tts_text_for_result(result: Any) -> str:
     )
 
 
-def _reply_audio_for_result(result: Any) -> bytes | None:
-    """Return a WAV reply for Wolof turns, and no audio for other languages."""
+def _tts_job_for_result(
+    result: Any,
+    timings: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Keep the speech text in state until the second UI phase asks for it."""
 
     if result is None or not _is_wolof(getattr(result, "language", None)):
         return None
     try:
         text = _tts_text_for_result(result)
-        if not text:
-            return None
-        return speak(text)
-    except SpeakError as exc:
-        gr.Warning(str(exc))
-        return None
     except Exception:
         return None
+    if not text:
+        return None
+    return {"text": text, "timings": dict(timings or {})}
+
+
+def _synthesize_voice(job: Any):
+    """Second Gradio phase: fill the autoplay player without touching chat."""
+
+    if not isinstance(job, dict):
+        return gr.update(), gr.update(), None
+
+    timings = dict(job.get("timings") or {})
+    text = str(job.get("text") or "").strip()
+    if not text:
+        return gr.update(), gr.update(), None
+
+    started = time.perf_counter()
+    failed = False
+    audio: bytes | None = None
+    try:
+        audio = speak(text)
+    except SpeakError as exc:
+        gr.Warning(str(exc))
+        failed = True
+    except Exception:
+        failed = True
+
+    timings["voice"] = round(time.perf_counter() - started, 3)
+    if failed:
+        timings["voice_failed"] = True
+    return audio, _format_timings(timings), None
 
 
 def _audio_present(audio: Any) -> bool:
@@ -523,20 +634,29 @@ def _voice_thoughts(
     return [{"voice": voice}, *(tool_calls or [])]
 
 
-def _respond_with_audio(
+def _respond_phase_one(
     message_text: str,
     history,
     image_path: str | None = None,
     audio: Any = None,
 ):
-    """Handle text, or transcribe a recording through the normal chat flow."""
+    """Return text, cards, and timings before the slower speech call."""
 
     if not _audio_present(audio):
-        chatbot, message, cards, thoughts, image, result = _respond_turn(
+        (
+            chatbot,
+            message,
+            cards,
+            thoughts,
+            image,
+            result,
+            timings,
+        ) = _respond_turn(
             message_text,
             history,
             image_path,
         )
+        job = _tts_job_for_result(result, timings)
         return (
             chatbot,
             message,
@@ -544,7 +664,9 @@ def _respond_with_audio(
             thoughts,
             image,
             None,
-            _reply_audio_for_result(result),
+            None,
+            _format_timings(timings),
+            job,
         )
 
     previous = _history_as_dicts(history)
@@ -561,6 +683,8 @@ def _respond_with_audio(
             image_path,
             None,
             None,
+            "",
+            None,
         )
 
     if not _api_key_configured():
@@ -574,6 +698,8 @@ def _respond_with_audio(
             [],
             image_path,
             None,
+            None,
+            "",
             None,
         )
 
@@ -591,8 +717,11 @@ def _respond_with_audio(
             image_path,
             None,
             None,
+            "",
+            None,
         )
 
+    timings = dict(transcription.get("timings") or {})
     text = str(
         transcription.get("clean_text")
         or transcription.get("text")
@@ -616,19 +745,34 @@ def _respond_with_audio(
             image_path,
             None,
             None,
+            _format_timings(timings),
+            None,
         )
 
     current.append({"role": "user", "content": f"🎤 {text}"})
+    started = time.perf_counter()
     try:
         result = _agent().run(text, previous, image_path)
     except Exception as exc:
+        timings["agent"] = round(time.perf_counter() - started, 3)
         current.append(
             {
                 "role": "assistant",
                 "content": f"Koumba could not start the route engine. {exc}",
             }
         )
-        return current, "", _trip_cards(None), [], None, None, None
+        return (
+            current,
+            "",
+            _trip_cards(None),
+            [],
+            None,
+            None,
+            None,
+            _format_timings(timings),
+            None,
+        )
+    timings["agent"] = round(time.perf_counter() - started, 3)
 
     current.append(
         {
@@ -643,8 +787,40 @@ def _respond_with_audio(
         _voice_thoughts(transcription, result.tool_calls),
         None,
         None,
-        _reply_audio_for_result(result),
+        None,
+        _format_timings(timings),
+        _tts_job_for_result(result, timings),
     )
+
+
+def _respond_with_audio(
+    message_text: str,
+    history,
+    image_path: str | None = None,
+    audio: Any = None,
+):
+    """Synchronous helper for tests; the UI uses two phases."""
+
+    (
+        chatbot,
+        message,
+        cards,
+        thoughts,
+        image,
+        _audio_input,
+        _previous_reply,
+        _timings,
+        job,
+    ) = _respond_phase_one(
+        message_text,
+        history,
+        image_path,
+        audio,
+    )
+    if job is None:
+        return chatbot, message, cards, thoughts, image, None, None
+    reply_audio, _timings, _job = _synthesize_voice(job)
+    return chatbot, message, cards, thoughts, image, None, reply_audio
 
 
 def _respond_to_recording(
@@ -658,7 +834,8 @@ def _respond_to_recording(
     audio_key = _audio_fingerprint(audio)
     if audio_key is None or audio_key == last_audio_key:
         # Another event already handled this waveform.  Leave every component
-        # alone instead of adding the same question to the chat twice.
+        # alone instead of adding the same question to the chat twice.  A null
+        # job also stops the chained speech phase from replaying old audio.
         return (
             gr.update(),
             gr.update(),
@@ -667,11 +844,13 @@ def _respond_to_recording(
             gr.update(),
             gr.update(),
             gr.update(),
+            gr.update(),
+            None,
             last_audio_key,
         )
 
     gr.Info(LISTENING_STATUS, duration=4)
-    result = _respond_with_audio("", history, image_path, audio)
+    result = _respond_phase_one("", history, image_path, audio)
     return (*result, audio_key)
 
 
@@ -680,7 +859,7 @@ def _clear():
 
 
 def _clear_voice():
-    return (*_clear(), None, None, None)
+    return (*_clear(), None, None, "", None, None)
 
 
 def build_app() -> gr.Blocks:
@@ -726,6 +905,7 @@ def build_app() -> gr.Blocks:
                     label="Speak to Koumba (Wolof, French, English)",
                 )
                 voice_guard = gr.State(None)
+                voice_job = gr.State(None)
                 gr.Markdown("Voice recordings are not stored.")
                 image = gr.Image(
                     label="Photo of the bus (optional)",
@@ -750,6 +930,7 @@ def build_app() -> gr.Blocks:
                     container=True,
                 )
                 with gr.Accordion("How Koumba thought", open=False):
+                    timings = gr.Markdown(value="", elem_classes=["timings"])
                     thoughts = gr.JSON(
                         value=[],
                         label="Tool calls and voice details",
@@ -763,44 +944,64 @@ def build_app() -> gr.Blocks:
             image,
             audio,
             reply_audio,
+            timings,
+            voice_job,
         ]
-        send.click(
-            _respond_with_audio,
-            inputs=[message, chatbot, image, audio],
-            outputs=voice_outputs,
+
+        def add_voice_phase(event):
+            return event.then(
+                _synthesize_voice,
+                inputs=[voice_job],
+                outputs=[reply_audio, timings, voice_job],
+            )
+
+        add_voice_phase(
+            send.click(
+                _respond_phase_one,
+                inputs=[message, chatbot, image, audio],
+                outputs=voice_outputs,
+            )
         )
-        message.submit(
-            _respond_with_audio,
-            inputs=[message, chatbot, image, audio],
-            outputs=voice_outputs,
+        add_voice_phase(
+            message.submit(
+                _respond_phase_one,
+                inputs=[message, chatbot, image, audio],
+                outputs=voice_outputs,
+            )
         )
         # Only the microphone stop event auto-sends.  Do not also bind change:
         # Gradio emits change when recording ends and again when we clear the
         # audio component, which would send the same question twice.
-        audio.stop_recording(
-            _respond_to_recording,
-            inputs=[chatbot, image, audio, voice_guard],
-            outputs=[*voice_outputs, voice_guard],
+        add_voice_phase(
+            audio.stop_recording(
+                _respond_to_recording,
+                inputs=[chatbot, image, audio, voice_guard],
+                outputs=[*voice_outputs, voice_guard],
+            )
         )
-        example_wolof.click(
-            lambda history, audio: _respond_with_audio(
-                EXAMPLE_WOLOF,
-                history,
-                None,
-                audio,
-            ),
-            inputs=[chatbot, audio],
-            outputs=voice_outputs,
+        add_voice_phase(
+            example_wolof.click(
+                lambda history, audio: _respond_phase_one(
+                    EXAMPLE_WOLOF,
+                    history,
+                    None,
+                    audio,
+                ),
+                inputs=[chatbot, audio],
+                outputs=voice_outputs,
+            )
         )
-        example_french.click(
-            lambda history, audio: _respond_with_audio(
-                EXAMPLE_FRENCH,
-                history,
-                None,
-                audio,
-            ),
-            inputs=[chatbot, audio],
-            outputs=voice_outputs,
+        add_voice_phase(
+            example_french.click(
+                lambda history, audio: _respond_phase_one(
+                    EXAMPLE_FRENCH,
+                    history,
+                    None,
+                    audio,
+                ),
+                inputs=[chatbot, audio],
+                outputs=voice_outputs,
+            )
         )
         clear.click(
             _clear_voice,

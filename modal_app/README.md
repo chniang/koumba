@@ -73,6 +73,33 @@ reuse the cached weights. The first request after the idle window is slower
 because the container must start again; CPU inference is also slower than GPU
 inference, especially with the 1B model.
 
+### Keep containers warm (optional)
+
+Both services read `KOUMBA_KEEP_WARM` at deploy time. The default is `0`, which
+lets Modal stop the container after the idle window. Set it to `1` to pass
+`min_containers=1` and keep one container warm:
+
+```powershell
+$env:KOUMBA_KEEP_WARM="1"
+.\.venv\Scripts\python.exe -m modal deploy modal_app/asr.py
+.\.venv\Scripts\python.exe -m modal deploy modal_app/tts.py
+```
+
+Return to the cheaper cold-start default with:
+
+```powershell
+Remove-Item Env:KOUMBA_KEEP_WARM -ErrorAction SilentlyContinue
+.\.venv\Scripts\python.exe -m modal deploy modal_app/asr.py
+.\.venv\Scripts\python.exe -m modal deploy modal_app/tts.py
+```
+
+**Cost warning:** `KOUMBA_KEEP_WARM=1` keeps one container running for each
+service, even when nobody is using the app. Modal bills for that idle capacity.
+In CPU mode each service uses 8 cores and 16 GiB of RAM; if ASR is deployed with
+`KOUMBA_ASR_DEVICE=gpu`, that GPU stays warm too. Warm containers make the first
+reply much faster, but leave the default at `0` unless you need the demo to
+answer immediately.
+
 ## 3. Test
 
 Load the same values into the current PowerShell session:
@@ -200,4 +227,6 @@ malformed, or overlong text returns HTTP 400. Each new sentence is cached as
 `/cache/speech/<sha256>.wav` and later requests for the same final text serve
 that file. The service logs cache hits, synthesis time, and character count,
 but never logs the sentence. The first request after the 300-second idle window
-pays the container start and model load cost.
+pays the container start and model load cost. Set `KOUMBA_KEEP_WARM=1` at
+deploy time when that cold start is too slow; see the warm-container section
+above for the cost warning.

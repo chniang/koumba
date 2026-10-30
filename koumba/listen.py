@@ -12,6 +12,7 @@ import io
 import json
 import os
 import re
+import time
 import wave
 from functools import lru_cache
 from typing import Any
@@ -541,7 +542,11 @@ def transcribe(
 ) -> dict[str, Any]:
     """Run Modal ASR, then ask Muse Spark to clean up place spelling."""
 
+    asr_started = time.perf_counter()
     raw = _asr_transcribe(wav_bytes, lang)
+    asr_seconds = time.perf_counter() - asr_started
+
+    cleanup_started = time.perf_counter()
     try:
         cleaned = cleanup_transcript(client, raw["text"], raw["lang"])
     except Exception as exc:
@@ -549,6 +554,7 @@ def transcribe(
         raise VoiceServiceError(
             f"Transcript cleanup failed ({exc}). Raw transcript: {raw['text']}"
         ) from exc
+    cleanup_seconds = time.perf_counter() - cleanup_started
     clean_text = str(
         cleaned.get("clean_text") or cleaned.get("text") or ""
     ).strip()
@@ -566,5 +572,9 @@ def transcribe(
         "models": {
             "transcription": ASR_MODEL_LABEL,
             "cleanup": CLEANUP_MODEL_LABEL,
+        },
+        "timings": {
+            "asr": round(asr_seconds, 3),
+            "cleanup": round(cleanup_seconds, 3),
         },
     }

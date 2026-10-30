@@ -49,6 +49,16 @@ DIFFUSERS_VERSION = "0.29.0"
 CONFORMER_VERSION = "0.3.2"
 TORCHCODEC_VERSION = "0.7.0"
 
+
+def _read_keep_warm() -> int:
+    value = (os.environ.get("KOUMBA_KEEP_WARM") or "0").strip()
+    if value not in {"0", "1"}:
+        raise ValueError("KOUMBA_KEEP_WARM must be '0' or '1'.")
+    return int(value)
+
+
+MIN_CONTAINERS = _read_keep_warm()
+
 logger = logging.getLogger("koumba-tts")
 
 _NUMBER_PATTERN = re.compile(r"\b\d+(?:[.,]\d+)*\b")
@@ -241,6 +251,7 @@ def create_api(
     scaledown_window=300,
     timeout=180,
     startup_timeout=900,
+    min_containers=MIN_CONTAINERS,
 )
 class KoumbaTTS:
     @modal.enter()

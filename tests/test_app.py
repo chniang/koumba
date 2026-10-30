@@ -47,6 +47,24 @@ def test_app_auto_sends_only_from_the_microphone_stop_event(llm_env) -> None:
     ]
 
 
+def test_each_answer_event_chains_the_voice_phase(llm_env) -> None:
+    import koumba.app as app
+
+    demo = app.build_app()
+    dependencies = demo.config.get("dependencies", [])
+    voice_phases = [
+        item
+        for item in dependencies
+        if str(item.get("api_name") or "").startswith("_synthesize_voice")
+    ]
+
+    assert len(voice_phases) == 5
+    assert all(
+        [target[1] for target in item["targets"]] == ["then"]
+        for item in voice_phases
+    )
+
+
 def test_provider_banner_names_the_configured_provider(
     llm_env,
     monkeypatch,
@@ -418,6 +436,53 @@ def test_trip_cards_use_french_stop_count_and_time_hint() -> None:
     assert "7 stops" not in html
 
 
+def test_same_name_walk_uses_the_destination_phrase() -> None:
+    from koumba.app import _trip_cards
+
+    trip = {
+        "transfers": 0,
+        "total_minutes": 46.8,
+        "legs": [],
+        "walks": [
+            {
+                "kind": "egress",
+                "from_place": "Yoff-Village",
+                "to_place": "Yoff-Village",
+                "minutes": 5.8,
+            }
+        ],
+    }
+
+    french = _trip_cards([trip], language="French")
+    english = _trip_cards([trip], language="English")
+
+    assert "sortie : à pied jusqu'à destination (6 min)" in french
+    assert "Yoff-Village &rarr; Yoff-Village" not in french
+    assert "exit: walk to destination (6 min)" in english
+
+
+def test_non_same_walk_keeps_the_two_places() -> None:
+    from koumba.app import _trip_cards
+
+    trip = {
+        "transfers": 0,
+        "total_minutes": 46.8,
+        "legs": [],
+        "walks": [
+            {
+                "kind": "access",
+                "from_place": "Médina",
+                "to_place": "Avenue Blaise Diagne",
+                "minutes": 1.9,
+            }
+        ],
+    }
+
+    french = _trip_cards([trip], language="French")
+
+    assert "entrée : Médina &rarr; Avenue Blaise Diagne (2 min)" in french
+
+
 def test_voice_flow_uses_cleaned_text_and_shows_both_transcripts(
     llm_env,
     monkeypatch,
@@ -621,6 +686,111 @@ def test_typed_wolof_reply_returns_audio_for_autoplay(
     ]
 
 
+def test_timing_line_names_each_step_and_marks_a_failed_voice() -> None:
+    import koumba.app as app
+
+    line = app._format_timings(
+        {
+            "asr": 9.06,
+            "cleanup": 2.34,
+            "agent": 6.0,
+            "voice": 8.44,
+        }
+    )
+
+    assert line == "ASR 9.1 s · cleanup 2.3 s · agent 6.0 s · voice 8.4 s"
+    assert (
+        app._format_timings({"voice": 8.44, "voice_failed": True})
+        == "voice 8.4 s (failed)"
+    )
+
+
+def test_text_phase_returns_before_tts_and_then_adds_voice(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    fake = _FakeAgent(
+        [
+            AgentResult(
+                reply="Long model answer.",
+                language="Wolof",
+                spoken="Yaangi Sahm, duggal ci Tata 38 bi jëm Malika.",
+            )
+        ]
+    )
+    calls: list[str] = []
+
+    def fake_speak(text: str) -> bytes:
+        calls.append(text)
+        return b"RIFF-reply"
+
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_agent", lambda: fake)
+    monkeypatch.setattr(app, "speak", fake_speak)
+
+    values = app._respond_phase_one("Maa ngi Sahm", [], None, None)
+
+    assert len(values) == 9
+    _chatbot, _message, _cards, _thoughts, _image = values[:5]
+    audio, reply_audio, timing, job = values[5:]
+    assert audio is None
+    assert reply_audio is None
+    assert timing.startswith("agent ")
+    assert "voice" not in timing
+    assert calls == []
+    assert job is not None
+    job_text = job["text"]
+
+    reply_audio, timing, job = app._synthesize_voice(job)
+
+    assert reply_audio == b"RIFF-reply"
+    assert "voice " in timing
+    assert job is None
+    assert calls == [job_text]
+
+
+def test_voice_phase_reports_asr_and_cleanup_timings(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    transcription = {
+        "text": "Maa ngi Sahm, bëgg naa dem Malika",
+        "clean_text": "Maa ngi Sahm, bëgg naa dem Malika",
+        "raw_text": "Maa ngi Sam, bëgg naa dem Malika",
+        "language": "Wolof",
+        "asr_lang": "wol_Latn",
+        "timings": {"asr": 1.25, "cleanup": 0.5},
+    }
+    fake = _FakeAgent(
+        [
+            AgentResult(
+                reply="Long answer.",
+                language="Wolof",
+                spoken="Yaangi Sahm, duggal ci Tata 38 bi jëm Malika.",
+            )
+        ]
+    )
+    monkeypatch.setenv("KOUMBA_ASR_URL", "https://example.modal.run")
+    monkeypatch.setenv("KOUMBA_ASR_KEY", "test-secret")
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_transcribe_audio", lambda _audio: transcription)
+    monkeypatch.setattr(app, "_agent", lambda: fake)
+
+    values = app._respond_phase_one(
+        "",
+        [],
+        None,
+        (16_000, np.zeros(16_000, dtype=np.int16)),
+    )
+
+    assert values[7].startswith("ASR 1.2 s · cleanup 0.5 s · agent ")
+    assert values[8] is not None
+
+
 def test_french_reply_does_not_request_audio(
     llm_env,
     monkeypatch,
@@ -745,8 +915,9 @@ def test_recording_stop_auto_sends_once_per_waveform(
 
     calls = []
     statuses: list[str] = []
+    job = {"text": "Yaangi Saam", "timings": {"agent": 1.0}}
 
-    def fake_respond(message_text, history, image_path=None, audio=None):
+    def fake_phase_one(message_text, history, image_path=None, audio=None):
         calls.append((message_text, history, image_path, audio))
         return (
             [{"role": "user", "content": "🎤 Maa ngi Sahm"}],
@@ -755,10 +926,12 @@ def test_recording_stop_auto_sends_once_per_waveform(
             [{"voice": {"raw_asr_text": "Maa ngi Sam"}}],
             None,
             None,
-            b"RIFF-reply",
+            None,
+            "agent 1.0 s",
+            job,
         )
 
-    monkeypatch.setattr(app, "_respond_with_audio", fake_respond)
+    monkeypatch.setattr(app, "_respond_phase_one", fake_phase_one)
     monkeypatch.setattr(
         app.gr,
         "Info",
@@ -776,9 +949,10 @@ def test_recording_stop_auto_sends_once_per_waveform(
     assert calls[0][3] is first_audio
     assert calls[1][3] is second_audio
     assert statuses == [app.LISTENING_STATUS, app.LISTENING_STATUS]
-    assert len(first) == 8
-    assert first[-2] == b"RIFF-reply"
+    assert len(first) == 10
+    assert first[-2] is job
     assert first[-1] == app._audio_fingerprint(first_audio)
+    assert duplicate[-2] is None
     assert duplicate[-1] == first[-1]
     assert second[-1] == app._audio_fingerprint(second_audio)
 

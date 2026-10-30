@@ -96,6 +96,76 @@ def test_score_prefers_a_transfer_but_promotes_a_nearby_direct_trip() -> None:
     assert trips[0].transfers == 0
 
 
+def test_more_transfers_are_hidden_when_the_time_saving_is_small() -> None:
+    engine = make_engine(
+        [
+            Line("Op D", "Direct", ("Origin", "Ridge", "Dest")),
+            Line("Op A", "Line A", ("Origin", "Transfer")),
+            Line("Op B", "Line B", ("Transfer", "Dest")),
+        ],
+        {
+            "Origin": point(0, 0),
+            "Ridge": point(2400, 0),
+            "Dest": point(0, 4000),
+            "Transfer": point(0, 2000),
+        },
+    )
+
+    trips = engine.find_trips("Origin", "Dest")
+
+    assert trips
+    assert all(trip.transfers == 0 for trip in trips)
+
+
+def test_more_transfers_are_kept_when_they_save_ten_minutes() -> None:
+    engine = make_engine(
+        [
+            Line("Op S1", "Slow 1", ("Origin", "Slow Transfer")),
+            Line("Op S2", "Slow 2", ("Slow Transfer", "Dest")),
+            Line("Op F1", "Fast 1", ("Origin", "Fast Transfer 1")),
+            Line("Op F2", "Fast 2", ("Fast Transfer 1", "Fast Transfer 2")),
+            Line("Op F3", "Fast 3", ("Fast Transfer 2", "Dest")),
+        ],
+        {
+            "Origin": point(0, 0),
+            "Slow Transfer": point(6000, 0),
+            "Fast Transfer 1": point(0, 3000),
+            "Fast Transfer 2": point(0, 7000),
+            "Dest": point(0, 10000),
+        },
+    )
+
+    trips = engine.find_trips("Origin", "Dest")
+
+    assert any(trip.transfers == 1 for trip in trips)
+    assert any(trip.transfers == 2 for trip in trips)
+
+
+def test_walkable_one_stop_leg_is_hidden_but_a_trip_remains() -> None:
+    engine = make_engine(
+        [
+            Line("Op C", "Line C", ("Origin", "Far")),
+            Line("Op A", "Line A", ("Far", "Short Hop")),
+            Line("Op B", "Line B", ("Short Hop", "Dest")),
+        ],
+        {
+            "Origin": point(0),
+            "Far": point(2000),
+            "Short Hop": point(2500),
+            "Dest": point(5000),
+        },
+    )
+
+    trips = engine.find_trips("Origin", "Dest")
+
+    assert len(trips) == 1
+    assert trips[0].transfers == 2
+    assert any(
+        leg.num_stops == 1 and (leg.distance_m or 0) <= 600
+        for leg in trips[0].legs
+    )
+
+
 def test_short_bus_leg_is_billed_as_two_minutes() -> None:
     engine = make_engine(
         [Line("Op A", "Line A", ("Origin", "Dest"))],

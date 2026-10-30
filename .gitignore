@@ -221,3 +221,6 @@ __marimo__/
 
 # Koumba data cache
 data_cache/
+
+# Local test recordings at the repository root
+/*.wav

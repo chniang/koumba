@@ -172,6 +172,9 @@ def test_transcribe_posts_wav_with_the_shared_secret(monkeypatch) -> None:
         "transcription": "Omnilingual ASR on Modal",
         "cleanup": "Muse Spark Open on Baseten",
     }
+    assert set(result["timings"]) == {"asr", "cleanup"}
+    assert result["timings"]["asr"] >= 0
+    assert result["timings"]["cleanup"] >= 0
 
     assert len(client.calls) == 1
     prompt = client.calls[0]["messages"][0]["content"]
