@@ -3,8 +3,11 @@ from __future__ import annotations
 from koumba.network import Line, Network
 from koumba.places import (
     PlaceIndex,
+    exact_normalized_names,
     normalize_name,
+    prefer_exact_matches,
     representative_coordinates,
+    spoken_alias,
 )
 
 
@@ -64,3 +67,29 @@ def test_unknown_place_has_no_match() -> None:
 
     assert index.match("Atlantis") == []
     assert index.suggestions("Atlantis")
+
+
+def test_reviewed_spoken_forms_are_reversed_and_accent_insensitive() -> None:
+    assert spoken_alias("saam") == "Sahm"
+    assert spoken_alias("paay") == "PAI"
+    assert spoken_alias("wakaam") == "Ouakam"
+    assert spoken_alias("barñi") == "Bargny"
+    assert spoken_alias("barni") == "Bargny"
+    assert spoken_alias("el ess ess") == "LSS"
+
+
+def test_spoken_alias_wins_over_a_similar_official_name() -> None:
+    network = Network(
+        [Line("Op", "L1", ("Sahm", "Sam Notaire"))],
+        {"Sahm": (14.68, -17.45), "Sam Notaire": (14.69, -17.46)},
+    )
+    index = PlaceIndex.from_network(network)
+
+    matches = index.match("saam")
+
+    assert matches[0].name == "Sahm"
+    assert matches[0].score == 100.0
+    assert [item.normalized for item in prefer_exact_matches(matches, "saam")] == [
+        "sahm"
+    ]
+    assert exact_normalized_names("saam") == {"saam", "sahm"}

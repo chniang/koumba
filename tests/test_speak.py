@@ -58,7 +58,8 @@ def test_speak_posts_text_with_key_and_timeout(monkeypatch) -> None:
             "url": "https://example.modal.run/speak",
             "json": {"text": "Maa ngi Sahm."},
             "headers": {"X-Koumba-Key": "test-secret"},
-            "timeout": 60.0,
+            "timeout": 150.0,
+            "follow_redirects": True,
         }
     ]
 

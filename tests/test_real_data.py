@@ -70,6 +70,31 @@ def test_rond_point_sahm_matches_only_the_sahm_stop(data) -> None:
     assert [candidate.name for candidate in matches] == ["Sahm"]
 
 
+def test_reviewed_stop_spellings_display_and_merge_in_the_graph(data) -> None:
+    network = Network.from_data(data)
+    index = PlaceIndex.from_data(data)
+
+    assert "Case-Ba" not in network.stop_names
+    assert "Pattesd'oie" not in network.stop_names
+    assert "Case Ba" in network.stop_names
+    assert "Patte d'Oie" in network.stop_names
+
+    assert index.match("Case-Ba")[0].name == "Case Ba"
+    assert index.match("Pattesd'oie")[0].name == "Patte d'Oie"
+
+    # Ligne 38 used the "Pattesd'oie" spelling; it now uses the display name.
+    ligne_38 = network.lines[("Tata AFTU", "Ligne 38")]
+    assert "Patte d'Oie" in ligne_38.stops
+    assert "Pattesd'oie" not in ligne_38.stops
+
+    # Ligne 33 used "Case-Ba", while other lines used "Case Ba".  Both
+    # spellings now point at the same stop nodes.
+    assert any(
+        node.line == ("Tata AFTU", "Ligne 33")
+        for node in network.nodes_at_stop("Case Ba")
+    )
+
+
 def test_exact_yoff_match_does_not_route_via_a_longer_name(
     engine: RouteEngine,
 ) -> None:

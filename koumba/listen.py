@@ -22,7 +22,7 @@ from dotenv import load_dotenv
 from rapidfuzz import fuzz, process
 
 from .data import load_data
-from .places import normalize_name
+from .places import normalize_name, spoken_alias
 
 TARGET_SAMPLE_RATE = 16_000
 MIN_SECONDS = 0.5
@@ -198,8 +198,17 @@ def find_place_hints(
             if len(query) < 3 or query in _HINT_STOPWORDS:
                 continue
 
-            exact = display_by_norm.get(query)
-            best = (150.0, 100.0, query) if exact else None
+            # A reviewed spoken form, such as "saam" or "wakaam", is an
+            # exact hint for the real place.  Check it before fuzzy matching
+            # so a similar-looking official name cannot steal the hint.
+            alias = spoken_alias(query)
+            alias_norm = normalize_name(alias) if alias else ""
+            if query in display_by_norm:
+                best = (150.0, 100.0, query)
+            elif alias_norm and alias_norm in display_by_norm:
+                best = (150.0, 100.0, alias_norm)
+            else:
+                best = None
             if best is None:
                 for normalized, partial, _index in process.extract(
                     query,

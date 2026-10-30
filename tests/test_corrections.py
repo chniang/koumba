@@ -10,6 +10,8 @@ import pandas as pd
 from koumba.corrections import (
     DEFAULT_CORRECTIONS_PATH,
     apply_corrections,
+    canonical_stop_name,
+    canonicalize_data_stop_names,
     load_corrections,
 )
 from koumba.network import Line, Network
@@ -37,6 +39,64 @@ def _correction(op: str, **values) -> dict:
 
 def test_repository_corrections_file_starts_empty() -> None:
     assert json.loads(DEFAULT_CORRECTIONS_PATH.read_text(encoding="utf-8")) == []
+
+
+def test_reviewed_stop_names_are_canonical() -> None:
+    assert canonical_stop_name("Case-Ba") == "Case Ba"
+    assert canonical_stop_name("Case Ba") == "Case Ba"
+    assert canonical_stop_name("Pattesd'oie") == "Patte d'Oie"
+    assert canonical_stop_name("Patte d'Oie") == "Patte d'Oie"
+    assert canonical_stop_name("Echangeur Patte d'Oie") == (
+        "Echangeur Patte d'Oie"
+    )
+
+
+def test_canonical_stop_names_are_applied_to_all_frames() -> None:
+    data = SimpleNamespace(
+        lignes=pd.DataFrame(
+            [
+                {
+                    "compagnie": "Tata AFTU",
+                    "ligne": "Ligne Test",
+                    "terminus_a": "Case-Ba",
+                    "terminus_b": "Pattesd'oie",
+                }
+            ]
+        ),
+        itineraires=pd.DataFrame(
+            [
+                {
+                    "compagnie": "Tata AFTU",
+                    "ligne": "Ligne Test",
+                    "ordre": 1,
+                    "arret": "Case-Ba",
+                },
+                {
+                    "compagnie": "Tata AFTU",
+                    "ligne": "Ligne Test",
+                    "ordre": 2,
+                    "arret": "Pattesd'oie",
+                },
+            ]
+        ),
+        arrets=pd.DataFrame(
+            [
+                {"arret": "Case-Ba", "lat": 14.7, "lon": -17.4, "confiance": "bonne"},
+                {"arret": "Pattesd'oie", "lat": 14.8, "lon": -17.3, "confiance": "bonne"},
+            ]
+        ),
+        lieux=pd.DataFrame(
+            [{"lieu": "Case-Ba", "lat": 14.7, "lon": -17.4}]
+        ),
+    )
+
+    canonicalize_data_stop_names(data)
+
+    assert list(data.lignes["terminus_a"]) == ["Case Ba"]
+    assert list(data.lignes["terminus_b"]) == ["Patte d'Oie"]
+    assert list(data.itineraires["arret"]) == ["Case Ba", "Patte d'Oie"]
+    assert list(data.arrets["arret"]) == ["Case Ba", "Patte d'Oie"]
+    assert list(data.lieux["lieu"]) == ["Case Ba"]
 
 
 def test_each_supported_correction_changes_the_itinerary(capsys) -> None:

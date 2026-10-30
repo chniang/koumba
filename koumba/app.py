@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import math
 import os
+import threading
 import time
 from functools import lru_cache
 from html import escape
@@ -19,6 +20,7 @@ from typing import Any
 os.environ.setdefault("GRADIO_ANALYTICS_ENABLED", "False")
 
 import gradio as gr
+import httpx
 import numpy as np
 
 from .agent import Agent
@@ -193,21 +195,31 @@ def _format_timings(timings: dict[str, Any] | None) -> str:
     labels = (("asr", "ASR"), ("agent", "agent"), ("voice", "voice"))
     parts: list[str] = []
     for key, label in labels:
+        try:
+            seconds = float((timings or {}).get(key))
+        except (TypeError, ValueError):
+            seconds = None
+        if seconds is not None and (
+            not math.isfinite(seconds) or seconds < 0
+        ):
+            seconds = None
+
         if key == "agent":
             try:
                 calls = int((timings or {}).get("agent_calls"))
             except (TypeError, ValueError):
                 calls = 0
+            noun = "call" if calls == 1 else "calls"
+            if calls > 0 and seconds is not None:
+                parts.append(
+                    f"agent {seconds:.1f} s ({calls} LLM {noun})"
+                )
+                continue
             if calls > 0:
-                noun = "call" if calls == 1 else "calls"
                 parts.append(f"agent: {calls} LLM {noun}")
                 continue
 
-        try:
-            seconds = float((timings or {}).get(key))
-        except (TypeError, ValueError):
-            continue
-        if not math.isfinite(seconds) or seconds < 0:
+        if seconds is None:
             continue
         suffix = (
             " (failed)"
@@ -216,6 +228,43 @@ def _format_timings(timings: dict[str, Any] | None) -> str:
         )
         parts.append(f"{label} {seconds:.1f} s{suffix}")
     return " · ".join(parts)
+
+
+def _wake_voice_services() -> None:
+    """Ping the ASR and TTS health endpoints so cold containers start early.
+
+    Modal may answer a cold request with a redirect after a long wait, so the
+    client follows redirects.  Any failure is ignored: the text answer must
+    always work even when voice is down.
+    """
+
+    key = (os.environ.get("KOUMBA_ASR_KEY") or "").strip()
+    headers = {"X-Koumba-Key": key} if key else {}
+
+    for name in ("KOUMBA_ASR_URL", "KOUMBA_TTS_URL"):
+        url = (os.environ.get(name) or "").strip().rstrip("/")
+        if not url:
+            continue
+        try:
+            httpx.get(
+                f"{url}/health",
+                headers=headers,
+                timeout=150.0,
+                follow_redirects=True,
+            )
+        except Exception:
+            # Waking is best effort.  Never surface it in the UI.
+            pass
+
+
+def _start_voice_wakeup() -> None:
+    """Start the wake-up in the background so the UI never waits for it."""
+
+    threading.Thread(
+        target=_wake_voice_services,
+        name="koumba-voice-wakeup",
+        daemon=True,
+    ).start()
 
 
 def _same_place(left: Any, right: Any) -> bool:
@@ -877,6 +926,8 @@ def build_app() -> gr.Blocks:
         )
 
         banner_text, is_warning = _provider_banner()
+        # The banner call above loads .env, so the voice URLs are ready now.
+        _start_voice_wakeup()
         gr.Markdown(
             banner_text,
             elem_classes=["banner" if is_warning else "provider"],

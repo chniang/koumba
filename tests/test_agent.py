@@ -106,6 +106,31 @@ def test_wolof_request_runs_the_real_engine_and_returns_trips(engine) -> None:
     assert client.call_count == 1
 
 
+def test_raw_asr_spoken_form_resolves_to_the_real_origin(engine) -> None:
+    client = FakeClient(
+        [
+            _response(
+                tool_calls=[
+                    _tool_call(
+                        "call_1",
+                        "find_trips",
+                        {"origin": "saam", "destination": "malika"},
+                    )
+                ]
+            ),
+        ]
+    )
+    agent = Agent(client, engine)
+
+    result = agent.run("ma ngi saam dama bëgga dem malika")
+
+    assert result.origin == "Sahm"
+    assert result.destination == "Malika"
+    assert result.trips
+    assert result.spoken.startswith("Yaangi Sahm")
+    assert result.llm_calls == 1
+
+
 def test_unknown_place_returns_suggestions_and_asks_a_question(engine) -> None:
     client = FakeClient(
         [
@@ -273,6 +298,43 @@ def test_ambiguous_resolve_place_uses_the_clarification_template(
     result = agent.run("Maa ngi Yoff, bëgg naa dem")
 
     assert result.reply == "Yoff-Village nga bëgga dem walla Grand Yoff ?"
+    assert result.spoken == result.reply
+    assert result.llm_calls == 1
+    assert client.call_count == 1
+
+
+def test_ambiguous_tool_result_asks_the_validated_question(
+    engine,
+    monkeypatch,
+) -> None:
+    def fake_execute_tool(name, arguments, _engine, _place_index):
+        assert name == "find_trips"
+        return {
+            "error": "ambiguous_place",
+            "ambiguous": True,
+            "query": arguments["origin"],
+            "options": ["Sam Notaire", "Sahm"],
+        }
+
+    monkeypatch.setattr(agent_module, "execute_tool", fake_execute_tool)
+    client = FakeClient(
+        [
+            _response(
+                tool_calls=[
+                    _tool_call(
+                        "call_1",
+                        "find_trips",
+                        {"origin": "sam", "destination": "Malika"},
+                    )
+                ]
+            )
+        ]
+    )
+    agent = Agent(client, engine)
+
+    result = agent.run("ma ngi sam dama bëgga dem malika")
+
+    assert result.reply == "Sam Notaire nga bëgga dem walla Sahm ?"
     assert result.spoken == result.reply
     assert result.llm_calls == 1
     assert client.call_count == 1

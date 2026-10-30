@@ -698,11 +698,66 @@ def test_timing_line_names_each_step_and_marks_a_failed_voice() -> None:
         }
     )
 
-    assert line == "ASR 9.1 s · agent: 1 LLM call · voice 8.4 s"
+    assert line == "ASR 9.1 s · agent 6.0 s (1 LLM call) · voice 8.4 s"
     assert (
         app._format_timings({"voice": 8.44, "voice_failed": True})
         == "voice 8.4 s (failed)"
     )
+
+
+def test_wake_voice_services_pings_both_health_endpoints(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    monkeypatch.setenv(
+        "KOUMBA_ASR_URL",
+        "https://asr.example.modal.run/",
+    )
+    monkeypatch.setenv(
+        "KOUMBA_TTS_URL",
+        "https://tts.example.modal.run",
+    )
+    monkeypatch.setenv("KOUMBA_ASR_KEY", "test-secret")
+    calls: list[dict] = []
+
+    def fake_get(url, **kwargs):
+        calls.append({"url": url, **kwargs})
+
+    monkeypatch.setattr(app.httpx, "get", fake_get)
+
+    app._wake_voice_services()
+
+    assert [call["url"] for call in calls] == [
+        "https://asr.example.modal.run/health",
+        "https://tts.example.modal.run/health",
+    ]
+    assert all(
+        call["headers"] == {"X-Koumba-Key": "test-secret"}
+        and call["follow_redirects"] is True
+        for call in calls
+    )
+
+
+def test_wake_voice_services_ignores_a_sleeping_service(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    monkeypatch.setenv(
+        "KOUMBA_ASR_URL",
+        "https://asr.example.modal.run",
+    )
+    monkeypatch.setenv("KOUMBA_ASR_KEY", "test-secret")
+
+    def fail(_url, **_kwargs):
+        raise app.httpx.ConnectError("still asleep")
+
+    monkeypatch.setattr(app.httpx, "get", fail)
+
+    app._wake_voice_services()
 
 
 def test_text_phase_returns_before_tts_and_then_adds_voice(
@@ -788,7 +843,8 @@ def test_voice_phase_reports_asr_and_agent_call_count(
         (16_000, np.zeros(16_000, dtype=np.int16)),
     )
 
-    assert values[7].startswith("ASR 1.2 s · agent: 1 LLM call")
+    assert values[7].startswith("ASR 1.2 s · agent ")
+    assert "(1 LLM call)" in values[7]
     assert "cleanup" not in values[7]
     assert values[8] is not None
 

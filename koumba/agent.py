@@ -13,7 +13,12 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from .places import PlaceIndex, normalize_name, prefer_exact_matches
+from .places import (
+    PlaceIndex,
+    exact_normalized_names,
+    normalize_name,
+    prefer_exact_matches,
+)
 from .phrases import (
     bus_check_spoken,
     clarification_question,
@@ -382,10 +387,27 @@ class Agent:
         """Ask between the top two fuzzy matches when no exact place won."""
 
         for item in reversed(tool_calls):
-            if item.get("name") != "resolve_place":
-                continue
             result = item.get("result")
-            if not isinstance(result, dict) or result.get("error"):
+            if not isinstance(result, dict):
+                continue
+
+            # A tool can hand us the two choices directly.  Prefer that over
+            # rebuilding them from the candidate list.
+            options = result.get("options")
+            if (
+                result.get("ambiguous") is True
+                and isinstance(options, list)
+                and len(options) >= 2
+            ):
+                question = clarification_question(
+                    str(options[0]),
+                    str(options[1]),
+                    language,
+                )
+                if question:
+                    return question
+
+            if item.get("name") != "resolve_place" or result.get("error"):
                 continue
             candidates = result.get("candidates")
             if not isinstance(candidates, list) or len(candidates) < 2:
@@ -394,7 +416,7 @@ class Agent:
             if not isinstance(first, dict) or not isinstance(second, dict):
                 continue
 
-            query = normalize_name(str(result.get("query") or ""))
+            exact_names = exact_normalized_names(result.get("query"))
             exact = False
             for candidate in candidates:
                 if not isinstance(candidate, dict):
@@ -402,7 +424,7 @@ class Agent:
                 normalized = normalize_name(
                     str(candidate.get("normalized") or candidate.get("name") or "")
                 )
-                if query and normalized == query:
+                if normalized and normalized in exact_names:
                     exact = True
                     break
             if exact:

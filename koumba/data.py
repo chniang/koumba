@@ -107,6 +107,12 @@ def load_data(force: bool = False) -> NetworkData:
         arrets=_read_csv(paths["arrets_geo.csv"]),
         lieux=_read_csv(paths["lieux_geo.csv"]),
     )
+
+    # Reviewed name fixes are applied to the frames, not to data_cache, so
+    # every consumer (graph, place index, hints) sees the same stop name.
+    from .corrections import canonicalize_data_stop_names
+
+    canonicalize_data_stop_names(data)
     _validate(data)
     return data
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from koumba.places import PlaceCandidate
 from koumba.router import NoRouteFoundError
 from koumba.tools import execute_tool, line_info, normalize_operator
 
@@ -64,6 +65,68 @@ def test_resolve_place_unknown_returns_suggestions(engine) -> None:
 
     assert result["error"] == "place_not_found"
     assert result["suggestions"]
+
+
+def test_resolve_place_uses_a_spoken_alias_before_fuzzy_matching(engine) -> None:
+    result = execute_tool(
+        "resolve_place",
+        {"query": "saam"},
+        engine,
+        engine.place_index,
+    )
+
+    assert result["candidates"][0]["name"] == "Sahm"
+    assert result["candidates"][0]["score"] == 100.0
+    assert result.get("ambiguous") is not True
+
+    wakaam = execute_tool(
+        "resolve_place",
+        {"query": "wakaam"},
+        engine,
+        engine.place_index,
+    )
+    assert wakaam["candidates"][0]["name"] == "Ouakam"
+
+
+class _FakePlaceIndex:
+    def __init__(self, candidates: list[PlaceCandidate]) -> None:
+        self._candidates = candidates
+
+    def match(self, _query: str, **_kwargs):
+        return list(self._candidates)
+
+    def suggestions(self, _query: str, limit: int = 3):
+        return []
+
+
+def test_resolve_place_returns_an_ambiguous_pair_instead_of_guessing() -> None:
+    index = _FakePlaceIndex(
+        [
+            PlaceCandidate(
+                name="Sam Notaire",
+                normalized="sam notaire",
+                score=92.0,
+                lat=14.69,
+                lon=-17.46,
+                is_stop=True,
+                is_place=False,
+            ),
+            PlaceCandidate(
+                name="Sahm",
+                normalized="sahm",
+                score=89.0,
+                lat=14.68,
+                lon=-17.45,
+                is_stop=True,
+                is_place=False,
+            ),
+        ]
+    )
+
+    result = execute_tool("resolve_place", {"query": "sam"}, None, index)
+
+    assert result["ambiguous"] is True
+    assert result["options"] == ["Sam Notaire", "Sahm"]
 
 
 def test_find_trips_tool_filters_operator_and_returns_plain_json(engine) -> None:

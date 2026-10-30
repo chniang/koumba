@@ -226,6 +226,19 @@ class KoumbaASR:
 
         api = FastAPI(title="Koumba ASR", version="1.0")
 
+        @api.get("/health")
+        def health(
+            x_koumba_key: str | None = Header(
+                default=None,
+                alias="X-Koumba-Key",
+            ),
+        ) -> dict[str, bool | str]:
+            """Cheap check the local app uses to wake a cold container."""
+
+            if not self._authorized(x_koumba_key):
+                raise HTTPException(status_code=401, detail="Unauthorized")
+            return {"ok": True, "model": ASR_MODEL}
+
         @api.get("/languages")
         def languages() -> dict[str, bool | str]:
             return {**self.languages, "model": ASR_MODEL}

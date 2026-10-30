@@ -65,6 +65,54 @@ def _text(value: Any) -> str:
     return str(value or "").strip()
 
 
+# Reviewed spelling fixes for stops that the public CSV names inconsistently.
+# Keys are normalized names, values are the name riders should see.
+STOP_NAME_ALIASES = {
+    "case ba": "Case Ba",
+    "pattesd oie": "Patte d'Oie",
+    "patte d oie": "Patte d'Oie",
+}
+
+
+def canonical_stop_name(name: Any) -> str:
+    """Return the reviewed display name for a stop, or the name unchanged."""
+
+    text = str(name or "").strip()
+    if not text:
+        return text
+
+    # Imported here so corrections can keep its small module surface and
+    # avoid an import cycle through the network module.
+    from .places import normalize_name
+
+    return STOP_NAME_ALIASES.get(normalize_name(text), text)
+
+
+def canonicalize_data_stop_names(data: Any) -> None:
+    """Apply the reviewed stop names to every column that carries one.
+
+    This runs on the loaded frames before the graph is built, so a route
+    through "Case-Ba" and another through "Case Ba" become the same stop
+    without editing the downloaded CSV by hand.
+    """
+
+    targets = (
+        (data.arrets, ("arret",)),
+        (data.lieux, ("lieu",)),
+        (data.itineraires, ("arret",)),
+        (data.lignes, ("terminus_a", "terminus_b")),
+    )
+    for frame, columns in targets:
+        for column in columns:
+            if column not in frame.columns:
+                continue
+            frame[column] = frame[column].map(
+                lambda value: canonical_stop_name(value)
+                if isinstance(value, str)
+                else value
+            )
+
+
 def _line_label(operator: str, line: str) -> str:
     return f"{operator} {line}".strip()
 

@@ -12,7 +12,9 @@ import os
 import httpx
 from dotenv import load_dotenv
 
-TTS_TIMEOUT_SECONDS = 60.0
+# A cold Oolel container can take well over a minute to wake up.  Modal then
+# answers with a 303 redirect, so the client follows it within this budget.
+TTS_TIMEOUT_SECONDS = 150.0
 VOICE_REPLY_NOT_CONFIGURED = (
     "Voice reply not configured. Add KOUMBA_TTS_URL and KOUMBA_ASR_KEY to "
     "your environment or .env file."
@@ -56,6 +58,7 @@ def speak(text: str) -> bytes:
             json={"text": sentence},
             headers={"X-Koumba-Key": key},
             timeout=TTS_TIMEOUT_SECONDS,
+            follow_redirects=True,
         )
     except httpx.HTTPError as exc:
         raise SpeakServiceError(

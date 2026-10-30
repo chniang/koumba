@@ -9,12 +9,25 @@ scores instead of guessing one answer.
 
 from __future__ import annotations
 
+import csv
 import re
 import unicodedata
 from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 
 import pandas as pd
 from rapidfuzz import fuzz
+
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+_SPOKEN_OVERRIDE_FILES = (
+    "voice_word_overrides.csv",
+    "voice_overrides.csv",
+)
+
+# Two fuzzy candidates closer than this are treated as a real choice for the
+# rider.  Guessing one of them is how "Saam" once became "Sam Notaire".
+AMBIGUITY_MARGIN = 5.0
 
 # Small, common abbreviations seen in the dataset and in day-to-day typing.
 # We expand them before comparing so "Av. Malick Sy" and "Avenue Malick Sy"
@@ -84,6 +97,98 @@ def normalize_name(text: object) -> str:
     for token in folded.split():
         tokens.extend(_ABBREVIATIONS.get(token, token).split())
     return " ".join(tokens).strip()
+
+
+def _spoken_display_rank(name: str) -> tuple[bool, bool, int, str]:
+    """Prefer normal title case when two rows name the same place."""
+
+    return (name.islower(), name.isupper(), len(name), name.casefold())
+
+
+@lru_cache(maxsize=1)
+def spoken_aliases() -> dict[str, str]:
+    """Map the reviewed TTS spellings back to the real place names.
+
+    The voice CSVs were written for speaking: the stop "Sahm" is pronounced
+    "Saam".  Listening needs the opposite direction, so a raw ASR word such
+    as "saam" or "wakaam" can win as an exact alias instead of relying on a
+    fuzzy guess.  Keys are normalized, so case and accents do not matter.
+    """
+
+    aliases: dict[str, str] = {}
+    for filename in _SPOKEN_OVERRIDE_FILES:
+        path = DATA_DIR / filename
+        try:
+            handle = path.open("r", encoding="utf-8", newline="")
+        except OSError:
+            # A missing review file should only cost us the aliases, never
+            # the whole place index.
+            continue
+        with handle:
+            for row in csv.DictReader(handle):
+                spoken = normalize_name(row.get("say_as"))
+                real_name = str(row.get("word") or "").strip()
+                if not spoken or not real_name:
+                    continue
+                current = aliases.get(spoken)
+                if (
+                    current is None
+                    or _spoken_display_rank(real_name)
+                    < _spoken_display_rank(current)
+                ):
+                    aliases[spoken] = real_name
+    return aliases
+
+
+def spoken_alias(query: object) -> str | None:
+    """Return the real name for an exact spoken form, when one is known."""
+
+    normalized = normalize_name(query)
+    if not normalized:
+        return None
+    return spoken_aliases().get(normalized)
+
+
+def exact_normalized_names(query: object) -> set[str]:
+    """Normalized names that should count as an exact match for a query."""
+
+    names: set[str] = set()
+    normalized = normalize_name(query)
+    if normalized:
+        names.add(normalized)
+    alias = spoken_alias(normalized)
+    if alias:
+        alias_name = normalize_name(alias)
+        if alias_name:
+            names.add(alias_name)
+    return names
+
+
+def ambiguous_pair(
+    candidates: list[PlaceCandidate],
+    query: object,
+) -> tuple[PlaceCandidate, PlaceCandidate] | None:
+    """Return two close candidates when guessing would be unsafe.
+
+    An exact name or a reviewed spoken alias settles the question first.
+    Otherwise, two different places within ``AMBIGUITY_MARGIN`` are shown to
+    the rider as a choice instead of letting the sorter pick one.
+    """
+
+    if len(candidates) < 2:
+        return None
+    first, second = candidates[0], candidates[1]
+    if first.normalized == second.normalized:
+        return None
+
+    settled = exact_normalized_names(query)
+    if first.normalized in settled or second.normalized in settled:
+        return None
+    if second.score < MATCH_THRESHOLD:
+        return None
+    if first.score - second.score > AMBIGUITY_MARGIN:
+        return None
+    return first, second
 
 
 @dataclass(frozen=True)
@@ -221,6 +326,7 @@ class PlaceIndex:
         if not query_norm:
             return []
 
+        exact_names = exact_normalized_names(query_norm)
         query_tokens = set(query_norm.split())
         query_specific = query_tokens - _GENERIC_TOKENS
 
@@ -233,6 +339,10 @@ class PlaceIndex:
             entry_tokens = set(entry.normalized.split())
             entry_specific = entry_tokens - _GENERIC_TOKENS
             exact = query_norm == entry.normalized
+            # A reviewed spoken form, such as "saam" for Sahm, is exact even
+            # though the letters differ.  Give it a full score so it cannot
+            # lose to an unrelated but spell-similar stop.
+            alias_exact = entry.normalized in exact_names
             shared_specific = bool(query_specific & entry_specific)
 
             # A fuzzy score is only believable when the two names share a
@@ -243,13 +353,15 @@ class PlaceIndex:
                 len(query_specific) == 1
                 and fuzz.ratio(query_norm, entry.normalized) >= 88
             )
-            eligible = exact or shared_specific or near_single_name
+            eligible = (
+                exact or alias_exact or shared_specific or near_single_name
+            )
 
             results.append(
                 PlaceCandidate(
                     name=entry.name,
                     normalized=entry.normalized,
-                    score=float(raw_score),
+                    score=100.0 if alias_exact else float(raw_score),
                     lat=entry.lat,
                     lon=entry.lon,
                     is_stop=entry.is_stop,
@@ -259,13 +371,13 @@ class PlaceIndex:
                 )
             )
 
-        # Best score first.  On a tie, prefer an exact normalized match,
-        # then a real stop, then the shorter name.
+        # Best score first.  On a tie, prefer an exact or alias match, then
+        # a real stop, then the shorter name.
         results.sort(
             key=lambda candidate: (
                 -candidate.score,
                 not candidate.eligible,
-                candidate.normalized != query_norm,
+                candidate.normalized not in exact_names,
                 not candidate.is_stop,
                 len(candidate.name),
             )
@@ -304,13 +416,13 @@ def prefer_exact_matches(
     ``stop_names``, so the router can use those variants as the same place.
     """
 
-    query_norm = normalize_name(query)
-    if not query_norm:
+    targets = exact_normalized_names(query)
+    if not targets:
         return candidates
     exact = [
         candidate
         for candidate in candidates
-        if candidate.normalized == query_norm
+        if candidate.normalized in targets
     ]
     return exact or candidates
 

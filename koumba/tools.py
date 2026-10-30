@@ -15,7 +15,12 @@ from typing import Any
 from rapidfuzz import fuzz
 
 from .network import Line, LineKey
-from .places import PlaceIndex, normalize_name
+from .places import (
+    PlaceIndex,
+    ambiguous_pair,
+    exact_normalized_names,
+    normalize_name,
+)
 from .router import NoRouteFoundError, PlaceNotFoundError, RouteEngine, Trip
 
 OPERATORS = ("Dakar Dem Dikk", "Tata AFTU")
@@ -176,6 +181,39 @@ def _suggestions(items: list[tuple[str, float]]) -> list[dict[str, Any]]:
         {"name": name, "score": round(float(score), 1)}
         for name, score in items
     ]
+
+
+def _ambiguous_place_result(
+    place_index: PlaceIndex,
+    query: str,
+) -> dict[str, Any] | None:
+    """Return a clear choice when two places are equally plausible."""
+
+    pair = ambiguous_pair(place_index.match(query), query)
+    if pair is None:
+        return None
+    first, second = pair
+    return {
+        "error": "ambiguous_place",
+        "ambiguous": True,
+        "query": query,
+        "options": [first.name, second.name],
+        "message": (
+            f"Both {first.name!r} and {second.name!r} are close matches. "
+            "Ask the user which one they meant."
+        ),
+    }
+
+
+def _trip_place_error(engine: RouteEngine, origin: str, destination: str):
+    """Stop a trip search before a fuzzy guess can pick the wrong place."""
+
+    for field, query in (("origin", origin), ("destination", destination)):
+        ambiguous = _ambiguous_place_result(engine.place_index, query)
+        if ambiguous is not None:
+            ambiguous["field"] = field
+            return ambiguous
+    return None
 
 
 def normalize_operator(value: Any) -> str | None:
@@ -358,13 +396,13 @@ def resolve_place(
             "suggestions": _suggestions(place_index.suggestions(query)),
         }
 
-    query_norm = normalize_name(query)
+    exact_names = exact_normalized_names(query)
     matches = sorted(
         matches,
-        key=lambda candidate: candidate.normalized != query_norm,
+        key=lambda candidate: candidate.normalized not in exact_names,
     )
 
-    return {
+    result: dict[str, Any] = {
         "query": query,
         "candidates": [
             {
@@ -379,6 +417,15 @@ def resolve_place(
             for candidate in matches[:10]
         ],
     }
+
+    pair = ambiguous_pair(matches, query)
+    if pair is not None:
+        result["ambiguous"] = True
+        result["options"] = [pair[0].name, pair[1].name]
+        result["message"] = (
+            f"Both {pair[0].name!r} and {pair[1].name!r} are close matches."
+        )
+    return result
 
 
 def find_trips(
@@ -422,6 +469,10 @@ def find_trips(
                 ),
                 "allowed_operators": list(OPERATORS),
             }
+
+    ambiguous = _trip_place_error(engine, origin, destination)
+    if ambiguous is not None:
+        return ambiguous
 
     try:
         trips = engine.find_trips(
@@ -485,6 +536,10 @@ def check_bus_line(
             "error": "line_not_found",
             "message": "I could not resolve that bus line.",
         }
+
+    ambiguous = _trip_place_error(engine, origin, destination)
+    if ambiguous is not None:
+        return ambiguous
 
     try:
         requested_trips = engine.find_trips(

@@ -175,3 +175,16 @@ def test_place_hints_keep_an_exact_place_name() -> None:
     hints = listen.find_place_hints("malika")
 
     assert hints == ["Malika (from 'malika')"]
+
+
+def test_place_hints_use_reviewed_spoken_forms() -> None:
+    hints = listen.find_place_hints(
+        "ma ngi saam dama bëgga dem malika"
+    )
+
+    joined = " ".join(hints)
+    assert "Sahm (from 'saam')" in joined
+    assert "Malika (from 'malika')" in joined
+    assert listen.find_place_hints("wakaam") == [
+        "Ouakam (from 'wakaam')"
+    ]
