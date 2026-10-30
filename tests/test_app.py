@@ -7,6 +7,13 @@ import numpy as np
 from koumba.agent import AgentResult
 
 
+def _component(demo, elem_id: str) -> dict:
+    for item in demo.config.get("components", []):
+        if item.get("props", {}).get("elem_id") == elem_id:
+            return item
+    raise AssertionError(f"component {elem_id!r} was not built")
+
+
 class _FakeAgent:
     def __init__(self, results: list[AgentResult]) -> None:
         self.results = list(results)
@@ -31,6 +38,106 @@ def test_app_builds_without_api_key(llm_env) -> None:
     demo = app.build_app()
 
     assert demo is not None
+
+
+def test_mobile_header_replaces_the_provider_banner(llm_env) -> None:
+    import koumba.app as app
+
+    demo = app.build_app()
+    header = _component(demo, "app-header")["props"]["value"]
+
+    assert "Koumba" in header
+    assert "Dalal ak jàmm ! Fan nga bëgga dem ?" in header
+    assert "Your Dakar bus assistant" in header
+    assert not any(
+        "provider" in item.get("props", {}).get("elem_classes", [])
+        or "banner" in item.get("props", {}).get("elem_classes", [])
+        for item in demo.config.get("components", [])
+    )
+
+
+def test_ui_language_switch_defaults_to_english(llm_env) -> None:
+    import koumba.app as app
+
+    demo = app.build_app()
+    switch = _component(demo, "ui-language")
+
+    assert switch["type"] == "radio"
+    assert switch["props"]["value"] == "EN"
+    assert [choice[0] for choice in switch["props"]["choices"]] == ["EN", "FR"]
+
+
+def test_language_switch_updates_only_interface_labels(llm_env) -> None:
+    import koumba.app as app
+
+    updates = app._switch_language("FR")
+
+    assert len(updates) == 13
+    assert "Votre assistant bus à Dakar" in updates[0]["value"]
+    assert updates[3]["label"] == "Parle à Koumba"
+    assert updates[5]["label"] == "Où vas-tu ?"
+    assert updates[6]["value"] == "Envoyer"
+    assert updates[7]["value"] == "Effacer"
+    assert updates[8]["label"] == "C'est mon bus ? (photo)"
+    assert updates[9]["value"] == "Les photos ne sont pas conservées."
+
+
+def test_mobile_app_component_order_and_labels(llm_env) -> None:
+    import koumba.app as app
+
+    demo = app.build_app()
+    order = [
+        "app-header",
+        "chatbot",
+        "voice-player",
+        "mic",
+        "message",
+        "photo-button",
+        "trip-cards",
+        "technical-panel",
+        "footer",
+    ]
+    positions = [
+        next(
+            index
+            for index, item in enumerate(demo.config.get("components", []))
+            if item.get("props", {}).get("elem_id") == elem_id
+        )
+        for elem_id in order
+    ]
+
+    assert positions == sorted(positions)
+    assert (
+        _component(demo, "photo-button")["props"]["label"]
+        == "Is this my bus? (photo)"
+    )
+    assert _component(demo, "technical-panel")["props"]["open"] is False
+    assert _component(demo, "technical-panel")["props"]["label"] == (
+        "How Koumba thought"
+    )
+    assert _component(demo, "models-used")["props"]["value"] == (
+        "Meta Omnilingual ASR (speech) · Muse Spark Open (agent, vision) · "
+        "Oolel-Voices (Wolof voice)"
+    )
+    assert app.FOOTER_LINE in _component(demo, "footer")["props"]["value"]
+
+
+def test_examples_include_three_tap_targets(llm_env) -> None:
+    import koumba.app as app
+
+    demo = app.build_app()
+    values = [
+        item["props"].get("value")
+        for item in demo.config.get("components", [])
+        if item["type"] == "button"
+        and "example-chip" in item.get("props", {}).get("elem_classes", [])
+    ]
+
+    assert values == [
+        "Maa ngi Sahm, dama bëgga dem Malika",
+        "Maa ngi Médina, dama bëgga dem Yoff",
+        "Je suis à Ouakam, je vais au Palais",
+    ]
 
 
 def test_app_auto_sends_only_from_the_microphone_stop_event(llm_env) -> None:
@@ -61,7 +168,7 @@ def test_each_answer_event_chains_the_voice_phase(llm_env) -> None:
         if str(item.get("api_name") or "").startswith("_synthesize_voice")
     ]
 
-    assert len(voice_phases) == 5
+    assert len(voice_phases) == 6
     assert all(
         [target[1] for target in item["targets"]] == ["then"]
         for item in voice_phases
@@ -256,6 +363,8 @@ def test_bus_photo_direct_check_shows_the_trip_card(
 
     assert "Tata AFTU Ligne 3" in cards
     assert "Avenue Blaise Diagne" in cards
+    assert "op-tata" in cards
+    assert ">Tata<" in cards
     assert app.HONEST_NOTE_EN in cards
     assert image is None
 
@@ -309,27 +418,34 @@ def test_bus_photo_negative_check_shows_the_alternative_card(
     assert app.HONEST_NOTE_EN in cards
 
 
-def test_trip_cards_use_the_french_honest_note(
+def test_trip_cards_follow_the_ui_switch_not_the_answer_language(
     llm_env,
     monkeypatch,
 ) -> None:
     import koumba.app as app
 
-    fake = _FakeAgent(
-        [
-            AgentResult(
-                reply="Voici la ligne 7.",
-                language="French",
-                spoken="À Ouakam, prends le Dem Dikk 7.",
-            )
-        ]
+    result = AgentResult(
+        reply="Voici la ligne 7.",
+        language="French",
+        spoken="À Ouakam, prends le Dem Dikk 7.",
     )
+    fake = _FakeAgent([result, result])
     monkeypatch.setattr(app, "_api_key_configured", lambda: True)
     monkeypatch.setattr(app, "_agent", lambda: fake)
 
     _chatbot, _message, cards, _thoughts, _image = app._respond(
         "Je suis à Ouakam, je vais au Palais",
         [],
+    )
+
+    assert app.HONEST_NOTE_EN in cards
+    assert app.HONEST_NOTE_FR not in cards
+
+    _chatbot, _message, cards, _thoughts, _image = app._respond(
+        "Je suis à Ouakam, je vais au Palais",
+        [],
+        None,
+        "FR",
     )
 
     assert app.HONEST_NOTE_FR in cards
@@ -404,6 +520,12 @@ def test_trip_cards_include_the_useful_fields() -> None:
     assert "7 stops" in html
     assert "~40 min without traffic" in html
     assert "about 40 min" not in html
+    assert "best-trip" in html
+    assert ">Best<" in html
+    assert "op-dem" in html
+    assert ">Dem Dikk<" in html
+    assert "Board" in html
+    assert "Alight" in html
     assert (
         "Routes based on official AFTU / Dakar Dem Dikk data and field "
         "corrections. Check with the apprenti."
@@ -975,8 +1097,14 @@ def test_recording_stop_auto_sends_once_per_waveform(
     statuses: list[str] = []
     job = {"text": "Yaangi Saam", "timings": {"agent": 1.0}}
 
-    def fake_phase_one(message_text, history, image_path=None, audio=None):
-        calls.append((message_text, history, image_path, audio))
+    def fake_phase_one(
+        message_text,
+        history,
+        image_path=None,
+        audio=None,
+        ui_language=None,
+    ):
+        calls.append((message_text, history, image_path, audio, ui_language))
         return (
             [{"role": "user", "content": "🎤 Maa ngi Sahm"}],
             "",

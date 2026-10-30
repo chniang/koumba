@@ -41,7 +41,8 @@ from .router import RouteEngine
 from .speak import SpeakError, speak
 from .voice_text import tts_text
 
-EXAMPLE_WOLOF = "Maa ngi Sahm, bëgg naa dem Malika"
+EXAMPLE_WOLOF = "Maa ngi Sahm, dama bëgga dem Malika"
+EXAMPLE_WOLOF_MEDINA = "Maa ngi Médina, dama bëgga dem Yoff"
 EXAMPLE_FRENCH = "Je suis à Ouakam, je vais au Palais"
 
 HONEST_NOTE_EN = (
@@ -53,66 +54,419 @@ HONEST_NOTE_FR = (
     "des corrections de terrain. Vérifie avec l'apprenti."
 )
 
+MODELS_LINE = (
+    "Meta Omnilingual ASR (speech) · Muse Spark Open (agent, vision) · "
+    "Oolel-Voices (Wolof voice)"
+)
+FOOTER_LINE = (
+    "Built during the Meta Global AI Developer Hackathon · Data: AFTU / "
+    "Dakar Dem Dikk public lines · Check with the apprenti"
+)
+
+# All visible UI labels live here.  Koumba's answers stay in the language of
+# the question; only the small EN | FR switch reads from this table.
+UI_TEXT = {
+    "English": {
+        "tagline": "Your Dakar bus assistant",
+        "chat_label": "Chat with Koumba",
+        "voice_label": "Koumba's voice",
+        "mic_label": "Speak to Koumba",
+        "message_label": "Where are you going?",
+        "placeholder": (
+            "Maa ngi Sahm, dama bëgga dem Malika / "
+            "Je suis à Ouakam, je vais au Palais"
+        ),
+        "send": "Send",
+        "clear": "Clear",
+        "photo_label": "Is this my bus? (photo)",
+        "photo_note": "Photos are not stored.",
+        "examples_label": "Try an example",
+        "thinking_label": "How Koumba thought",
+        "tools_label": "Tool calls and voice details",
+        "trips_label": "Trip cards",
+        "empty_trips": (
+            "No trip cards yet. Ask Koumba where you are and where you "
+            "want to go."
+        ),
+        "part_way": "Part of the way with this bus",
+        "best": "Best",
+        "trip": "Trip",
+        "board": "Board",
+        "alight": "Alight",
+        "towards": "towards",
+        "transfer": "transfer",
+        "voice_note": "Voice recordings are not stored.",
+    },
+    "French": {
+        "tagline": "Votre assistant bus à Dakar",
+        "chat_label": "Discussion avec Koumba",
+        "voice_label": "La voix de Koumba",
+        "mic_label": "Parle à Koumba",
+        "message_label": "Où vas-tu ?",
+        "placeholder": (
+            "Maa ngi Sahm, dama bëgga dem Malika / "
+            "Je suis à Ouakam, je vais au Palais"
+        ),
+        "send": "Envoyer",
+        "clear": "Effacer",
+        "photo_label": "C'est mon bus ? (photo)",
+        "photo_note": "Les photos ne sont pas conservées.",
+        "examples_label": "Essaie un exemple",
+        "thinking_label": "Comment Koumba a réfléchi",
+        "tools_label": "Appels d'outils et détails vocaux",
+        "trips_label": "Itinéraires",
+        "empty_trips": (
+            "Pas encore d'itinéraire. Dis à Koumba où tu es et où tu veux "
+            "aller."
+        ),
+        "part_way": "Une partie du trajet avec ce bus",
+        "best": "Meilleur",
+        "trip": "Trajet",
+        "board": "Monter",
+        "alight": "Descendre",
+        "towards": "vers",
+        "transfer": "correspondance",
+        "voice_note": "Les enregistrements vocaux ne sont pas conservés.",
+    },
+}
+
 CSS = """
-.gradio-container { max-width: 1100px !important; margin: 0 auto; }
-.trip-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 12px;
+:root {
+  --koumba-green: #00853F;
+  --koumba-green-soft: #e8f6ee;
+  --koumba-yellow: #FDEF42;
+  --koumba-red: #E31B23;
+  --koumba-ink: #102018;
+  --koumba-muted: #5f6f65;
+  --koumba-line: #e3ece6;
 }
-.trip-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  padding: 14px;
+
+html, body {
+  background: #ffffff !important;
+}
+
+.gradio-container {
+  max-width: 480px !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  background: #ffffff !important;
+  color: var(--koumba-ink) !important;
+  font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif !important;
+  font-size: 15px !important;
+}
+
+.gradio-container * { box-sizing: border-box; }
+
+.app-shell {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px 16px 28px;
+  gap: 14px;
   background: #ffffff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
-.trip-head { font-weight: 700; margin-bottom: 8px; }
+
+.hero-row {
+  align-items: flex-start;
+  gap: 8px;
+}
+.hero-card { padding-top: 4px; }
+.koumba-title {
+  margin: 0;
+  color: var(--koumba-green);
+  font-size: 34px;
+  font-weight: 850;
+  letter-spacing: -0.8px;
+  line-height: 1.05;
+}
+.koumba-greeting {
+  margin: 8px 0 2px;
+  color: var(--koumba-ink);
+  font-size: 19px;
+  font-weight: 750;
+  line-height: 1.25;
+}
+.koumba-tagline {
+  margin: 0;
+  color: var(--koumba-muted);
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+#ui-language {
+  min-width: 92px !important;
+  border: 1px solid var(--koumba-line);
+  border-radius: 999px;
+  padding: 2px;
+  background: #f8fbf9;
+}
+#ui-language .wrap {
+  flex-direction: row !important;
+  gap: 2px !important;
+  justify-content: center;
+}
+#ui-language label {
+  margin: 0 !important;
+  padding: 4px 8px !important;
+  border-radius: 999px !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  color: var(--koumba-muted) !important;
+}
+#ui-language label:has(input:checked) {
+  background: var(--koumba-green) !important;
+  color: #ffffff !important;
+}
+
+#chatbot {
+  border: 1px solid var(--koumba-line) !important;
+  border-radius: 20px !important;
+  background: #fbfdfb !important;
+  overflow: hidden;
+}
+#chatbot .message-wrap { font-size: 14.5px !important; line-height: 1.45 !important; }
+
+#voice-player {
+  border: 1px solid var(--koumba-line) !important;
+  border-radius: 16px !important;
+  background: #f7fbf8 !important;
+  padding: 5px !important;
+}
+#voice-player audio { width: 100% !important; }
+
+#mic {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 128px;
+  border: 0 !important;
+  background: transparent !important;
+}
+#mic .audio-container {
+  justify-content: center !important;
+  align-items: center !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+}
+#mic .record-button {
+  width: 104px !important;
+  height: 104px !important;
+  min-width: 104px !important;
+  border-radius: 50% !important;
+  background: var(--koumba-green) !important;
+  border: 8px solid var(--koumba-green-soft) !important;
+  box-shadow: 0 10px 24px rgba(0, 133, 63, 0.28) !important;
+  color: #ffffff !important;
+}
+#mic .record-button svg {
+  width: 40px !important;
+  height: 40px !important;
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+#mic .stop-button {
+  border-radius: 50% !important;
+  background: var(--koumba-red) !important;
+  color: #ffffff !important;
+}
+.mic-note {
+  margin: -8px 0 0;
+  text-align: center;
+  color: var(--koumba-muted);
+  font-size: 11.5px;
+}
+
+.composer { gap: 8px; align-items: stretch; }
+#message {
+  border-radius: 16px !important;
+  font-size: 15px !important;
+}
+#message textarea {
+  min-height: 52px !important;
+  border-radius: 16px !important;
+}
+.send-btn, .send-btn button {
+  background: var(--koumba-green) !important;
+  border-color: var(--koumba-green) !important;
+  color: #ffffff !important;
+  border-radius: 14px !important;
+  font-weight: 800 !important;
+}
+.clear-btn, .clear-btn button {
+  background: #ffffff !important;
+  border: 1px solid var(--koumba-line) !important;
+  color: var(--koumba-muted) !important;
+  border-radius: 14px !important;
+}
+
+.photo-button, .photo-button button {
+  width: 100% !important;
+  border: 1px solid #e7df93 !important;
+  border-radius: 14px !important;
+  background: #fffdf0 !important;
+  color: var(--koumba-ink) !important;
+  font-weight: 700 !important;
+}
+.privacy-note {
+  margin: -6px 0 0;
+  color: var(--koumba-muted);
+  font-size: 11.5px;
+}
+
+.examples-heading {
+  margin: 0 0 -4px;
+  color: var(--koumba-muted);
+  font-size: 12.5px;
+  font-weight: 750;
+}
+.examples-row { flex-wrap: wrap; gap: 8px; }
+.example-chip, .example-chip button {
+  flex: 1 1 140px;
+  border: 1px solid #d7e8dd !important;
+  border-radius: 999px !important;
+  background: #f5fbf7 !important;
+  color: #17452b !important;
+  font-size: 12px !important;
+  font-weight: 650 !important;
+}
+
+#trip-cards {
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+.trip-grid { display: flex; flex-direction: column; gap: 12px; }
+.trip-card {
+  border: 1px solid var(--koumba-line);
+  border-radius: 20px;
+  padding: 15px;
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(16, 32, 24, 0.05);
+}
+.trip-card.best-trip {
+  border: 2px solid var(--koumba-green);
+  background: linear-gradient(180deg, #f2fbf6 0%, #ffffff 46%);
+}
+.trip-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+.trip-rank { color: var(--koumba-green); font-size: 13px; font-weight: 800; }
 .pill {
   display: inline-block;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: 999px;
-  background: #eef2ff;
-  color: #3730a3;
-  margin-left: 4px;
+  background: var(--koumba-green-soft);
+  color: #145c35;
+  font-size: 11px;
+  font-weight: 700;
 }
-.leg { border-top: 1px solid #f1f5f9; padding-top: 8px; margin-top: 8px; }
-.line { font-weight: 650; }
-.stops { font-weight: 700; font-size: 14px; margin-top: 4px; }
-.muted { color: #64748b; font-size: 13px; margin-top: 2px; }
+.best-pill {
+  background: var(--koumba-yellow) !important;
+  color: #3b3300 !important;
+  font-weight: 850 !important;
+}
+.leg {
+  border-top: 1px solid var(--koumba-line);
+  padding-top: 10px;
+  margin-top: 10px;
+}
+.leg-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.bus-name {
+  color: var(--koumba-ink);
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+.op-tag {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+.op-tata { background: var(--koumba-yellow); color: #3b3300; }
+.op-dem { background: var(--koumba-green); color: #ffffff; }
+.board-alight {
+  margin-top: 6px;
+  color: var(--koumba-ink);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.board-label, .alight-label {
+  color: var(--koumba-muted);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+}
+.stops {
+  margin-top: 5px;
+  color: var(--koumba-ink);
+  font-size: 14px;
+  font-weight: 750;
+}
+.muted {
+  margin-top: 2px;
+  color: var(--koumba-muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
 .time-hint { font-size: 12px; }
 .honest-note {
-  color: #64748b;
-  font-size: 12px;
-  line-height: 1.35;
   margin-top: 8px;
+  color: var(--koumba-muted);
+  font-size: 11.5px;
+  line-height: 1.4;
 }
 .empty {
-  color: #64748b;
-  padding: 12px;
-  border: 1px dashed #cbd5e1;
-  border-radius: 12px;
+  padding: 14px;
+  border: 1px dashed #bfd9c9;
+  border-radius: 16px;
+  color: var(--koumba-muted);
+  font-size: 13px;
 }
-.banner {
-  border: 1px solid #fca5a5;
-  background: #fef2f2;
-  color: #991b1b;
-  padding: 10px 12px;
-  border-radius: 10px;
+
+.technical-panel {
+  border: 1px solid var(--koumba-line) !important;
+  border-radius: 16px !important;
+  background: #fbfdfb !important;
 }
-.provider {
-  border: 1px solid #bfdbfe;
-  background: #eff6ff;
-  color: #1e3a8a;
-  padding: 10px 12px;
-  border-radius: 10px;
+.timings { margin-bottom: 8px; color: #475569; font-size: 12.5px; }
+.models-used {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--koumba-line);
+  color: var(--koumba-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
 }
-.reply-audio { max-width: 420px; }
-.timings { color: #475569; font-size: 13px; margin-bottom: 8px; }
-@media (max-width: 640px) {
-  .trip-grid { grid-template-columns: 1fr; }
+
+.footer {
+  padding: 8px 4px 2px;
+  color: var(--koumba-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+@media (max-width: 520px) {
+  .gradio-container { max-width: 100% !important; }
+  .app-shell { padding: 14px 14px 24px; }
+  .koumba-title { font-size: 30px; }
+  .koumba-greeting { font-size: 17px; }
+  #mic .record-button { width: 96px !important; height: 96px !important; }
 }
 """
 
@@ -174,12 +528,67 @@ def _plural(count: int, word: str) -> str:
 
 def _is_french(language: str | None) -> bool:
     lowered = (language or "").strip().lower()
-    return lowered in {"french", "français", "francais"}
+    return lowered in {"fr", "french", "français", "francais"}
 
 
 def _is_wolof(language: str | None) -> bool:
     lowered = (language or "").strip().lower()
     return lowered in {"wolof", "wo", "wol_latn"}
+
+
+def _ui_language(value: str | None) -> str:
+    """Map the compact switch value to the UI label language."""
+
+    if (value or "").strip().lower() in {"fr", "french", "français", "francais"}:
+        return "French"
+    return "English"
+
+
+def _ui_copy(language: str | None) -> dict[str, str]:
+    """Return the visible labels for one UI language."""
+
+    return UI_TEXT[_ui_language(language)]
+
+
+def _header_html(language: str | None) -> str:
+    copy = _ui_copy(language)
+    return (
+        "<div class='hero-card'>"
+        "<div class='koumba-title'>Koumba</div>"
+        "<div class='koumba-greeting'>"
+        "Dalal ak jàmm ! Fan nga bëgga dem ?"
+        "</div>"
+        f"<div class='koumba-tagline'>{escape(copy['tagline'])}</div>"
+        "</div>"
+    )
+
+
+def _footer_html() -> str:
+    return f"<div class='footer'>{escape(FOOTER_LINE)}</div>"
+
+
+def _switch_language(value: str | None):
+    """Update only interface labels when EN or FR is selected."""
+
+    copy = _ui_copy(value)
+    return (
+        gr.update(value=_header_html(value)),
+        gr.update(label=copy["chat_label"]),
+        gr.update(label=copy["voice_label"]),
+        gr.update(label=copy["mic_label"]),
+        gr.update(value=copy["voice_note"]),
+        gr.update(
+            label=copy["message_label"],
+            placeholder=copy["placeholder"],
+        ),
+        gr.update(value=copy["send"]),
+        gr.update(value=copy["clear"]),
+        gr.update(label=copy["photo_label"]),
+        gr.update(value=copy["photo_note"]),
+        gr.update(value=f"**{copy['examples_label']}**"),
+        gr.update(label=copy["trips_label"]),
+        gr.update(label=copy["tools_label"]),
+    )
 
 
 def _minutes(value: Any) -> str:
@@ -345,6 +754,28 @@ def _honest_note(language: str | None) -> str:
     return HONEST_NOTE_EN
 
 
+def _operator_tag(operator: str) -> tuple[str, str]:
+    """Give each company a short, recognizable color tag."""
+
+    lowered = operator.lower()
+    if "dem dikk" in lowered:
+        return "Dem Dikk", "op-dem"
+    if "tata" in lowered:
+        return "Tata", "op-tata"
+    return operator or "Bus", "op-tata"
+
+
+def _transfer_count(value: Any, language: str | None) -> str:
+    try:
+        count = max(0, int(value or 0))
+    except (TypeError, ValueError):
+        count = 0
+    if _is_french(language):
+        label = "correspondance" if count == 1 else "correspondances"
+        return f"{count} {label}"
+    return _plural(count, "transfer")
+
+
 def _trip_cards(
     trips: list[dict[str, Any]] | None,
     language: str = "English",
@@ -352,21 +783,24 @@ def _trip_cards(
 ) -> str:
     """Render the trips as simple mobile-friendly cards."""
 
+    language = _ui_language(language)
+    copy = _ui_copy(language)
     note = f"<div class='honest-note'>{_honest_note(language)}</div>"
     if not trips:
-        return (
-            "<div class='empty'>No trip cards yet. Ask Koumba where you "
-            "are and where you want to go.</div>"
-            f"{note}"
-        )
+        return f"<div class='empty'>{copy['empty_trips']}</div>{note}"
 
     part_way_pill = (
-        "<span class='pill'>Part of the way with this bus</span>"
-        if part_way
-        else ""
+        f"<span class='pill'>{copy['part_way']}</span>" if part_way else ""
     )
     cards: list[str] = []
     for index, trip in enumerate(trips, start=1):
+        is_best = index == 1
+        rank_html = (
+            f"<span class='pill best-pill'>{copy['best']}</span>"
+            if is_best
+            else f"<span class='trip-rank'>{copy['trip']} {index}</span>"
+        )
+
         legs_html: list[str] = []
         for leg in trip.get("legs", []):
             operator = escape(str(leg.get("operator", "")))
@@ -375,12 +809,21 @@ def _trip_cards(
             alight = escape(str(leg.get("alight_stop", "")))
             direction = escape(str(leg.get("direction", "")))
             stops = _stop_count(leg.get("num_stops"), language)
+            tag, tag_class = _operator_tag(str(leg.get("operator", "")))
             legs_html.append(
                 "<div class='leg'>"
-                f"<div class='line'>{operator} {line}</div>"
-                f"<div>{board} &rarr; {alight}</div>"
+                "<div class='leg-head'>"
+                f"<div class='bus-name'>{operator} {line}</div>"
+                f"<span class='op-tag {tag_class}'>{escape(tag)}</span>"
+                "</div>"
+                "<div class='board-alight'>"
+                f"<span class='board-label'>{copy['board']}</span> "
+                f"{board} &rarr; "
+                f"<span class='alight-label'>{copy['alight']}</span> "
+                f"{alight}"
+                "</div>"
                 f"<div class='stops'>{stops}</div>"
-                f"<div class='muted'>towards {direction}</div>"
+                f"<div class='muted'>{copy['towards']} {direction}</div>"
                 "</div>"
             )
 
@@ -403,9 +846,12 @@ def _trip_cards(
             else ""
         )
         cards.append(
-            "<div class='trip-card'>"
-            f"<div class='trip-head'>Trip {index}"
-            f"<span class='pill'>{_plural(transfers, 'transfer')}</span>"
+            f"<div class='trip-card{' best-trip' if is_best else ''}'>"
+            "<div class='trip-top'>"
+            f"{rank_html}"
+            f"<span class='pill'>"
+            f"{_transfer_count(transfers, language)}"
+            "</span>"
             f"{part_way_pill}"
             "</div>"
             f"{time_html}"
@@ -422,11 +868,17 @@ def _trip_cards(
     )
 
 
-def _cards_for_result(result: Any) -> str:
-    """Pick cards from a bus check first, then from normal trip findings."""
+def _cards_for_result(
+    result: Any,
+    language: str = "English",
+) -> str:
+    """Pick cards from a bus check first, then from normal trip findings.
+
+    Card labels follow the UI switch, not the language of Koumba's answer.
+    """
 
     check = getattr(result, "bus_check", None)
-    language = getattr(result, "language", "English")
+    language = _ui_language(language)
     if isinstance(check, dict):
         if check.get("serves_trip") is True:
             trip = check.get("trip")
@@ -467,9 +919,11 @@ def _respond_turn(
     message_text: str,
     history,
     image_path: str | None = None,
+    ui_language: str | None = None,
 ):
     """Handle one typed chat submission and also return its agent result."""
 
+    language = _ui_language(ui_language)
     text = (message_text or "").strip()
     previous = _history_as_dicts(history)
     current = list(previous)
@@ -493,7 +947,7 @@ def _respond_turn(
                 "content": _missing_key_message(),
             }
         )
-        return current, "", _trip_cards(None), [], None, None, {}
+        return current, "", _trip_cards(None, language), [], None, None, {}
 
     started = time.perf_counter()
     try:
@@ -508,7 +962,7 @@ def _respond_turn(
                 ),
             }
         )
-        return current, "", _trip_cards(None), [], None, None, {}
+        return current, "", _trip_cards(None, language), [], None, None, {}
     timings = {
         "agent": round(time.perf_counter() - started, 3),
         "agent_calls": getattr(result, "llm_calls", 0)
@@ -524,7 +978,7 @@ def _respond_turn(
     return (
         current,
         "",
-        _cards_for_result(result),
+        _cards_for_result(result, language),
         result.tool_calls,
         None,
         result,
@@ -532,13 +986,19 @@ def _respond_turn(
     )
 
 
-def _respond(message_text: str, history, image_path: str | None = None):
+def _respond(
+    message_text: str,
+    history,
+    image_path: str | None = None,
+    ui_language: str | None = None,
+):
     """Handle one chat submission and return the five UI values."""
 
     chatbot, message, cards, thoughts, image, _result, _timings = _respond_turn(
         message_text,
         history,
         image_path,
+        ui_language,
     )
     return chatbot, message, cards, thoughts, image
 
@@ -689,9 +1149,11 @@ def _respond_phase_one(
     history,
     image_path: str | None = None,
     audio: Any = None,
+    ui_language: str | None = None,
 ):
     """Return text, cards, and timings before the slower speech call."""
 
+    language = _ui_language(ui_language)
     if not _audio_present(audio):
         (
             chatbot,
@@ -705,6 +1167,7 @@ def _respond_phase_one(
             message_text,
             history,
             image_path,
+            language,
         )
         job = _tts_job_for_result(result, timings)
         return (
@@ -728,7 +1191,7 @@ def _respond_phase_one(
         return (
             current,
             message_text or "",
-            _trip_cards(None),
+            _trip_cards(None, language),
             [],
             image_path,
             None,
@@ -744,7 +1207,7 @@ def _respond_phase_one(
         return (
             current,
             message_text or "",
-            _trip_cards(None),
+            _trip_cards(None, language),
             [],
             image_path,
             None,
@@ -762,7 +1225,7 @@ def _respond_phase_one(
         return (
             current,
             message_text or "",
-            _trip_cards(None),
+            _trip_cards(None, language),
             [],
             image_path,
             None,
@@ -791,7 +1254,7 @@ def _respond_phase_one(
         return (
             current,
             message_text or "",
-            _trip_cards(None),
+            _trip_cards(None, language),
             [],
             image_path,
             None,
@@ -815,7 +1278,7 @@ def _respond_phase_one(
         return (
             current,
             "",
-            _trip_cards(None),
+            _trip_cards(None, language),
             [],
             None,
             None,
@@ -837,7 +1300,7 @@ def _respond_phase_one(
     return (
         current,
         "",
-        _cards_for_result(result),
+        _cards_for_result(result, language),
         _voice_thoughts(transcription, result.tool_calls),
         None,
         None,
@@ -852,6 +1315,7 @@ def _respond_with_audio(
     history,
     image_path: str | None = None,
     audio: Any = None,
+    ui_language: str | None = None,
 ):
     """Synchronous helper for tests; the UI uses two phases."""
 
@@ -870,6 +1334,7 @@ def _respond_with_audio(
         history,
         image_path,
         audio,
+        ui_language,
     )
     if job is None:
         return chatbot, message, cards, thoughts, image, None, None
@@ -882,6 +1347,7 @@ def _respond_to_recording(
     image_path: str | None,
     audio: Any,
     last_audio_key: str | None,
+    ui_language: str | None = None,
 ):
     """Auto-send a finished microphone recording exactly once."""
 
@@ -904,100 +1370,218 @@ def _respond_to_recording(
         )
 
     gr.Info(LISTENING_STATUS, duration=4)
-    result = _respond_phase_one("", history, image_path, audio)
+    result = _respond_phase_one("", history, image_path, audio, ui_language)
     return (*result, audio_key)
 
 
-def _clear():
-    return [], "", _trip_cards(None), [], None
+def _clear(ui_language: str | None = None):
+    return (
+        [],
+        "",
+        _trip_cards(None, _ui_language(ui_language)),
+        [],
+        None,
+    )
 
 
-def _clear_voice():
-    return (*_clear(), None, None, "", None, None)
+def _clear_voice(ui_language: str | None = None):
+    return (*_clear(ui_language), None, None, "", None, None)
 
 
 def build_app() -> gr.Blocks:
     """Build the Gradio UI without launching it."""
 
+    copy = _ui_copy("English")
     with gr.Blocks(title="Koumba") as demo:
-        gr.Markdown(
-            "# Koumba\n"
-            "Your Dakar bus assistant. Ask in Wolof, French, or English."
-        )
-
-        banner_text, is_warning = _provider_banner()
-        # The banner call above loads .env, so the voice URLs are ready now.
+        # Loading the provider config also reads .env, so the voice URLs are
+        # ready before the background wake-up starts.  There is no banner:
+        # the demo should look like a phone app, not a developer console.
+        _provider_config()
         _start_voice_wakeup()
-        gr.Markdown(
-            banner_text,
-            elem_classes=["banner" if is_warning else "provider"],
-        )
 
-        with gr.Row():
-            with gr.Column(scale=3):
-                chatbot = gr.Chatbot(
-                    value=[],
-                    label="Koumba",
-                    height=360,
-                    layout="bubble",
-                )
-                reply_audio = gr.Audio(
-                    label="Koumba speaks (Wolof)",
-                    autoplay=True,
-                    interactive=False,
-                    elem_classes=["reply-audio"],
-                )
-                message = gr.Textbox(
-                    label="Where are you going?",
-                    placeholder=(
-                        "Maa ngi Sahm, bëgg naa dem Malika / "
-                        "Je suis à Ouakam, je vais au Palais"
-                    ),
-                    lines=2,
-                )
-                audio = gr.Audio(
-                    sources=["microphone", "upload"],
-                    type="numpy",
-                    label="Speak to Koumba (Wolof, French, English)",
-                )
-                voice_guard = gr.State(None)
-                voice_job = gr.State(None)
-                gr.Markdown("Voice recordings are not stored.")
-                image = gr.Image(
-                    label="Photo of the bus (optional)",
-                    type="filepath",
-                    sources=["upload", "webcam"],
-                    height=220,
-                )
-                gr.Markdown("Photos are not stored.")
-                with gr.Row():
-                    send = gr.Button("Send", variant="primary")
-                    clear = gr.Button("Clear")
-
-                gr.Markdown("**Try an example**")
-                with gr.Row():
-                    example_wolof = gr.Button(EXAMPLE_WOLOF, size="sm")
-                    example_french = gr.Button(EXAMPLE_FRENCH, size="sm")
-
-            with gr.Column(scale=2):
-                trips = gr.HTML(
-                    value=_trip_cards(None),
-                    label="Trip cards",
-                    container=True,
-                )
-                with gr.Accordion("How Koumba thought", open=False):
-                    timings = gr.Markdown(value="", elem_classes=["timings"])
-                    thoughts = gr.JSON(
-                        value=[],
-                        label="Tool calls and voice details",
+        with gr.Column(elem_classes=["app-shell"]):
+            with gr.Row(elem_classes=["hero-row"]):
+                with gr.Column(scale=5, min_width=250):
+                    header = gr.HTML(
+                        value=_header_html("English"),
+                        elem_id="app-header",
+                        container=False,
                     )
+                with gr.Column(scale=1, min_width=92):
+                    ui_language = gr.Radio(
+                        choices=["EN", "FR"],
+                        value="EN",
+                        show_label=False,
+                        container=False,
+                        scale=1,
+                        min_width=92,
+                        elem_id="ui-language",
+                        elem_classes=["lang-switch"],
+                    )
+
+            chatbot = gr.Chatbot(
+                value=[],
+                label=copy["chat_label"],
+                show_label=False,
+                height=300,
+                max_height=420,
+                layout="bubble",
+                placeholder=copy["message_label"],
+                elem_id="chatbot",
+            )
+            reply_audio = gr.Audio(
+                label=copy["voice_label"],
+                show_label=False,
+                autoplay=True,
+                interactive=False,
+                elem_id="voice-player",
+                elem_classes=["voice-player"],
+            )
+            audio = gr.Audio(
+                sources=["microphone"],
+                type="numpy",
+                label=copy["mic_label"],
+                show_label=False,
+                elem_id="mic",
+                elem_classes=["big-mic"],
+                waveform_options={
+                    "waveform_color": "#9bd4b5",
+                    "waveform_progress_color": "#00853F",
+                    "trim_region_color": "#FDEF42",
+                },
+            )
+            voice_note = gr.Markdown(
+                copy["voice_note"],
+                elem_classes=["mic-note"],
+            )
+
+            with gr.Row(elem_classes=["composer"]):
+                message = gr.Textbox(
+                    label=copy["message_label"],
+                    placeholder=copy["placeholder"],
+                    show_label=False,
+                    container=False,
+                    lines=1,
+                    max_lines=5,
+                    scale=5,
+                    elem_id="message",
+                )
+                send = gr.Button(
+                    copy["send"],
+                    variant="primary",
+                    size="lg",
+                    scale=1,
+                    min_width=84,
+                    elem_id="send",
+                    elem_classes=["send-btn"],
+                )
+                clear = gr.Button(
+                    copy["clear"],
+                    variant="secondary",
+                    size="lg",
+                    scale=0,
+                    min_width=74,
+                    elem_id="clear",
+                    elem_classes=["clear-btn"],
+                )
+
+            photo = gr.UploadButton(
+                copy["photo_label"],
+                file_types=["image"],
+                file_count="single",
+                type="filepath",
+                variant="secondary",
+                size="lg",
+                elem_id="photo-button",
+                elem_classes=["photo-button"],
+            )
+            photo_note = gr.Markdown(
+                copy["photo_note"],
+                elem_classes=["privacy-note"],
+            )
+
+            examples_heading = gr.Markdown(
+                f"**{copy['examples_label']}**",
+                elem_classes=["examples-heading"],
+            )
+            with gr.Row(elem_classes=["examples-row"]):
+                example_wolof = gr.Button(
+                    EXAMPLE_WOLOF,
+                    size="sm",
+                    elem_classes=["example-chip"],
+                )
+                example_medina = gr.Button(
+                    EXAMPLE_WOLOF_MEDINA,
+                    size="sm",
+                    elem_classes=["example-chip"],
+                )
+                example_french = gr.Button(
+                    EXAMPLE_FRENCH,
+                    size="sm",
+                    elem_classes=["example-chip"],
+                )
+
+            trips = gr.HTML(
+                value=_trip_cards(None, "English"),
+                label=copy["trips_label"],
+                show_label=False,
+                container=False,
+                elem_id="trip-cards",
+            )
+
+            with gr.Accordion(
+                copy["thinking_label"],
+                open=False,
+                elem_id="technical-panel",
+                elem_classes=["technical-panel"],
+            ):
+                timings = gr.Markdown(value="", elem_classes=["timings"])
+                thoughts = gr.JSON(
+                    value=[],
+                    label=copy["tools_label"],
+                )
+                gr.Markdown(
+                    MODELS_LINE,
+                    elem_id="models-used",
+                    elem_classes=["models-used"],
+                )
+
+            gr.HTML(
+                _footer_html(),
+                elem_id="footer",
+                container=False,
+            )
+
+            voice_guard = gr.State(None)
+            voice_job = gr.State(None)
+
+        language_outputs = [
+            header,
+            chatbot,
+            reply_audio,
+            audio,
+            voice_note,
+            message,
+            send,
+            clear,
+            photo,
+            photo_note,
+            examples_heading,
+            trips,
+            thoughts,
+        ]
+        ui_language.change(
+            _switch_language,
+            inputs=[ui_language],
+            outputs=language_outputs,
+        )
 
         voice_outputs = [
             chatbot,
             message,
             trips,
             thoughts,
-            image,
+            photo,
             audio,
             reply_audio,
             timings,
@@ -1014,14 +1598,14 @@ def build_app() -> gr.Blocks:
         add_voice_phase(
             send.click(
                 _respond_phase_one,
-                inputs=[message, chatbot, image, audio],
+                inputs=[message, chatbot, photo, audio, ui_language],
                 outputs=voice_outputs,
             )
         )
         add_voice_phase(
             message.submit(
                 _respond_phase_one,
-                inputs=[message, chatbot, image, audio],
+                inputs=[message, chatbot, photo, audio, ui_language],
                 outputs=voice_outputs,
             )
         )
@@ -1031,36 +1615,52 @@ def build_app() -> gr.Blocks:
         add_voice_phase(
             audio.stop_recording(
                 _respond_to_recording,
-                inputs=[chatbot, image, audio, voice_guard],
+                inputs=[chatbot, photo, audio, voice_guard, ui_language],
                 outputs=[*voice_outputs, voice_guard],
             )
         )
         add_voice_phase(
             example_wolof.click(
-                lambda history, audio: _respond_phase_one(
+                lambda history, audio, ui_language: _respond_phase_one(
                     EXAMPLE_WOLOF,
                     history,
                     None,
                     audio,
+                    ui_language,
                 ),
-                inputs=[chatbot, audio],
+                inputs=[chatbot, audio, ui_language],
+                outputs=voice_outputs,
+            )
+        )
+        add_voice_phase(
+            example_medina.click(
+                lambda history, audio, ui_language: _respond_phase_one(
+                    EXAMPLE_WOLOF_MEDINA,
+                    history,
+                    None,
+                    audio,
+                    ui_language,
+                ),
+                inputs=[chatbot, audio, ui_language],
                 outputs=voice_outputs,
             )
         )
         add_voice_phase(
             example_french.click(
-                lambda history, audio: _respond_phase_one(
+                lambda history, audio, ui_language: _respond_phase_one(
                     EXAMPLE_FRENCH,
                     history,
                     None,
                     audio,
+                    ui_language,
                 ),
-                inputs=[chatbot, audio],
+                inputs=[chatbot, audio, ui_language],
                 outputs=voice_outputs,
             )
         )
         clear.click(
             _clear_voice,
+            inputs=[ui_language],
             outputs=[*voice_outputs, voice_guard],
         )
 
