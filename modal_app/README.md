@@ -43,7 +43,8 @@ The secret must provide `BASETEN_API_KEY`, `KOUMBA_BASE_URL`,
 
 Modal prints the public web URL after the deploy. It normally ends in
 `--koumba-web-web.modal.run`; the same URL is in the dashboard under Apps →
-`koumba-web` → `web`. Paste that URL into the root `README.md` live-demo link.
+`koumba-web` → `web`. The root `README.md` already links the public demo;
+update that link only if the deployment URL changes.
 
 ## 1. Create the shared secret
 
