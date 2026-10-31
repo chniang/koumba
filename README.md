@@ -59,8 +59,8 @@ ask in Wolof, French, or English, or type your question.
 
 <table>
   <tr>
-    <td align="center"><img src="docs/phone-answer.jpg" width="300" alt="Koumba answering by voice"><br><sub>Voice answer</sub></td>
-    <td align="center"><img src="docs/phone-cards.jpg" width="300" alt="Koumba showing trip cards"><br><sub>Trip cards</sub></td>
+    <td align="center" valign="top"><img src="docs/phone-answer.jpg" width="300" alt="Koumba answering by voice"><br><sub>Voice answer</sub></td>
+    <td align="center" valign="top"><img src="docs/phone-cards.jpg" width="300" alt="Koumba showing trip cards"><br><sub>Trip cards</sub></td>
   </tr>
 </table>
 
@@ -85,15 +85,16 @@ The other parts are clearly non-Meta:
 ## 🧭 ARCHITECTURE
 
 ```mermaid
-flowchart LR
-  A[Mic: Wolof speech] --> B[Meta Omnilingual ASR<br/>omniASR_CTC_1B, wol_Latn]
-  B --> C[Place hints and aliases]
-  C --> D[Muse Spark Open agent<br/>tool calling]
-  D --> E[Route engine tools<br/>resolve_place, find_trips,<br/>check_bus_line, line_info]
-  E --> D
-  D --> F[Validated Wolof sentence<br/>and trip cards]
-  F --> G[Oolel-Voices<br/>spoken Wolof]
+flowchart TD
+  A[🎤 Wolof speech] --> B[Meta Omnilingual ASR] --> C[Place hints + aliases] --> D[Muse Spark Open agent]
+  D <--> E[Route engine tools]
+  D --> F[Wolof sentence + trip cards] --> G[🔊 Oolel-Voices]
 ```
+
+- **Speech to text:** Meta Omnilingual ASR, `omniASR_CTC_1B`, language `wol_Latn`, on Modal CPU.
+- **Agent and vision:** Muse Spark Open, `meta-models/muse-spark-open-1026` on Baseten, with tool calling.
+- **Route tools:** `resolve_place`, `find_trips`, `check_bus_line`, and `line_info`.
+- **Spoken reply:** Oolel-Voices by `soynade-research`, generating spoken Wolof (AGPL-3.0).
 
 ---
 
