@@ -239,6 +239,32 @@ Fireworks”; if the configured key env var is missing, it shows a warning such 
 `koumba.app` or calling `build_app()` only builds the UI; it does not start a
 server.
 
+## Run it on Hugging Face
+
+Live demo: [TIJAANI/koumba](https://huggingface.co/spaces/TIJAANI/koumba)
+
+The Space uses Gradio on free CPU hardware and downloads the bus CSVs from
+`TIJAANI/dakar-bus-network` on first use. Set these names in **Settings →
+Variables and secrets**:
+
+```text
+BASETEN_API_KEY
+KOUMBA_BASE_URL
+KOUMBA_API_KEY_ENV
+KOUMBA_MODEL
+KOUMBA_ASR_URL
+KOUMBA_ASR_KEY
+KOUMBA_TTS_URL
+```
+
+`BASETEN_API_KEY` and `KOUMBA_ASR_KEY` are secrets; the others are variables.
+To upload the Space from this repository, put `HF_TOKEN` in the environment or
+the local `.env` and run:
+
+```powershell
+python scripts/deploy_space.py
+```
+
 ### Manual voice test
 
 ```powershell
