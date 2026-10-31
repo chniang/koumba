@@ -74,12 +74,113 @@ def test_language_switch_updates_only_interface_labels(llm_env) -> None:
 
     assert len(updates) == 13
     assert "Votre assistant bus à Dakar" in updates[0]["value"]
+    assert updates[1]["placeholder"] == "Dalal ak jàmm ! Fan nga bëgga dem ?"
     assert updates[3]["label"] == "Parle à Koumba"
     assert updates[5]["label"] == "Où vas-tu ?"
+    assert updates[5]["placeholder"] == (
+        "Écris : Maa ngi Sahm, dama bëgga dem Malika"
+    )
     assert updates[6]["value"] == "Envoyer"
     assert updates[7]["value"] == "Effacer"
     assert updates[8]["label"] == "C'est mon bus ? (photo)"
     assert updates[9]["value"] == "Les photos ne sont pas conservées."
+    assert "<strong>Essaie un exemple</strong>" in updates[10]["value"]
+
+
+def test_empty_chat_is_short_and_voice_player_starts_hidden(llm_env) -> None:
+    import koumba.app as app
+
+    demo = app.build_app()
+    chatbot = _component(demo, "chatbot")
+    voice = _component(demo, "voice-player")
+
+    assert chatbot["props"]["height"] == 160
+    assert chatbot["props"]["min_height"] == 160
+    assert chatbot["props"]["max_height"] == 420
+    assert chatbot["props"]["placeholder"] == (
+        "Dalal ak jàmm ! Fan nga bëgga dem ?"
+    )
+    assert voice["props"]["visible"] is False
+    assert app.UI_TEXT["English"]["placeholder"] == (
+        "Type: Maa ngi Sahm, dama bëgga dem Malika"
+    )
+
+
+def test_css_keeps_mic_clean_and_hides_the_default_footer() -> None:
+    import koumba.app as app
+
+    css = app.CSS
+    assert "#1F5FAD" in css
+    assert "livery-tata" in css
+    assert "livery-ddd" in css
+    assert "leg-tata" in css
+    assert "leg-ddd" in css
+    assert "#mic .mic-select" in css
+    assert "#mic .icon-button-wrapper" in css
+    assert 'content: "🎤"' in css
+    assert 'content: "■"' in css
+    assert "@keyframes koumba-mic-pulse" in css
+    assert "#voice-player:has(.empty)" in css
+    assert "#chatbot:has(.placeholder-content)" in css
+    assert "#ui-language label:has(input:checked)" in css
+    assert "footer {" in css
+    assert "display: none !important;" in css
+
+
+def test_voice_player_is_revealed_only_when_audio_exists(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    monkeypatch.setattr(app, "speak", lambda _text: b"RIFF-reply")
+
+    shown, timing, job = app._synthesize_voice_ui(
+        {"text": "Maa ngi Sahm", "timings": {}}
+    )
+    assert shown["value"] == b"RIFF-reply"
+    assert shown["visible"] is True
+    assert "voice " in timing
+    assert job is None
+
+    hidden, _timing, _job = app._synthesize_voice_ui(None)
+    assert hidden["value"] is None
+    assert hidden["visible"] is False
+
+    empty, _timing, _job = app._synthesize_voice_ui(
+        {"text": "", "timings": {}}
+    )
+    assert empty["visible"] is False
+
+
+def test_voice_player_stays_hidden_when_tts_fails(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    def fail(_text: str) -> bytes:
+        raise app.SpeakError("Voice reply service is unavailable.")
+
+    monkeypatch.setattr(app, "speak", fail)
+    monkeypatch.setattr(app.gr, "Warning", lambda *_args, **_kwargs: None)
+
+    update, _timing, job = app._synthesize_voice_ui(
+        {"text": "Maa ngi Sahm", "timings": {}}
+    )
+
+    assert update["value"] is None
+    assert update["visible"] is False
+    assert job is None
+
+
+def test_clear_hides_the_voice_player(llm_env) -> None:
+    import koumba.app as app
+
+    values = app._clear_voice_ui("EN")
+
+    assert values[6]["value"] is None
+    assert values[6]["visible"] is False
 
 
 def test_mobile_app_component_order_and_labels(llm_env) -> None:
@@ -364,7 +465,8 @@ def test_bus_photo_direct_check_shows_the_trip_card(
     assert "Tata AFTU Ligne 3" in cards
     assert "Avenue Blaise Diagne" in cards
     assert "op-tata" in cards
-    assert ">Tata<" in cards
+    assert ">TATA<" in cards
+    assert "livery-tata" in cards
     assert app.HONEST_NOTE_EN in cards
     assert image is None
 
@@ -523,13 +625,53 @@ def test_trip_cards_include_the_useful_fields() -> None:
     assert "best-trip" in html
     assert ">Best<" in html
     assert "op-dem" in html
-    assert ">Dem Dikk<" in html
+    assert ">DEM DIKK<" in html
+    assert "livery-ddd" in html
     assert "Board" in html
     assert "Alight" in html
     assert (
         "Routes based on official AFTU / Dakar Dem Dikk data and field "
         "corrections. Check with the apprenti."
     ) in html
+
+
+def test_transfer_trip_uses_each_operator_livery() -> None:
+    from koumba.app import _trip_cards
+
+    html = _trip_cards(
+        [
+            {
+                "transfers": 1,
+                "total_minutes": 42,
+                "legs": [
+                    {
+                        "operator": "Tata AFTU",
+                        "line": "Ligne 3",
+                        "board_stop": "Sahm",
+                        "alight_stop": "Médina",
+                        "direction": "Médina",
+                        "num_stops": 6,
+                    },
+                    {
+                        "operator": "Dakar Dem Dikk",
+                        "line": "Ligne 7",
+                        "board_stop": "Médina",
+                        "alight_stop": "Malika",
+                        "direction": "Malika",
+                        "num_stops": 9,
+                    },
+                ],
+                "walks": [],
+            }
+        ]
+    )
+
+    assert "livery-tata" in html
+    assert "leg-tata" in html
+    assert "leg-ddd" in html
+    assert ">TATA<" in html
+    assert ">DEM DIKK<" in html
+    assert ">Best<" in html
 
 
 def test_trip_cards_use_french_stop_count_and_time_hint() -> None:

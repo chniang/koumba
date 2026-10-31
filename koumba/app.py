@@ -72,10 +72,8 @@ UI_TEXT = {
         "voice_label": "Koumba's voice",
         "mic_label": "Speak to Koumba",
         "message_label": "Where are you going?",
-        "placeholder": (
-            "Maa ngi Sahm, dama bëgga dem Malika / "
-            "Je suis à Ouakam, je vais au Palais"
-        ),
+        "chat_placeholder": "Dalal ak jàmm ! Fan nga bëgga dem ?",
+        "placeholder": "Type: Maa ngi Sahm, dama bëgga dem Malika",
         "send": "Send",
         "clear": "Clear",
         "photo_label": "Is this my bus? (photo)",
@@ -103,10 +101,8 @@ UI_TEXT = {
         "voice_label": "La voix de Koumba",
         "mic_label": "Parle à Koumba",
         "message_label": "Où vas-tu ?",
-        "placeholder": (
-            "Maa ngi Sahm, dama bëgga dem Malika / "
-            "Je suis à Ouakam, je vais au Palais"
-        ),
+        "chat_placeholder": "Dalal ak jàmm ! Fan nga bëgga dem ?",
+        "placeholder": "Écris : Maa ngi Sahm, dama bëgga dem Malika",
         "send": "Envoyer",
         "clear": "Effacer",
         "photo_label": "C'est mon bus ? (photo)",
@@ -169,6 +165,7 @@ html, body {
 .hero-row {
   align-items: flex-start;
   gap: 8px;
+  flex-wrap: nowrap !important;
 }
 .hero-card { padding-top: 4px; }
 .koumba-title {
@@ -194,35 +191,75 @@ html, body {
 }
 
 #ui-language {
-  min-width: 92px !important;
-  border: 1px solid var(--koumba-line);
+  flex: 0 0 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+  align-self: flex-start;
+  margin-top: 4px;
+  border: 0 !important;
   border-radius: 999px;
-  padding: 2px;
-  background: #f8fbf9;
+  padding: 3px !important;
+  background: #eef6f1;
 }
 #ui-language .wrap {
+  display: flex !important;
   flex-direction: row !important;
-  gap: 2px !important;
+  flex-wrap: nowrap !important;
+  gap: 3px !important;
   justify-content: center;
 }
 #ui-language label {
+  position: relative;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
   margin: 0 !important;
-  padding: 4px 8px !important;
+  padding: 4px 9px !important;
   border-radius: 999px !important;
+  background: #ffffff;
   font-size: 12px !important;
   font-weight: 800 !important;
   color: var(--koumba-muted) !important;
+  cursor: pointer;
 }
 #ui-language label:has(input:checked) {
   background: var(--koumba-green) !important;
   color: #ffffff !important;
+  box-shadow: 0 2px 7px rgba(0, 133, 63, 0.24);
+}
+#ui-language input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 #chatbot {
+  height: auto !important;
+  min-height: 160px !important;
+  max-height: 420px !important;
   border: 1px solid var(--koumba-line) !important;
   border-radius: 20px !important;
   background: #fbfdfb !important;
   overflow: hidden;
+}
+#chatbot .wrapper,
+#chatbot .bubble-wrap {
+  height: auto !important;
+}
+#chatbot .bubble-wrap {
+  min-height: 158px !important;
+  max-height: 418px !important;
+  overflow-y: auto !important;
+}
+#chatbot:has(.placeholder-content) {
+  height: 160px !important;
+}
+#chatbot:has(.placeholder-content) .wrapper,
+#chatbot:has(.placeholder-content) .bubble-wrap {
+  height: 158px !important;
 }
 #chatbot .message-wrap { font-size: 14.5px !important; line-height: 1.45 !important; }
 
@@ -232,6 +269,7 @@ html, body {
   background: #f7fbf8 !important;
   padding: 5px !important;
 }
+#voice-player:has(.empty) { display: none !important; }
 #voice-player audio { width: 100% !important; }
 
 #mic {
@@ -249,26 +287,104 @@ html, body {
   border: 0 !important;
   padding: 0 !important;
 }
+#mic .component-wrapper {
+  width: auto !important;
+  padding: 0 !important;
+}
+#mic .controls {
+  justify-content: center !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  width: auto !important;
+  margin: 0 auto !important;
+}
+#mic .controls .wrapper {
+  justify-content: center !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  width: auto !important;
+}
+#mic .mic-select,
+#mic .device-select-large {
+  display: none !important;
+}
+#mic .icon-button-wrapper,
+#mic .top-panel {
+  display: none !important;
+}
 #mic .record-button {
   width: 104px !important;
   height: 104px !important;
   min-width: 104px !important;
+  min-height: 104px !important;
+  padding: 0 !important;
   border-radius: 50% !important;
   background: var(--koumba-green) !important;
   border: 8px solid var(--koumba-green-soft) !important;
   box-shadow: 0 10px 24px rgba(0, 133, 63, 0.28) !important;
+  color: transparent !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+}
+#mic .record-button::before {
+  content: "🎤" !important;
+  display: block !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
   color: #ffffff !important;
+  font-size: 46px !important;
+  line-height: 1 !important;
+  animation: none !important;
 }
 #mic .record-button svg {
-  width: 40px !important;
-  height: 40px !important;
-  color: #ffffff !important;
-  fill: #ffffff !important;
+  display: none !important;
 }
 #mic .stop-button {
+  width: 104px !important;
+  height: 104px !important;
+  min-width: 104px !important;
+  min-height: 104px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 8px solid #fde8e9 !important;
   border-radius: 50% !important;
   background: var(--koumba-red) !important;
+  color: transparent !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  animation: koumba-mic-pulse 1.6s ease-out infinite !important;
+}
+#mic .stop-button::before {
+  content: "■" !important;
+  display: block !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
   color: #ffffff !important;
+  font-size: 32px !important;
+  line-height: 1 !important;
+  animation: none !important;
+}
+#mic .stop-button svg {
+  display: none !important;
+}
+@keyframes koumba-mic-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(227, 27, 35, 0.42), 0 10px 24px rgba(227, 27, 35, 0.24);
+  }
+  70% {
+    box-shadow: 0 0 0 20px rgba(227, 27, 35, 0), 0 10px 24px rgba(227, 27, 35, 0.12);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(227, 27, 35, 0), 0 10px 24px rgba(227, 27, 35, 0.24);
+  }
 }
 .mic-note {
   margin: -8px 0 0;
@@ -314,11 +430,20 @@ html, body {
   font-size: 11.5px;
 }
 
+.examples-heading-block {
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
 .examples-heading {
   margin: 0 0 -4px;
   color: var(--koumba-muted);
   font-size: 12.5px;
   font-weight: 750;
+}
+.examples-heading button,
+.examples-heading svg {
+  display: none !important;
 }
 .examples-row { flex-wrap: wrap; gap: 8px; }
 .example-chip, .example-chip button {
@@ -338,16 +463,56 @@ html, body {
 }
 .trip-grid { display: flex; flex-direction: column; gap: 12px; }
 .trip-card {
+  position: relative;
+  overflow: hidden;
   border: 1px solid var(--koumba-line);
   border-radius: 20px;
-  padding: 15px;
+  padding: 18px 15px 15px;
   background: #ffffff;
   box-shadow: 0 2px 10px rgba(16, 32, 24, 0.05);
 }
-.trip-card.best-trip {
-  border: 2px solid var(--koumba-green);
-  background: linear-gradient(180deg, #f2fbf6 0%, #ffffff 46%);
+.trip-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0;
 }
+.trip-card.best-trip {
+  border-color: #c7e7d4;
+  box-shadow: 0 0 0 2px var(--koumba-green), 0 8px 22px rgba(16, 32, 24, 0.08);
+}
+.trip-card.livery-tata {
+  border-left: 7px solid #1F5FAD;
+  padding-left: 13px;
+}
+.trip-card.livery-tata::before {
+  height: 9px;
+  background: repeating-linear-gradient(
+    135deg,
+    #1F5FAD 0,
+    #1F5FAD 14px,
+    #4f8bd0 14px,
+    #4f8bd0 19px,
+    #ffffff 19px,
+    #ffffff 23px
+  );
+}
+.trip-card.livery-ddd::before {
+  height: 5px;
+  background: linear-gradient(
+    90deg,
+    var(--koumba-green) 0 33.33%,
+    var(--koumba-yellow) 33.33% 66.66%,
+    var(--koumba-red) 66.66% 100%
+  );
+}
+.trip-card.livery-tata .trip-top .pill:not(.best-pill) {
+  background: #e8f1fb;
+  color: #1F5FAD;
+}
+.trip-card.livery-tata .trip-rank { color: #1F5FAD; }
 .trip-top {
   display: flex;
   align-items: center;
@@ -371,9 +536,36 @@ html, body {
   font-weight: 850 !important;
 }
 .leg {
-  border-top: 1px solid var(--koumba-line);
-  padding-top: 10px;
+  position: relative;
+  overflow: hidden;
   margin-top: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--koumba-line);
+  border-radius: 14px;
+  background: #ffffff;
+}
+.leg-tata {
+  border-left: 6px solid #1F5FAD;
+  padding-left: 13px;
+  background: linear-gradient(90deg, #f4f9ff 0%, #ffffff 55%);
+}
+.leg-ddd {
+  padding-top: 15px;
+  border-color: #cfe5d8;
+}
+.leg-ddd::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--koumba-green) 0 33.33%,
+    var(--koumba-yellow) 33.33% 66.66%,
+    var(--koumba-red) 66.66% 100%
+  );
 }
 .leg-head {
   display: flex;
@@ -396,8 +588,9 @@ html, body {
   text-transform: uppercase;
   letter-spacing: 0.2px;
 }
-.op-tata { background: var(--koumba-yellow); color: #3b3300; }
+.op-tata { background: #1F5FAD; color: #ffffff; }
 .op-dem { background: var(--koumba-green); color: #ffffff; }
+.op-bus { background: #eef2ef; color: #3d4a42; }
 .board-alight {
   margin-top: 6px;
   color: var(--koumba-ink);
@@ -461,12 +654,22 @@ html, body {
   text-align: center;
 }
 
+footer {
+  display: none !important;
+}
+
 @media (max-width: 520px) {
   .gradio-container { max-width: 100% !important; }
   .app-shell { padding: 14px 14px 24px; }
   .koumba-title { font-size: 30px; }
   .koumba-greeting { font-size: 17px; }
-  #mic .record-button { width: 96px !important; height: 96px !important; }
+  #mic .record-button,
+  #mic .stop-button {
+    width: 96px !important;
+    height: 96px !important;
+    min-width: 96px !important;
+    min-height: 96px !important;
+  }
 }
 """
 
@@ -567,13 +770,25 @@ def _footer_html() -> str:
     return f"<div class='footer'>{escape(FOOTER_LINE)}</div>"
 
 
+def _examples_heading_html(language: str | None) -> str:
+    copy = _ui_copy(language)
+    return (
+        "<div class='examples-heading'>"
+        f"<strong>{escape(copy['examples_label'])}</strong>"
+        "</div>"
+    )
+
+
 def _switch_language(value: str | None):
     """Update only interface labels when EN or FR is selected."""
 
     copy = _ui_copy(value)
     return (
         gr.update(value=_header_html(value)),
-        gr.update(label=copy["chat_label"]),
+        gr.update(
+            label=copy["chat_label"],
+            placeholder=copy["chat_placeholder"],
+        ),
         gr.update(label=copy["voice_label"]),
         gr.update(label=copy["mic_label"]),
         gr.update(value=copy["voice_note"]),
@@ -585,7 +800,7 @@ def _switch_language(value: str | None):
         gr.update(value=copy["clear"]),
         gr.update(label=copy["photo_label"]),
         gr.update(value=copy["photo_note"]),
-        gr.update(value=f"**{copy['examples_label']}**"),
+        gr.update(value=_examples_heading_html(value)),
         gr.update(label=copy["trips_label"]),
         gr.update(label=copy["tools_label"]),
     )
@@ -754,15 +969,32 @@ def _honest_note(language: str | None) -> str:
     return HONEST_NOTE_EN
 
 
+def _operator_kind(operator: str) -> str:
+    """Return the company key used by the card liveries."""
+
+    lowered = (operator or "").lower()
+    if "dem dikk" in lowered or lowered.strip() == "ddd":
+        return "ddd"
+    if "tata" in lowered or "aftu" in lowered:
+        return "tata"
+    return "bus"
+
+
 def _operator_tag(operator: str) -> tuple[str, str]:
     """Give each company a short, recognizable color tag."""
 
-    lowered = operator.lower()
-    if "dem dikk" in lowered:
-        return "Dem Dikk", "op-dem"
-    if "tata" in lowered:
-        return "Tata", "op-tata"
-    return operator or "Bus", "op-tata"
+    kind = _operator_kind(operator)
+    if kind == "ddd":
+        return "DEM DIKK", "op-dem"
+    if kind == "tata":
+        return "TATA", "op-tata"
+    return (operator or "Bus").upper(), "op-bus"
+
+
+def _operator_livery(operator: str, prefix: str) -> str:
+    """Map an operator to a card or leg livery class."""
+
+    return f"{prefix}-{_operator_kind(operator)}"
 
 
 def _transfer_count(value: Any, language: str | None) -> str:
@@ -801,8 +1033,13 @@ def _trip_cards(
             else f"<span class='trip-rank'>{copy['trip']} {index}</span>"
         )
 
+        legs = [
+            leg for leg in trip.get("legs", []) if isinstance(leg, dict)
+        ]
+        first_operator = str(legs[0].get("operator", "")) if legs else ""
+        card_livery = _operator_livery(first_operator, "livery")
         legs_html: list[str] = []
-        for leg in trip.get("legs", []):
+        for leg in legs:
             operator = escape(str(leg.get("operator", "")))
             line = escape(str(leg.get("line", "")))
             board = escape(str(leg.get("board_stop", "")))
@@ -810,8 +1047,12 @@ def _trip_cards(
             direction = escape(str(leg.get("direction", "")))
             stops = _stop_count(leg.get("num_stops"), language)
             tag, tag_class = _operator_tag(str(leg.get("operator", "")))
+            leg_livery = _operator_livery(
+                str(leg.get("operator", "")),
+                "leg",
+            )
             legs_html.append(
-                "<div class='leg'>"
+                f"<div class='leg {leg_livery}'>"
                 "<div class='leg-head'>"
                 f"<div class='bus-name'>{operator} {line}</div>"
                 f"<span class='op-tag {tag_class}'>{escape(tag)}</span>"
@@ -845,8 +1086,11 @@ def _trip_cards(
             if time_hint
             else ""
         )
+        card_classes = " ".join(
+            ["trip-card", card_livery, "best-trip" if is_best else ""]
+        ).strip()
         cards.append(
-            f"<div class='trip-card{' best-trip' if is_best else ''}'>"
+            f"<div class='{card_classes}'>"
             "<div class='trip-top'>"
             f"{rank_html}"
             f"<span class='pill'>"
@@ -1077,6 +1321,20 @@ def _synthesize_voice(job: Any):
     if failed:
         timings["voice_failed"] = True
     return audio, _format_timings(timings), None
+
+
+def _synthesize_voice_ui(job: Any):
+    """Show the player only when TTS actually produced audio."""
+
+    if not isinstance(job, dict) or not str(job.get("text") or "").strip():
+        return gr.update(value=None, visible=False), gr.update(), None
+
+    audio, timings, next_job = _synthesize_voice(job)
+    if isinstance(audio, (bytes, bytearray)) and audio:
+        return gr.update(value=audio, visible=True), timings, next_job
+    if audio is None:
+        return gr.update(value=None, visible=False), timings, next_job
+    return audio, timings, next_job
 
 
 def _audio_present(audio: Any) -> bool:
@@ -1388,6 +1646,14 @@ def _clear_voice(ui_language: str | None = None):
     return (*_clear(ui_language), None, None, "", None, None)
 
 
+def _clear_voice_ui(ui_language: str | None = None):
+    """Clear the app while also hiding a previously played voice reply."""
+
+    values = list(_clear_voice(ui_language))
+    values[6] = gr.update(value=None, visible=False)
+    return tuple(values)
+
+
 def build_app() -> gr.Blocks:
     """Build the Gradio UI without launching it."""
 
@@ -1401,37 +1667,39 @@ def build_app() -> gr.Blocks:
 
         with gr.Column(elem_classes=["app-shell"]):
             with gr.Row(elem_classes=["hero-row"]):
-                with gr.Column(scale=5, min_width=250):
-                    header = gr.HTML(
-                        value=_header_html("English"),
-                        elem_id="app-header",
-                        container=False,
-                    )
-                with gr.Column(scale=1, min_width=92):
-                    ui_language = gr.Radio(
-                        choices=["EN", "FR"],
-                        value="EN",
-                        show_label=False,
-                        container=False,
-                        scale=1,
-                        min_width=92,
-                        elem_id="ui-language",
-                        elem_classes=["lang-switch"],
-                    )
+                header = gr.HTML(
+                    value=_header_html("English"),
+                    scale=5,
+                    min_width=180,
+                    elem_id="app-header",
+                    container=False,
+                )
+                ui_language = gr.Radio(
+                    choices=["EN", "FR"],
+                    value="EN",
+                    show_label=False,
+                    container=False,
+                    scale=0,
+                    min_width=88,
+                    elem_id="ui-language",
+                    elem_classes=["lang-switch"],
+                )
 
             chatbot = gr.Chatbot(
                 value=[],
                 label=copy["chat_label"],
                 show_label=False,
-                height=300,
+                height=160,
+                min_height=160,
                 max_height=420,
                 layout="bubble",
-                placeholder=copy["message_label"],
+                placeholder=copy["chat_placeholder"],
                 elem_id="chatbot",
             )
             reply_audio = gr.Audio(
                 label=copy["voice_label"],
                 show_label=False,
+                visible=False,
                 autoplay=True,
                 interactive=False,
                 elem_id="voice-player",
@@ -1500,9 +1768,10 @@ def build_app() -> gr.Blocks:
                 elem_classes=["privacy-note"],
             )
 
-            examples_heading = gr.Markdown(
-                f"**{copy['examples_label']}**",
-                elem_classes=["examples-heading"],
+            examples_heading = gr.HTML(
+                _examples_heading_html("English"),
+                elem_classes=["examples-heading-block"],
+                container=False,
             )
             with gr.Row(elem_classes=["examples-row"]):
                 example_wolof = gr.Button(
@@ -1590,7 +1859,7 @@ def build_app() -> gr.Blocks:
 
         def add_voice_phase(event):
             return event.then(
-                _synthesize_voice,
+                _synthesize_voice_ui,
                 inputs=[voice_job],
                 outputs=[reply_audio, timings, voice_job],
             )
@@ -1659,7 +1928,7 @@ def build_app() -> gr.Blocks:
             )
         )
         clear.click(
-            _clear_voice,
+            _clear_voice_ui,
             inputs=[ui_language],
             outputs=[*voice_outputs, voice_guard],
         )
@@ -1669,4 +1938,4 @@ def build_app() -> gr.Blocks:
 
 if __name__ == "__main__":
     # Gradio 6 moved the CSS argument from Blocks to launch().
-    build_app().launch(css=CSS)
+    build_app().launch(css=CSS, footer_links=[])
