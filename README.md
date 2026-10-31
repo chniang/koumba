@@ -85,10 +85,11 @@ The other parts are clearly non-Meta:
 ## 🧭 ARCHITECTURE
 
 ```mermaid
+%%{init: {"flowchart": {"htmlLabels": false, "useMaxWidth": true}, "themeVariables": {"fontSize": "14px"}}}%%
 flowchart TD
-  A[🎤 Wolof speech] --> B[Meta Omnilingual ASR] --> C[Place hints + aliases] --> D[Muse Spark Open agent]
-  D <--> E[Route engine tools]
-  D --> F[Wolof sentence + trip cards] --> G[🔊 Oolel-Voices]
+  A[Wolof speech] --> B[Omnilingual ASR] --> C[Place aliases] --> D[Muse Spark agent]
+  D <--> E[Route tools]
+  D --> F[Answer + cards] --> G[Oolel-Voices TTS]
 ```
 
 - **Speech to text:** Meta Omnilingual ASR, `omniASR_CTC_1B`, language `wol_Latn`, on Modal CPU.
