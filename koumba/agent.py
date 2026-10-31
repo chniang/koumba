@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from .choices import match_choice
 from .places import (
     PlaceIndex,
     exact_normalized_names,
@@ -178,6 +179,7 @@ class AgentResult:
     spoken: str = ""
     bus_check: dict[str, Any] | None = None
     llm_calls: int = 0
+    clarification: dict[str, Any] | None = None
 
 
 def _clean_history(history: Any) -> list[dict[str, str]]:
@@ -349,6 +351,7 @@ class Agent:
         llm_calls: int,
         bus_check: dict[str, Any] | None = None,
         spoken_override: str | None = None,
+        clarification: dict[str, Any] | None = None,
     ) -> AgentResult:
         best_trip = trips[0] if trips else None
         if spoken_override is not None:
@@ -366,6 +369,9 @@ class Agent:
                 )
             if not spoken:
                 spoken = spoken_answer(best_trip, language, origin)
+            # A plain model answer still needs TTS when the turn is Wolof.
+            if not spoken and language == "Wolof":
+                spoken = reply
         return AgentResult(
             reply=reply,
             language=language,
@@ -377,13 +383,14 @@ class Agent:
             rounds=rounds,
             llm_calls=llm_calls,
             bus_check=bus_check,
+            clarification=clarification,
         )
 
     def _clarification_from_tool(
         self,
         tool_calls: list[dict[str, Any]],
         language: str,
-    ) -> str:
+    ) -> dict[str, Any] | None:
         """Ask between the top two fuzzy matches when no exact place won."""
 
         for item in reversed(tool_calls):
@@ -399,13 +406,17 @@ class Agent:
                 and isinstance(options, list)
                 and len(options) >= 2
             ):
-                question = clarification_question(
-                    str(options[0]),
-                    str(options[1]),
-                    language,
-                )
+                option_a = str(options[0]).strip()
+                option_b = str(options[1]).strip()
+                question = clarification_question(option_a, option_b, language)
                 if question:
-                    return question
+                    return {
+                        "question": question,
+                        "options": [option_a, option_b],
+                        "field": result.get("field"),
+                        "query": result.get("query"),
+                        "language": language,
+                    }
 
             if item.get("name") != "resolve_place" or result.get("error"):
                 continue
@@ -434,8 +445,14 @@ class Agent:
             option_b = str(second.get("name") or "").strip()
             question = clarification_question(option_a, option_b, language)
             if question:
-                return question
-        return ""
+                return {
+                    "question": question,
+                    "options": [option_a, option_b],
+                    "field": result.get("field"),
+                    "query": result.get("query"),
+                    "language": language,
+                }
+        return None
 
     def _template_result(
         self,
@@ -489,21 +506,188 @@ class Agent:
                 spoken_override=answer,
             )
 
-        question = self._clarification_from_tool(tool_calls, language)
-        if question:
-            return self._result(
-                reply=question,
+        clarification = self._clarification_from_tool(tool_calls, language)
+        if clarification:
+            return self._clarification_result(
                 language=language,
                 origin=origin,
                 destination=destination,
-                trips=trips,
+                clarification=clarification,
                 tool_calls=tool_calls,
-                rounds=llm_calls,
                 llm_calls=llm_calls,
-                bus_check=bus_check,
-                spoken_override=question,
             )
         return None
+
+    def _clarification_result(
+        self,
+        *,
+        language: str,
+        origin: str | None,
+        destination: str | None,
+        clarification: dict[str, Any],
+        tool_calls: list[dict[str, Any]] | None = None,
+        llm_calls: int = 0,
+    ) -> AgentResult:
+        """Return the same question with enough state for the next turn."""
+
+        data = dict(clarification)
+        options = [
+            str(option).strip()
+            for option in (data.get("options") or [])
+            if str(option).strip()
+        ][:2]
+        question = str(data.get("question") or "").strip()
+        if not question and len(options) == 2:
+            question = clarification_question(
+                options[0],
+                options[1],
+                language,
+            )
+        data.update(
+            {
+                "question": question,
+                "options": options,
+                "field": data.get("field"),
+                "origin": origin,
+                "destination": destination,
+                "language": language,
+            }
+        )
+        return self._result(
+            reply=question,
+            language=language,
+            origin=origin,
+            destination=destination,
+            trips=None,
+            tool_calls=list(tool_calls or []),
+            rounds=llm_calls,
+            llm_calls=llm_calls,
+            clarification=data,
+        )
+
+    def _search_after_choice(
+        self,
+        *,
+        origin: str,
+        destination: str,
+        language: str,
+        history: list[dict[str, Any]] | None,
+    ) -> AgentResult:
+        """Run the route search again with both places already known."""
+
+        arguments = {"origin": origin, "destination": destination}
+        result = execute_tool(
+            "find_trips",
+            arguments,
+            self.engine,
+            self.place_index,
+        )
+        tool_calls = [
+            {
+                "round": 1,
+                "name": "find_trips",
+                "arguments": arguments,
+                "result": result,
+            }
+        ]
+        origin = self._official_place_name(origin) or origin
+        destination = self._official_place_name(destination) or destination
+        found = result.get("trips")
+        trips = found if isinstance(found, list) else None
+        fast_result = self._template_result(
+            language=language,
+            origin=origin,
+            destination=destination,
+            trips=trips,
+            bus_check=None,
+            tool_calls=tool_calls,
+            llm_calls=0,
+        )
+        if fast_result is not None:
+            return fast_result
+
+        # No-route answers still need the model's explanation.  The sentence
+        # names both places explicitly so the history cannot lose one of them.
+        if language == "French":
+            request = f"Je suis à {origin}, je vais à {destination}"
+        elif language == "English":
+            request = f"I am at {origin}, I want to go to {destination}"
+        else:
+            request = f"Maa ngi {origin}, bëgg naa dem {destination}"
+        return self.run(request, history)
+
+    def _answer_clarification(
+        self,
+        text: str,
+        history: list[dict[str, Any]] | None,
+        clarification: dict[str, Any],
+    ) -> AgentResult:
+        """Pick one remembered option and search, or repeat the question."""
+
+        data = dict(clarification) if isinstance(clarification, dict) else {}
+        options = [
+            str(option).strip()
+            for option in (data.get("options") or [])
+            if str(option).strip()
+        ][:2]
+        question = str(data.get("question") or "").strip()
+        language = str(data.get("language") or "").strip()
+        if not language or language == "Unknown":
+            language = detect_language(question)
+        if language == "Unknown":
+            language = detect_language(text)
+        if language == "Unknown":
+            language = _history_language(_clean_history(history))
+
+        origin = str(data.get("origin") or "").strip() or None
+        destination = str(data.get("destination") or "").strip() or None
+        field = data.get("field")
+        if field not in {"origin", "destination"}:
+            field = None
+            query = normalize_name(data.get("query"))
+            if query and origin and query in normalize_name(origin):
+                field = "origin"
+            elif query and destination and query in normalize_name(
+                destination
+            ):
+                field = "destination"
+            elif origin and destination:
+                option_names = {normalize_name(option) for option in options}
+                origin_matches = normalize_name(origin) in option_names
+                destination_matches = (
+                    normalize_name(destination) in option_names
+                )
+                if origin_matches != destination_matches:
+                    field = "origin" if origin_matches else "destination"
+            if field:
+                data["field"] = field
+
+        choice = match_choice(text, options)
+        if choice is None:
+            return self._clarification_result(
+                language=language,
+                origin=origin,
+                destination=destination,
+                clarification=data,
+            )
+
+        chosen = options[choice]
+        if field == "origin":
+            origin = chosen
+        elif field == "destination":
+            destination = chosen
+
+        if origin and destination:
+            return self._search_after_choice(
+                origin=origin,
+                destination=destination,
+                language=language,
+                history=history,
+            )
+
+        # A place-only question did not tell us which slot to fill.  The chat
+        # history still holds the original request, so let the model finish.
+        return self.run(chosen, history)
 
     def run(
         self,
@@ -511,7 +695,15 @@ class Agent:
         history: list[dict[str, Any]] | None = None,
         image_path: str | None = None,
         hints: list[str] | str | None = None,
+        clarification: dict[str, Any] | None = None,
     ) -> AgentResult:
+        if clarification is not None:
+            return self._answer_clarification(
+                (user_text or "").strip(),
+                history,
+                clarification,
+            )
+
         text = (user_text or "").strip()
         memory = _clean_history(history)
         language = detect_language(text)

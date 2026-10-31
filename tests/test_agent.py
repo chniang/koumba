@@ -313,6 +313,7 @@ def test_ambiguous_tool_result_asks_the_validated_question(
             "error": "ambiguous_place",
             "ambiguous": True,
             "query": arguments["origin"],
+            "field": "origin",
             "options": ["Sam Notaire", "Sahm"],
         }
 
@@ -336,8 +337,105 @@ def test_ambiguous_tool_result_asks_the_validated_question(
 
     assert result.reply == "Sam Notaire nga bëgga dem walla Sahm ?"
     assert result.spoken == result.reply
+    assert result.clarification == {
+        "question": "Sam Notaire nga bëgga dem walla Sahm ?",
+        "options": ["Sam Notaire", "Sahm"],
+        "field": "origin",
+        "query": "sam",
+        "language": "Wolof",
+        "origin": "Sam Notaire",
+        "destination": "Malika",
+    }
     assert result.llm_calls == 1
     assert client.call_count == 1
+
+
+def test_spoken_second_choice_reruns_the_search_without_the_model(engine) -> None:
+    pending = {
+        "question": "Sam Notaire nga bëgga dem walla Sahm ?",
+        "options": ["Sam Notaire", "Sahm"],
+        "field": "origin",
+        "origin": "Sam",
+        "destination": "Malika",
+        "language": "Wolof",
+    }
+    client = FakeClient([])
+    agent = Agent(client, engine)
+
+    result = agent.run("bu ñaareel", clarification=pending)
+
+    assert result.origin == "Sahm"
+    assert result.destination == "Malika"
+    assert result.trips
+    assert result.spoken.startswith("Yaangi Sahm")
+    assert result.clarification is None
+    assert client.call_count == 0
+
+
+def test_choice_without_a_field_infers_the_ambiguous_slot(engine) -> None:
+    pending = {
+        "question": "Sam Notaire nga bëgga dem walla Sahm ?",
+        "options": ["Sam Notaire", "Sahm"],
+        "query": "sam",
+        "origin": "Sam Notaire",
+        "destination": "Malika",
+        "language": "Wolof",
+    }
+    client = FakeClient([])
+    agent = Agent(client, engine)
+
+    result = agent.run("Sahm", clarification=pending)
+
+    assert result.origin == "Sahm"
+    assert result.destination == "Malika"
+    assert result.trips
+    assert result.clarification is None
+    assert client.call_count == 0
+
+
+def test_unrelated_answer_repeats_the_pending_question(engine) -> None:
+    pending = {
+        "question": "Sam Notaire nga bëgga dem walla Sahm ?",
+        "options": ["Sam Notaire", "Sahm"],
+        "field": "origin",
+        "origin": "Sam",
+        "destination": "Malika",
+        "language": "Wolof",
+    }
+    client = FakeClient([])
+    agent = Agent(client, engine)
+
+    result = agent.run("I don't know", clarification=pending)
+
+    assert result.reply == pending["question"]
+    assert result.spoken == pending["question"]
+    assert result.clarification["options"] == pending["options"]
+    assert result.clarification["field"] == "origin"
+    assert client.call_count == 0
+
+
+def test_wolof_place_not_found_answer_is_marked_for_speech(engine) -> None:
+    client = FakeClient(
+        [
+            _response(
+                tool_calls=[
+                    _tool_call(
+                        "call_1",
+                        "find_trips",
+                        {"origin": "Atlantis", "destination": "Malika"},
+                    )
+                ]
+            ),
+            _response("Baal ma, Atlantis amul. Ndax Palais ?"),
+        ]
+    )
+    agent = Agent(client, engine)
+
+    result = agent.run("Maa ngi Atlantis, bëgg naa dem Malika")
+
+    assert result.language == "Wolof"
+    assert result.spoken == result.reply
+    assert result.llm_calls == 2
 
 
 def test_follow_up_uses_history_and_keeps_the_earlier_language(engine) -> None:

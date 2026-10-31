@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from koumba.agent import AgentResult
 
@@ -20,6 +21,7 @@ class _FakeAgent:
         self.calls: list[
             tuple[str, list[dict] | None, str | None, list[str] | None]
         ] = []
+        self.clarifications: list[dict | None] = []
 
     def run(
         self,
@@ -27,8 +29,10 @@ class _FakeAgent:
         history=None,
         image_path: str | None = None,
         hints: list[str] | None = None,
+        clarification: dict | None = None,
     ) -> AgentResult:
         self.calls.append((text, history, image_path, hints))
+        self.clarifications.append(clarification)
         return self.results.pop(0)
 
 
@@ -195,6 +199,8 @@ def test_mobile_app_component_order_and_labels(llm_env) -> None:
     order = [
         "app-header",
         "chatbot",
+        "clarify-a",
+        "clarify-b",
         "voice-player",
         "mic",
         "message",
@@ -213,6 +219,11 @@ def test_mobile_app_component_order_and_labels(llm_env) -> None:
     ]
 
     assert positions == sorted(positions)
+    assert _component(demo, "clarify-a")["props"]["visible"] is False
+    assert _component(demo, "clarify-b")["props"]["visible"] is False
+    assert "clarify-option" in _component(demo, "clarify-a")["props"][
+        "elem_classes"
+    ]
     assert (
         _component(demo, "photo-button")["props"]["label"]
         == "Is this my bus? (photo)"
@@ -254,7 +265,7 @@ def test_app_auto_sends_only_from_the_microphone_stop_event(llm_env) -> None:
     auto_send = [
         item
         for item in dependencies
-        if item.get("api_name") == "_respond_to_recording"
+        if item.get("api_name") == "_respond_to_recording_ui"
     ]
 
     assert len(auto_send) == 1
@@ -274,7 +285,7 @@ def test_each_answer_event_chains_the_voice_phase(llm_env) -> None:
         if str(item.get("api_name") or "").startswith("_synthesize_voice")
     ]
 
-    assert len(voice_phases) == 6
+    assert len(voice_phases) == 8
     assert all(
         [target[1] for target in item["targets"]] == ["then"]
         for item in voice_phases
@@ -956,6 +967,259 @@ def test_typed_wolof_reply_returns_audio_for_autoplay(
     assert calls == [
         "Yaangi Saam, duggal ci Tataa fanweer ak juróom ñett bi jëm Malika."
     ]
+
+
+def test_wolof_clarification_question_is_spoken(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    question = "Palais 1 nga bëgga dem walla Palais 2 ?"
+    pending = {
+        "question": question,
+        "options": ["Palais 1", "Palais 2"],
+        "field": "destination",
+        "origin": "Sahm",
+        "destination": "Palais",
+        "language": "Wolof",
+    }
+    fake = _FakeAgent(
+        [
+            AgentResult(
+                reply=question,
+                language="Wolof",
+                spoken=question,
+                clarification=pending,
+            )
+        ]
+    )
+    calls: list[str] = []
+
+    def fake_speak(text: str) -> bytes:
+        calls.append(text)
+        return b"RIFF-question"
+
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_agent", lambda: fake)
+    monkeypatch.setattr(app, "speak", fake_speak)
+
+    values = app._respond_phase_one("Maa ngi Sahm", [], None, None)
+
+    assert values[8]["text"] == question
+    reply_audio, _timing, job = app._synthesize_voice(values[8])
+    assert reply_audio == b"RIFF-question"
+    assert job is None
+    assert calls == [question]
+
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        AgentResult(
+            reply="Baal ma, Atlantis amul. Ndax Palais ?",
+            language="Wolof",
+        ),
+        AgentResult(
+            reply="Amul wet bi jëm fa. Jéemaat ci bérab bi.",
+            language="Wolof",
+        ),
+        AgentResult(
+            reply="Waaw, Tata 38.",
+            language="Wolof",
+            spoken="Waaw, Tata 38 bi dafay dem Palais 2.",
+            bus_check={
+                "serves_trip": True,
+                "operator": "Tata AFTU",
+                "line": "Ligne 38",
+                "alight_stop": "Palais 2",
+            },
+        ),
+    ],
+    ids=["place-not-found", "no-route", "bus-photo"],
+)
+def test_every_wolof_answer_path_gets_a_voice_job(
+    llm_env,
+    result: AgentResult,
+) -> None:
+    import koumba.app as app
+
+    job = app._tts_job_for_result(result, {})
+
+    assert job is not None
+    assert job["text"]
+
+
+def test_tapping_option_a_sends_the_choice_and_hides_the_buttons(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    pending = {
+        "question": "Sahm nga bëgga dem walla Sam Notaire ?",
+        "options": ["Sahm", "Sam Notaire"],
+        "field": "origin",
+        "origin": "Sam",
+        "destination": "Malika",
+        "language": "Wolof",
+    }
+    answer = AgentResult(
+        reply="Yaangi Sahm.",
+        language="Wolof",
+        origin="Sahm",
+        destination="Malika",
+        spoken="Yaangi Sahm, duggal ci Tata 38 bi jëm Malika.",
+        trips=[],
+    )
+    fake = _FakeAgent([answer])
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_agent", lambda: fake)
+
+    values = app._choose_clarification(0, [], None, None, "EN", pending)
+
+    assert fake.calls[0][0] == "Sahm"
+    assert fake.clarifications == [pending]
+    assert values[9] is None
+    assert values[10]["visible"] is False
+    assert values[11]["visible"] is False
+    assert values[0][-1]["content"] == answer.spoken
+
+
+def test_first_clarification_shows_the_two_option_buttons(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    question = "Palais 1 nga bëgga dem walla Palais 2 ?"
+    pending = {
+        "question": question,
+        "options": ["Palais 1", "Palais 2"],
+        "field": "destination",
+        "origin": "Sahm",
+        "destination": "Palais",
+        "language": "Wolof",
+    }
+    fake = _FakeAgent(
+        [
+            AgentResult(
+                reply=question,
+                language="Wolof",
+                spoken=question,
+                origin="Sahm",
+                destination="Palais",
+                clarification=pending,
+            )
+        ]
+    )
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_agent", lambda: fake)
+
+    values = app._respond_ui(
+        "Maa ngi Sahm, bëgg naa dem Palais",
+        [],
+        None,
+        None,
+        "EN",
+        None,
+    )
+
+    assert values[9] == pending
+    assert values[10]["value"] == "Palais 1"
+    assert values[10]["visible"] is True
+    assert values[11]["value"] == "Palais 2"
+    assert values[11]["visible"] is True
+    assert values[8]["text"] == question
+
+
+def test_spoken_choice_is_passed_with_the_pending_question(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    pending = {
+        "question": "Sam Notaire nga bëgga dem walla Sahm ?",
+        "options": ["Sam Notaire", "Sahm"],
+        "field": "origin",
+        "origin": "Sam",
+        "destination": "Malika",
+        "language": "Wolof",
+    }
+    answer = AgentResult(
+        reply="Yaangi Sahm.",
+        language="Wolof",
+        origin="Sahm",
+        destination="Malika",
+        spoken="Yaangi Sahm, duggal ci Tata 38 bi jëm Malika.",
+        trips=[],
+    )
+    fake = _FakeAgent([answer])
+    transcription = {
+        "text": "bu ñaareel",
+        "raw_text": "bu ñaareel",
+        "language": "Wolof",
+        "hints": [],
+    }
+    monkeypatch.setenv("KOUMBA_ASR_URL", "https://example.modal.run")
+    monkeypatch.setenv("KOUMBA_ASR_KEY", "test-secret")
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_transcribe_audio", lambda _audio: transcription)
+    monkeypatch.setattr(app, "_agent", lambda: fake)
+    monkeypatch.setattr(app, "speak", lambda _text: b"RIFF-choice")
+
+    values = app._respond_with_audio(
+        "",
+        [],
+        None,
+        (16_000, np.zeros(16_000, dtype=np.int16)),
+        None,
+        pending,
+    )
+
+    assert fake.calls[0][0] == "bu ñaareel"
+    assert fake.clarifications == [pending]
+    assert values[-1] == b"RIFF-choice"
+
+
+def test_unrelated_answer_keeps_the_same_choices_visible(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    question = "Sahm nga bëgga dem walla Sam Notaire ?"
+    pending = {
+        "question": question,
+        "options": ["Sahm", "Sam Notaire"],
+        "field": "origin",
+        "origin": "Sam",
+        "destination": "Malika",
+        "language": "Wolof",
+    }
+    fake = _FakeAgent(
+        [
+            AgentResult(
+                reply=question,
+                language="Wolof",
+                spoken=question,
+                clarification=pending,
+            )
+        ]
+    )
+    monkeypatch.setattr(app, "_api_key_configured", lambda: True)
+    monkeypatch.setattr(app, "_agent", lambda: fake)
+
+    values = app._respond_ui("banana", [], None, None, "EN", pending)
+
+    assert fake.clarifications == [pending]
+    assert values[0][-1]["content"] == question
+    assert values[9] == pending
+    assert values[10]["value"] == "Sahm"
+    assert values[10]["visible"] is True
+    assert values[11]["value"] == "Sam Notaire"
+    assert values[11]["visible"] is True
 
 
 def test_timing_line_names_each_step_and_marks_a_failed_voice() -> None:

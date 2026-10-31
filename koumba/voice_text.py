@@ -153,6 +153,7 @@ def tts_text(
     check: dict[str, Any] | None = None,
     destination: str | None = None,
     alternative: dict[str, Any] | None = None,
+    places: list[str] | None = None,
 ) -> str:
     """Return the displayed Wolof sentence with reviewed names substituted."""
 
@@ -163,6 +164,8 @@ def tts_text(
     replacements: dict[str, str] = {}
     _add_place(replacements, origin)
     _add_trip(replacements, trip)
+    for place in places or []:
+        _add_place(replacements, place)
 
     if isinstance(check, dict):
         _add_bus(

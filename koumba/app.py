@@ -459,6 +459,16 @@ html, body {
   font-size: 12px !important;
   font-weight: 650 !important;
 }
+.clarify-options { gap: 10px; }
+.clarify-option, .clarify-option button {
+  min-height: 56px !important;
+  border: 2px solid #9bd4b5 !important;
+  border-radius: 16px !important;
+  background: #f3faf5 !important;
+  color: #17452b !important;
+  font-size: 15px !important;
+  font-weight: 750 !important;
+}
 
 #trip-cards {
   border: 0 !important;
@@ -1135,11 +1145,54 @@ def _history_as_dicts(history) -> list[dict[str, Any]]:
     return result
 
 
+def _clarification_state(result: Any) -> dict[str, Any] | None:
+    """Keep the two choices after a question and drop them after an answer."""
+
+    data = getattr(result, "clarification", None)
+    if not isinstance(data, dict):
+        return None
+    options = [
+        str(option).strip()
+        for option in (data.get("options") or [])
+        if str(option).strip()
+    ][:2]
+    if len(options) < 2:
+        return None
+    return {
+        "question": str(
+            data.get("question") or getattr(result, "reply", "") or ""
+        ).strip(),
+        "options": options,
+        "field": data.get("field"),
+        "origin": data.get("origin") or getattr(result, "origin", None),
+        "destination": data.get("destination")
+        or getattr(result, "destination", None),
+        "language": data.get("language")
+        or getattr(result, "language", "Unknown"),
+    }
+
+
+def _option_updates(pending: Any):
+    """Show two large choices only while Koumba waits for an answer."""
+
+    options = pending.get("options") if isinstance(pending, dict) else None
+    if not isinstance(options, (list, tuple)) or len(options) < 2:
+        return (
+            gr.update(value="", visible=False),
+            gr.update(value="", visible=False),
+        )
+    return (
+        gr.update(value=str(options[0]), visible=True),
+        gr.update(value=str(options[1]), visible=True),
+    )
+
+
 def _respond_turn(
     message_text: str,
     history,
     image_path: str | None = None,
     ui_language: str | None = None,
+    pending_clarification: Any = None,
 ):
     """Handle one typed chat submission and also return its agent result."""
 
@@ -1156,6 +1209,7 @@ def _respond_turn(
             image_path,
             None,
             {},
+            pending_clarification,
         )
 
     current.append({"role": "user", "content": text})
@@ -1167,11 +1221,28 @@ def _respond_turn(
                 "content": _missing_key_message(),
             }
         )
-        return current, "", _trip_cards(None, language), [], None, None, {}
+        return (
+            current,
+            "",
+            _trip_cards(None, language),
+            [],
+            None,
+            None,
+            {},
+            pending_clarification,
+        )
 
     started = time.perf_counter()
     try:
-        result = _agent().run(text, previous, image_path)
+        if pending_clarification:
+            result = _agent().run(
+                text,
+                previous,
+                image_path,
+                clarification=pending_clarification,
+            )
+        else:
+            result = _agent().run(text, previous, image_path)
     except Exception as exc:
         current.append(
             {
@@ -1182,7 +1253,17 @@ def _respond_turn(
                 ),
             }
         )
-        return current, "", _trip_cards(None, language), [], None, None, {}
+        return (
+            current,
+            "",
+            _trip_cards(None, language),
+            [],
+            None,
+            None,
+            {},
+            pending_clarification,
+        )
+
     timings = {
         "agent": round(time.perf_counter() - started, 3),
         "agent_calls": getattr(result, "llm_calls", 0)
@@ -1203,6 +1284,7 @@ def _respond_turn(
         None,
         result,
         timings,
+        _clarification_state(result),
     )
 
 
@@ -1211,14 +1293,25 @@ def _respond(
     history,
     image_path: str | None = None,
     ui_language: str | None = None,
+    pending_clarification: Any = None,
 ):
     """Handle one chat submission and return the five UI values."""
 
-    chatbot, message, cards, thoughts, image, _result, _timings = _respond_turn(
+    (
+        chatbot,
+        message,
+        cards,
+        thoughts,
+        image,
+        _result,
+        _timings,
+        _pending,
+    ) = _respond_turn(
         message_text,
         history,
         image_path,
         ui_language,
+        pending_clarification,
     )
     return chatbot, message, cards, thoughts, image
 
@@ -1244,6 +1337,12 @@ def _tts_text_for_result(result: Any) -> str:
         if isinstance(check, dict)
         else None
     )
+    clarification = getattr(result, "clarification", None)
+    choices = (
+        clarification.get("options")
+        if isinstance(clarification, dict)
+        else None
+    )
     return tts_text(
         text,
         trip=best_trip,
@@ -1251,6 +1350,7 @@ def _tts_text_for_result(result: Any) -> str:
         check=check if isinstance(check, dict) else None,
         destination=getattr(result, "destination", None),
         alternative=alternative if isinstance(alternative, dict) else None,
+        places=choices if isinstance(choices, list) else None,
     )
 
 
@@ -1384,8 +1484,15 @@ def _respond_phase_one(
     image_path: str | None = None,
     audio: Any = None,
     ui_language: str | None = None,
+    pending_clarification: Any = None,
+    include_clarification: bool = False,
 ):
     """Return text, cards, and timings before the slower speech call."""
+
+    def finish(values, next_pending):
+        if include_clarification:
+            return (*values, next_pending)
+        return values
 
     language = _ui_language(ui_language)
     if not _audio_present(audio):
@@ -1397,23 +1504,28 @@ def _respond_phase_one(
             image,
             result,
             timings,
+            next_pending,
         ) = _respond_turn(
             message_text,
             history,
             image_path,
             language,
+            pending_clarification,
         )
         job = _tts_job_for_result(result, timings)
-        return (
-            chatbot,
-            message,
-            cards,
-            thoughts,
-            image,
-            None,
-            None,
-            _format_timings(timings),
-            job,
+        return finish(
+            (
+                chatbot,
+                message,
+                cards,
+                thoughts,
+                image,
+                None,
+                None,
+                _format_timings(timings),
+                job,
+            ),
+            next_pending,
         )
 
     previous = _history_as_dicts(history)
@@ -1422,32 +1534,38 @@ def _respond_phase_one(
         voice_config()
     except VoiceError as exc:
         current.append({"role": "assistant", "content": str(exc)})
-        return (
-            current,
-            message_text or "",
-            _trip_cards(None, language),
-            [],
-            image_path,
-            None,
-            None,
-            "",
-            None,
+        return finish(
+            (
+                current,
+                message_text or "",
+                _trip_cards(None, language),
+                [],
+                image_path,
+                None,
+                None,
+                "",
+                None,
+            ),
+            pending_clarification,
         )
 
     if not _api_key_configured():
         current.append(
             {"role": "assistant", "content": _missing_key_message()}
         )
-        return (
-            current,
-            message_text or "",
-            _trip_cards(None, language),
-            [],
-            image_path,
-            None,
-            None,
-            "",
-            None,
+        return finish(
+            (
+                current,
+                message_text or "",
+                _trip_cards(None, language),
+                [],
+                image_path,
+                None,
+                None,
+                "",
+                None,
+            ),
+            pending_clarification,
         )
 
     try:
@@ -1456,16 +1574,19 @@ def _respond_phase_one(
         current.append(
             {"role": "assistant", "content": _transcription_error(exc)}
         )
-        return (
-            current,
-            message_text or "",
-            _trip_cards(None, language),
-            [],
-            image_path,
-            None,
-            None,
-            "",
-            None,
+        return finish(
+            (
+                current,
+                message_text or "",
+                _trip_cards(None, language),
+                [],
+                image_path,
+                None,
+                None,
+                "",
+                None,
+            ),
+            pending_clarification,
         )
 
     timings = dict(transcription.get("timings") or {})
@@ -1485,22 +1606,34 @@ def _respond_phase_one(
                 ),
             }
         )
-        return (
-            current,
-            message_text or "",
-            _trip_cards(None, language),
-            [],
-            image_path,
-            None,
-            None,
-            _format_timings(timings),
-            None,
+        return finish(
+            (
+                current,
+                message_text or "",
+                _trip_cards(None, language),
+                [],
+                image_path,
+                None,
+                None,
+                _format_timings(timings),
+                None,
+            ),
+            pending_clarification,
         )
 
     current.append({"role": "user", "content": f"🎤 {text}"})
     started = time.perf_counter()
     try:
-        result = _agent().run(text, previous, image_path, hints=hints)
+        if pending_clarification:
+            result = _agent().run(
+                text,
+                previous,
+                image_path,
+                hints=hints,
+                clarification=pending_clarification,
+            )
+        else:
+            result = _agent().run(text, previous, image_path, hints=hints)
     except Exception as exc:
         timings["agent"] = round(time.perf_counter() - started, 3)
         current.append(
@@ -1509,16 +1642,19 @@ def _respond_phase_one(
                 "content": f"Koumba could not start the route engine. {exc}",
             }
         )
-        return (
-            current,
-            "",
-            _trip_cards(None, language),
-            [],
-            None,
-            None,
-            None,
-            _format_timings(timings),
-            None,
+        return finish(
+            (
+                current,
+                "",
+                _trip_cards(None, language),
+                [],
+                None,
+                None,
+                None,
+                _format_timings(timings),
+                None,
+            ),
+            pending_clarification,
         )
     timings["agent"] = round(time.perf_counter() - started, 3)
     timings["agent_calls"] = getattr(result, "llm_calls", 0) or getattr(
@@ -1531,16 +1667,19 @@ def _respond_phase_one(
             "content": compose_chat_message(result.spoken, result.reply),
         }
     )
-    return (
-        current,
-        "",
-        _cards_for_result(result, language),
-        _voice_thoughts(transcription, result.tool_calls),
-        None,
-        None,
-        None,
-        _format_timings(timings),
-        _tts_job_for_result(result, timings),
+    return finish(
+        (
+            current,
+            "",
+            _cards_for_result(result, language),
+            _voice_thoughts(transcription, result.tool_calls),
+            None,
+            None,
+            None,
+            _format_timings(timings),
+            _tts_job_for_result(result, timings),
+        ),
+        _clarification_state(result),
     )
 
 
@@ -1550,6 +1689,7 @@ def _respond_with_audio(
     image_path: str | None = None,
     audio: Any = None,
     ui_language: str | None = None,
+    pending_clarification: Any = None,
 ):
     """Synchronous helper for tests; the UI uses two phases."""
 
@@ -1569,6 +1709,7 @@ def _respond_with_audio(
         image_path,
         audio,
         ui_language,
+        pending_clarification,
     )
     if job is None:
         return chatbot, message, cards, thoughts, image, None, None
@@ -1608,6 +1749,111 @@ def _respond_to_recording(
     return (*result, audio_key)
 
 
+def _respond_ui(
+    message_text: str,
+    history,
+    image_path: str | None = None,
+    audio: Any = None,
+    ui_language: str | None = None,
+    pending_clarification: Any = None,
+):
+    """Text or tapped answer plus the two optional clarification buttons."""
+
+    values = _respond_phase_one(
+        message_text,
+        history,
+        image_path,
+        audio,
+        ui_language,
+        pending_clarification,
+        include_clarification=True,
+    )
+    *phase_one, next_pending = values
+    first, second = _option_updates(next_pending)
+    return (*phase_one, next_pending, first, second)
+
+
+def _respond_to_recording_ui(
+    history,
+    image_path: str | None,
+    audio: Any,
+    last_audio_key: str | None,
+    ui_language: str | None = None,
+    pending_clarification: Any = None,
+):
+    """Voice submission that also updates the waiting choices."""
+
+    audio_key = _audio_fingerprint(audio)
+    if audio_key is None or audio_key == last_audio_key:
+        return (
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            None,
+            last_audio_key,
+            pending_clarification,
+            gr.update(),
+            gr.update(),
+        )
+
+    gr.Info(LISTENING_STATUS, duration=4)
+    values = _respond_phase_one(
+        "",
+        history,
+        image_path,
+        audio,
+        ui_language,
+        pending_clarification,
+        include_clarification=True,
+    )
+    *phase_one, next_pending = values
+    first, second = _option_updates(next_pending)
+    return (*phase_one, audio_key, next_pending, first, second)
+
+
+def _choose_clarification(
+    index: int,
+    history,
+    image_path: str | None,
+    audio: Any,
+    ui_language: str | None,
+    pending_clarification: Any,
+):
+    """Send the place name from a big option button as the next answer."""
+
+    options = (
+        pending_clarification.get("options")
+        if isinstance(pending_clarification, dict)
+        else None
+    )
+    if (
+        not isinstance(options, (list, tuple))
+        or index not in (0, 1)
+        or index >= len(options)
+    ):
+        return _respond_ui(
+            "",
+            history,
+            image_path,
+            audio,
+            ui_language,
+            pending_clarification,
+        )
+    return _respond_ui(
+        str(options[index]),
+        history,
+        image_path,
+        audio,
+        ui_language,
+        pending_clarification,
+    )
+
+
 def _clear(ui_language: str | None = None):
     return (
         [],
@@ -1627,6 +1873,7 @@ def _clear_voice_ui(ui_language: str | None = None):
 
     values = list(_clear_voice(ui_language))
     values[6] = gr.update(value=None, visible=False)
+    values.extend([None, *_option_updates(None)])
     return tuple(values)
 
 
@@ -1672,6 +1919,23 @@ def build_app() -> gr.Blocks:
                 placeholder=copy["chat_placeholder"],
                 elem_id="chatbot",
             )
+            with gr.Row(elem_classes=["clarify-options"]):
+                clarify_a = gr.Button(
+                    "",
+                    visible=False,
+                    variant="secondary",
+                    size="lg",
+                    elem_id="clarify-a",
+                    elem_classes=["clarify-option"],
+                )
+                clarify_b = gr.Button(
+                    "",
+                    visible=False,
+                    variant="secondary",
+                    size="lg",
+                    elem_id="clarify-b",
+                    elem_classes=["clarify-option"],
+                )
             reply_audio = gr.Audio(
                 label=copy["voice_label"],
                 show_label=False,
@@ -1799,6 +2063,7 @@ def build_app() -> gr.Blocks:
 
             voice_guard = gr.State(None)
             voice_job = gr.State(None)
+            clarification = gr.State(None)
 
         language_outputs = [
             header,
@@ -1840,18 +2105,46 @@ def build_app() -> gr.Blocks:
                 outputs=[reply_audio, timings, voice_job],
             )
 
+        clarification_outputs = [
+            *voice_outputs,
+            clarification,
+            clarify_a,
+            clarify_b,
+        ]
+        recording_outputs = [
+            *voice_outputs,
+            voice_guard,
+            clarification,
+            clarify_a,
+            clarify_b,
+        ]
+
         add_voice_phase(
             send.click(
-                _respond_phase_one,
-                inputs=[message, chatbot, photo, audio, ui_language],
-                outputs=voice_outputs,
+                _respond_ui,
+                inputs=[
+                    message,
+                    chatbot,
+                    photo,
+                    audio,
+                    ui_language,
+                    clarification,
+                ],
+                outputs=clarification_outputs,
             )
         )
         add_voice_phase(
             message.submit(
-                _respond_phase_one,
-                inputs=[message, chatbot, photo, audio, ui_language],
-                outputs=voice_outputs,
+                _respond_ui,
+                inputs=[
+                    message,
+                    chatbot,
+                    photo,
+                    audio,
+                    ui_language,
+                    clarification,
+                ],
+                outputs=clarification_outputs,
             )
         )
         # Only the microphone stop event auto-sends.  Do not also bind change:
@@ -1859,54 +2152,96 @@ def build_app() -> gr.Blocks:
         # audio component, which would send the same question twice.
         add_voice_phase(
             audio.stop_recording(
-                _respond_to_recording,
-                inputs=[chatbot, photo, audio, voice_guard, ui_language],
-                outputs=[*voice_outputs, voice_guard],
+                _respond_to_recording_ui,
+                inputs=[
+                    chatbot,
+                    photo,
+                    audio,
+                    voice_guard,
+                    ui_language,
+                    clarification,
+                ],
+                outputs=recording_outputs,
             )
         )
         add_voice_phase(
             example_wolof.click(
-                lambda history, audio, ui_language: _respond_phase_one(
+                lambda history, audio, ui_language, pending: _respond_ui(
                     EXAMPLE_WOLOF,
                     history,
                     None,
                     audio,
                     ui_language,
+                    pending,
                 ),
-                inputs=[chatbot, audio, ui_language],
-                outputs=voice_outputs,
+                inputs=[chatbot, audio, ui_language, clarification],
+                outputs=clarification_outputs,
             )
         )
         add_voice_phase(
             example_medina.click(
-                lambda history, audio, ui_language: _respond_phase_one(
+                lambda history, audio, ui_language, pending: _respond_ui(
                     EXAMPLE_WOLOF_MEDINA,
                     history,
                     None,
                     audio,
                     ui_language,
+                    pending,
                 ),
-                inputs=[chatbot, audio, ui_language],
-                outputs=voice_outputs,
+                inputs=[chatbot, audio, ui_language, clarification],
+                outputs=clarification_outputs,
             )
         )
         add_voice_phase(
             example_french.click(
-                lambda history, audio, ui_language: _respond_phase_one(
+                lambda history, audio, ui_language, pending: _respond_ui(
                     EXAMPLE_FRENCH,
                     history,
                     None,
                     audio,
                     ui_language,
+                    pending,
                 ),
-                inputs=[chatbot, audio, ui_language],
-                outputs=voice_outputs,
+                inputs=[chatbot, audio, ui_language, clarification],
+                outputs=clarification_outputs,
+            )
+        )
+        add_voice_phase(
+            clarify_a.click(
+                lambda history, photo, audio, ui_language, pending: (
+                    _choose_clarification(
+                        0,
+                        history,
+                        photo,
+                        audio,
+                        ui_language,
+                        pending,
+                    )
+                ),
+                inputs=[chatbot, photo, audio, ui_language, clarification],
+                outputs=clarification_outputs,
+            )
+        )
+        add_voice_phase(
+            clarify_b.click(
+                lambda history, photo, audio, ui_language, pending: (
+                    _choose_clarification(
+                        1,
+                        history,
+                        photo,
+                        audio,
+                        ui_language,
+                        pending,
+                    )
+                ),
+                inputs=[chatbot, photo, audio, ui_language, clarification],
+                outputs=clarification_outputs,
             )
         )
         clear.click(
             _clear_voice_ui,
             inputs=[ui_language],
-            outputs=[*voice_outputs, voice_guard],
+            outputs=recording_outputs,
         )
 
     return demo
