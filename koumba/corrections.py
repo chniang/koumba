@@ -71,7 +71,47 @@ STOP_NAME_ALIASES = {
     "case ba": "Case Ba",
     "pattesd oie": "Patte d'Oie",
     "patte d oie": "Patte d'Oie",
+    "sahm": "Sahm",
 }
+
+
+def _display_name_rank(name: str) -> tuple[bool, bool, int, str]:
+    """Prefer a mixed-case name over an all-caps or lowercase spelling."""
+
+    return (name.isupper(), name.islower(), len(name), name.casefold())
+
+
+def _case_display_names(
+    targets: tuple[tuple[Any, tuple[str, ...]], ...],
+) -> dict[str, str]:
+    """Find spelling pairs such as "SAHM" and "Sahm" in the loaded frames.
+
+    We only replace a name when the dataset really contains a non-caps
+    spelling for the same normalized stop.  A stop that only exists in
+    capitals, such as "PAI" or "UCAD", is therefore left untouched.
+    """
+
+    from .places import normalize_name
+
+    variants: dict[str, set[str]] = {}
+    for frame, columns in targets:
+        for column in columns:
+            if column not in frame.columns:
+                continue
+            for value in frame[column]:
+                if not isinstance(value, str):
+                    continue
+                text = value.strip()
+                if not text:
+                    continue
+                variants.setdefault(normalize_name(text), set()).add(text)
+
+    preferred: dict[str, str] = {}
+    for normalized, names in variants.items():
+        normal = [name for name in names if not name.isupper()]
+        if normal and len(normal) < len(names):
+            preferred[normalized] = min(normal, key=_display_name_rank)
+    return preferred
 
 
 def canonical_stop_name(name: Any) -> str:
@@ -93,8 +133,11 @@ def canonicalize_data_stop_names(data: Any) -> None:
 
     This runs on the loaded frames before the graph is built, so a route
     through "Case-Ba" and another through "Case Ba" become the same stop
-    without editing the downloaded CSV by hand.
+    without editing the downloaded CSV by hand.  It also uses the dataset
+    itself to choose "Sahm" over "SAHM" when both spellings are present.
     """
+
+    from .places import normalize_name
 
     targets = (
         (data.arrets, ("arret",)),
@@ -102,15 +145,21 @@ def canonicalize_data_stop_names(data: Any) -> None:
         (data.itineraires, ("arret",)),
         (data.lignes, ("terminus_a", "terminus_b")),
     )
+    case_names = _case_display_names(targets)
+
+    def display_name(value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        text = value.strip()
+        if not text:
+            return value
+        return case_names.get(normalize_name(text), canonical_stop_name(text))
+
     for frame, columns in targets:
         for column in columns:
             if column not in frame.columns:
                 continue
-            frame[column] = frame[column].map(
-                lambda value: canonical_stop_name(value)
-                if isinstance(value, str)
-                else value
-            )
+            frame[column] = frame[column].map(display_name)
 
 
 def _line_label(operator: str, line: str) -> str:

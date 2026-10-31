@@ -72,7 +72,9 @@ UI_TEXT = {
         "voice_label": "Koumba's voice",
         "mic_label": "Speak to Koumba",
         "message_label": "Where are you going?",
-        "chat_placeholder": "Dalal ak jàmm ! Fan nga bëgga dem ?",
+        "chat_placeholder": (
+            "Tap the mic and say where you are and where you are going."
+        ),
         "placeholder": "Type: Maa ngi Sahm, dama bëgga dem Malika",
         "send": "Send",
         "clear": "Clear",
@@ -101,7 +103,9 @@ UI_TEXT = {
         "voice_label": "La voix de Koumba",
         "mic_label": "Parle à Koumba",
         "message_label": "Où vas-tu ?",
-        "chat_placeholder": "Dalal ak jàmm ! Fan nga bëgga dem ?",
+        "chat_placeholder": (
+            "Appuie sur le micro et dis où tu es et où tu vas."
+        ),
         "placeholder": "Écris : Maa ngi Sahm, dama bëgga dem Malika",
         "send": "Envoyer",
         "clear": "Effacer",
@@ -240,9 +244,9 @@ html, body {
   height: auto !important;
   min-height: 160px !important;
   max-height: 420px !important;
-  border: 1px solid var(--koumba-line) !important;
+  border: 1px solid #d9eadf !important;
   border-radius: 20px !important;
-  background: #fbfdfb !important;
+  background: #F3FAF5 !important;
   overflow: hidden;
 }
 #chatbot .wrapper,
@@ -471,48 +475,10 @@ html, body {
   background: #ffffff;
   box-shadow: 0 2px 10px rgba(16, 32, 24, 0.05);
 }
-.trip-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 0;
-}
 .trip-card.best-trip {
-  border-color: #c7e7d4;
-  box-shadow: 0 0 0 2px var(--koumba-green), 0 8px 22px rgba(16, 32, 24, 0.08);
+  border-color: var(--koumba-line);
+  box-shadow: 0 8px 22px rgba(16, 32, 24, 0.08);
 }
-.trip-card.livery-tata {
-  border-left: 7px solid #1F5FAD;
-  padding-left: 13px;
-}
-.trip-card.livery-tata::before {
-  height: 9px;
-  background: repeating-linear-gradient(
-    135deg,
-    #1F5FAD 0,
-    #1F5FAD 14px,
-    #4f8bd0 14px,
-    #4f8bd0 19px,
-    #ffffff 19px,
-    #ffffff 23px
-  );
-}
-.trip-card.livery-ddd::before {
-  height: 5px;
-  background: linear-gradient(
-    90deg,
-    var(--koumba-green) 0 33.33%,
-    var(--koumba-yellow) 33.33% 66.66%,
-    var(--koumba-red) 66.66% 100%
-  );
-}
-.trip-card.livery-tata .trip-top .pill:not(.best-pill) {
-  background: #e8f1fb;
-  color: #1F5FAD;
-}
-.trip-card.livery-tata .trip-rank { color: #1F5FAD; }
 .trip-top {
   display: flex;
   align-items: center;
@@ -544,14 +510,26 @@ html, body {
   border-radius: 14px;
   background: #ffffff;
 }
-.leg-tata {
-  border-left: 6px solid #1F5FAD;
-  padding-left: 13px;
-  background: linear-gradient(90deg, #f4f9ff 0%, #ffffff 55%);
-}
+.leg-tata,
 .leg-ddd {
   padding-top: 15px;
-  border-color: #cfe5d8;
+}
+.leg-tata::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 7px;
+  background: repeating-linear-gradient(
+    135deg,
+    #1F5FAD 0,
+    #1F5FAD 14px,
+    #4f8bd0 14px,
+    #4f8bd0 19px,
+    #ffffff 19px,
+    #ffffff 23px
+  );
 }
 .leg-ddd::before {
   content: "";
@@ -559,7 +537,7 @@ html, body {
   top: 0;
   left: 0;
   right: 0;
-  height: 4px;
+  height: 5px;
   background: linear-gradient(
     90deg,
     var(--koumba-green) 0 33.33%,
@@ -991,8 +969,8 @@ def _operator_tag(operator: str) -> tuple[str, str]:
     return (operator or "Bus").upper(), "op-bus"
 
 
-def _operator_livery(operator: str, prefix: str) -> str:
-    """Map an operator to a card or leg livery class."""
+def _operator_livery(operator: str, prefix: str = "leg") -> str:
+    """Map an operator to the livery class used by its leg block."""
 
     return f"{prefix}-{_operator_kind(operator)}"
 
@@ -1036,8 +1014,6 @@ def _trip_cards(
         legs = [
             leg for leg in trip.get("legs", []) if isinstance(leg, dict)
         ]
-        first_operator = str(legs[0].get("operator", "")) if legs else ""
-        card_livery = _operator_livery(first_operator, "livery")
         legs_html: list[str] = []
         for leg in legs:
             operator = escape(str(leg.get("operator", "")))
@@ -1087,7 +1063,7 @@ def _trip_cards(
             else ""
         )
         card_classes = " ".join(
-            ["trip-card", card_livery, "best-trip" if is_best else ""]
+            ["trip-card", "best-trip" if is_best else ""]
         ).strip()
         cards.append(
             f"<div class='{card_classes}'>"

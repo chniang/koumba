@@ -6,12 +6,14 @@ import pytest
 
 from koumba.data import load_data
 from koumba.network import Network
+from koumba.phrases import spoken_answer
 from koumba.places import (
     PlaceIndex,
     normalize_name,
     prefer_exact_matches,
 )
 from koumba.router import RouteEngine, Trip
+from koumba.tools import _trip_to_dict
 
 
 @pytest.fixture(scope="module")
@@ -68,6 +70,30 @@ def test_rond_point_sahm_matches_only_the_sahm_stop(data) -> None:
 
     # The old loose matcher also returned unrelated "Rond-Point ..." stops.
     assert [candidate.name for candidate in matches] == ["Sahm"]
+
+
+def test_sahm_is_shown_in_normal_case_in_cards_and_speech(
+    engine: RouteEngine,
+) -> None:
+    network = engine.network
+    index = engine.place_index
+
+    assert "SAHM" not in network.stop_names
+    assert "Sahm" in network.stop_names
+    assert index.match("SAHM")[0].name == "Sahm"
+
+    trips = engine.find_trips("Rond-Point Sahm", "Malika", max_trips=1)
+    trip = _trip_to_dict(trips[0])
+
+    assert all(
+        "SAHM" not in leg["board_stop"]
+        and "SAHM" not in leg["alight_stop"]
+        and "SAHM" not in leg["direction"]
+        for leg in trip["legs"]
+    )
+    spoken = spoken_answer(trip, "English", "Sahm")
+    assert "SAHM" not in spoken
+    assert "Sahm" in spoken
 
 
 def test_reviewed_stop_spellings_display_and_merge_in_the_graph(data) -> None:

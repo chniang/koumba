@@ -74,7 +74,9 @@ def test_language_switch_updates_only_interface_labels(llm_env) -> None:
 
     assert len(updates) == 13
     assert "Votre assistant bus à Dakar" in updates[0]["value"]
-    assert updates[1]["placeholder"] == "Dalal ak jàmm ! Fan nga bëgga dem ?"
+    assert updates[1]["placeholder"] == (
+        "Appuie sur le micro et dis où tu es et où tu vas."
+    )
     assert updates[3]["label"] == "Parle à Koumba"
     assert updates[5]["label"] == "Où vas-tu ?"
     assert updates[5]["placeholder"] == (
@@ -98,7 +100,7 @@ def test_empty_chat_is_short_and_voice_player_starts_hidden(llm_env) -> None:
     assert chatbot["props"]["min_height"] == 160
     assert chatbot["props"]["max_height"] == 420
     assert chatbot["props"]["placeholder"] == (
-        "Dalal ak jàmm ! Fan nga bëgga dem ?"
+        "Tap the mic and say where you are and where you are going."
     )
     assert voice["props"]["visible"] is False
     assert app.UI_TEXT["English"]["placeholder"] == (
@@ -111,10 +113,13 @@ def test_css_keeps_mic_clean_and_hides_the_default_footer() -> None:
 
     css = app.CSS
     assert "#1F5FAD" in css
-    assert "livery-tata" in css
-    assert "livery-ddd" in css
     assert "leg-tata" in css
     assert "leg-ddd" in css
+    assert ".leg-tata::before" in css
+    assert ".leg-ddd::before" in css
+    assert "border-left: 7px solid #1F5FAD" not in css
+    assert "border-left: 6px solid #1F5FAD" not in css
+    assert "#F3FAF5" in css
     assert "#mic .mic-select" in css
     assert "#mic .icon-button-wrapper" in css
     assert 'content: "🎤"' in css
@@ -466,7 +471,8 @@ def test_bus_photo_direct_check_shows_the_trip_card(
     assert "Avenue Blaise Diagne" in cards
     assert "op-tata" in cards
     assert ">TATA<" in cards
-    assert "livery-tata" in cards
+    assert "leg-tata" in cards
+    assert "livery-tata" not in cards
     assert app.HONEST_NOTE_EN in cards
     assert image is None
 
@@ -626,7 +632,8 @@ def test_trip_cards_include_the_useful_fields() -> None:
     assert ">Best<" in html
     assert "op-dem" in html
     assert ">DEM DIKK<" in html
-    assert "livery-ddd" in html
+    assert "leg-ddd" in html
+    assert "livery-ddd" not in html
     assert "Board" in html
     assert "Alight" in html
     assert (
@@ -666,7 +673,8 @@ def test_transfer_trip_uses_each_operator_livery() -> None:
         ]
     )
 
-    assert "livery-tata" in html
+    assert "livery-tata" not in html
+    assert "livery-ddd" not in html
     assert "leg-tata" in html
     assert "leg-ddd" in html
     assert ">TATA<" in html

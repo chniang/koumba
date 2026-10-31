@@ -46,6 +46,7 @@ def test_reviewed_stop_names_are_canonical() -> None:
     assert canonical_stop_name("Case Ba") == "Case Ba"
     assert canonical_stop_name("Pattesd'oie") == "Patte d'Oie"
     assert canonical_stop_name("Patte d'Oie") == "Patte d'Oie"
+    assert canonical_stop_name("SAHM") == "Sahm"
     assert canonical_stop_name("Echangeur Patte d'Oie") == (
         "Echangeur Patte d'Oie"
     )
@@ -97,6 +98,54 @@ def test_canonical_stop_names_are_applied_to_all_frames() -> None:
     assert list(data.itineraires["arret"]) == ["Case Ba", "Patte d'Oie"]
     assert list(data.arrets["arret"]) == ["Case Ba", "Patte d'Oie"]
     assert list(data.lieux["lieu"]) == ["Case Ba"]
+
+
+def test_case_variants_use_the_normal_spelling_and_keep_acronyms() -> None:
+    acronyms = ("PAI", "UCAD", "HLM", "VDN", "MTOA", "SONADIS", "LSS")
+    names = ["SAHM", "Sahm", "BLA", "Bla", *acronyms]
+    data = SimpleNamespace(
+        lignes=pd.DataFrame(
+            [
+                {
+                    "compagnie": "Tata AFTU",
+                    "ligne": "Ligne Test",
+                    "terminus_a": "SAHM",
+                    "terminus_b": "PAI",
+                }
+            ]
+        ),
+        itineraires=pd.DataFrame(
+            [
+                {
+                    "compagnie": "Tata AFTU",
+                    "ligne": "Ligne Test",
+                    "ordre": index,
+                    "arret": name,
+                }
+                for index, name in enumerate(names, start=1)
+            ]
+        ),
+        arrets=pd.DataFrame(
+            [
+                {
+                    "arret": name,
+                    "lat": 14.7,
+                    "lon": -17.4,
+                    "confiance": "bonne",
+                }
+                for name in names
+            ]
+        ),
+        lieux=pd.DataFrame([{"lieu": "Sahm", "lat": 14.7, "lon": -17.4}]),
+    )
+
+    canonicalize_data_stop_names(data)
+
+    assert set(data.arrets["arret"]) == {"Sahm", "Bla", *acronyms}
+    assert set(data.itineraires["arret"]) == {"Sahm", "Bla", *acronyms}
+    assert list(data.lignes["terminus_a"]) == ["Sahm"]
+    assert list(data.lignes["terminus_b"]) == ["PAI"]
+    assert list(data.lieux["lieu"]) == ["Sahm"]
 
 
 def test_each_supported_correction_changes_the_itinerary(capsys) -> None:

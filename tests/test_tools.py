@@ -219,11 +219,11 @@ def test_check_bus_line_yes_returns_board_and_alight(engine) -> None:
     assert result["serves_trip"] is True
     assert result["operator"] == "Tata AFTU"
     assert result["line"] == "Ligne 38"
-    assert result["board_stop"] == "SAHM"
+    assert result["board_stop"] == "Sahm"
     assert result["alight_stop"] == "PAI"
     assert result["direction"]
     assert result["minutes"] > 0
-    assert result["trip"]["legs"][0]["board_stop"] == "SAHM"
+    assert result["trip"]["legs"][0]["board_stop"] == "Sahm"
 
 
 def test_check_bus_line_no_returns_alternative_and_part_way(engine) -> None:
@@ -268,9 +268,9 @@ def test_line_info_returns_ordered_stops_and_directions(engine) -> None:
 
     assert result["line"] == "Ligne 38"
     assert result["stops"][0] == "Cité des Enseignants"
-    assert "SAHM" in result["stops"]
+    assert "Sahm" in result["stops"]
     assert len(result["directions"]) == 2
-    assert result["directions"][0]["towards"] == "SAHM"
+    assert result["directions"][0]["towards"] == "Sahm"
     assert list(reversed(result["directions"][1]["stops"])) == result["stops"]
 
 
