@@ -40,10 +40,11 @@ This repository contains:
 - `koumba/app.py` - the Gradio demo UI with a provider banner, voice and
   bus-photo inputs, bus-check cards, spoken Wolof replies, and the honest data
   note.
+- `modal_app/web.py` - the Modal-hosted Gradio demo and its bus-data cache.
 - `modal_app/asr.py` - the Modal Omnilingual ASR service and its cache volume.
 - `modal_app/tts.py` - the Modal Oolel-Voices service and its cache volume.
 - `modal_app/README.md` - secret creation, deployment, and endpoint tests for
-  both Modal services.
+  the Modal services.
 - `scripts/try_voice.py` - manual WAV -> Modal ASR -> agent test.
 - `data/corrections.json` - human-reviewed field corrections. It starts empty.
 - `.env.example` - provider presets and voice endpoint placeholders.
@@ -239,31 +240,17 @@ Fireworks”; if the configured key env var is missing, it shows a warning such 
 `koumba.app` or calling `build_app()` only builds the UI; it does not start a
 server.
 
-## Run it on Hugging Face
+## Live demo on Modal
 
-Live demo: [TIJAANI/koumba](https://huggingface.co/spaces/TIJAANI/koumba)
+Live demo: [Koumba on Modal](https://YOUR-WORKSPACE--koumba-web-web.modal.run)
 
-The Space uses Gradio on free CPU hardware and downloads the bus CSVs from
-`TIJAANI/dakar-bus-network` on first use. Set these names in **Settings →
-Variables and secrets**:
+The demo is the `koumba-web` Modal app: Gradio on one CPU container, with voice
+through the existing ASR and TTS services. It caches the bus CSVs in the
+`koumba-web-cache` Volume. See `modal_app/README.md` for the secret creation and
+deploy commands, then replace this placeholder with the URL Modal prints.
 
-```text
-BASETEN_API_KEY
-KOUMBA_BASE_URL
-KOUMBA_API_KEY_ENV
-KOUMBA_MODEL
-KOUMBA_ASR_URL
-KOUMBA_ASR_KEY
-KOUMBA_TTS_URL
-```
-
-`BASETEN_API_KEY` and `KOUMBA_ASR_KEY` are secrets; the others are variables.
-To upload the Space from this repository, put `HF_TOKEN` in the environment or
-the local `.env` and run:
-
-```powershell
-python scripts/deploy_space.py
-```
+`app.py`, `space/`, and `scripts/deploy_space.py` remain an optional Hugging
+Face Space path, but new Gradio Spaces require Hugging Face PRO.
 
 ### Manual voice test
 
@@ -639,7 +626,7 @@ real provider or the Modal endpoint.
 
 ```text
 koumba/       package code; the app only calls the Modal services over HTTP
-modal_app/    Modal ASR and TTS services plus deployment notes
+modal_app/    Modal web app, ASR and TTS services, plus deployment notes
 scripts/      manual WAV -> Modal ASR -> agent test
 data/         human-reviewed corrections.json
 tests/        route, correction, tool, agent, provider, vision, voice, TTS,

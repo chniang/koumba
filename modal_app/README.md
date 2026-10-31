@@ -1,9 +1,10 @@
-# Koumba ASR and TTS on Modal
+# Koumba web, ASR, and TTS on Modal
 
-This folder contains two separate Modal services: Meta Omnilingual ASR for
-voice input and Oolel-Voices for spoken Wolof replies. They are separate from
-the Koumba app: the app only posts WAV bytes or text to the deployed HTTPS URLs.
-The local app never imports Modal or loads either model.
+This folder contains three separate Modal services: the public Gradio web app,
+Meta Omnilingual ASR for voice input, and Oolel-Voices for spoken Wolof replies.
+The voice services are separate from the app: the app only posts WAV bytes or
+text to the deployed HTTPS URLs. The local app never imports Modal or loads
+either voice model.
 
 The ASR service uses Meta's Apache-2.0 Omnilingual ASR and defaults to CPU
 because Modal GPU functions require a payment method. CPU mode uses 8 cores and
@@ -16,6 +17,33 @@ device modes install matching `torch`/`torchaudio` 2.8.0 CUDA 12.8 wheels,
 as required by the `fairseq2` 0.6 runtime; those wheels also run on CPU-only
 containers. The data stack is pinned to NumPy 1.26, PyArrow 25, pandas 2.3,
 and polars 1.44 to keep the runtime compatible with fairseq2 0.6.
+
+## Public web demo
+
+`modal_app/web.py` serves the Gradio UI as the `koumba-web` Modal app. It runs
+the same `koumba.app.build_app()` UI as the local app on one CPU container with
+2 GiB of RAM. Gradio keeps session state in memory, so the app is capped at one
+container while that container can handle up to 100 concurrent inputs. The bus
+CSVs are downloaded from `TIJAANI/dakar-bus-network` once and cached in the
+`koumba-web-cache` Volume through `KOUMBA_DATA_DIR`.
+
+Create the app secret from the local `.env` without printing any values:
+
+```powershell
+.\.venv\Scripts\python.exe -m modal secret create koumba-app --from-dotenv .env --force
+```
+
+The secret must provide `BASETEN_API_KEY`, `KOUMBA_BASE_URL`,
+`KOUMBA_API_KEY_ENV`, `KOUMBA_MODEL`, `KOUMBA_ASR_URL`, `KOUMBA_ASR_KEY`, and
+`KOUMBA_TTS_URL`. Deploy the web app from the repository root:
+
+```powershell
+.\.venv\Scripts\python.exe -m modal deploy modal_app/web.py
+```
+
+Modal prints the public web URL after the deploy. It normally ends in
+`--koumba-web-web.modal.run`; the same URL is in the dashboard under Apps →
+`koumba-web` → `web`. Paste that URL into the root `README.md` live-demo link.
 
 ## 1. Create the shared secret
 
@@ -75,14 +103,15 @@ inference, especially with the 1B model.
 
 ### Keep containers warm (optional)
 
-Both services read `KOUMBA_KEEP_WARM` at deploy time. The default is `0`, which
-lets Modal stop the container after the idle window. Set it to `1` to pass
-`min_containers=1` and keep one container warm:
+All three services read `KOUMBA_KEEP_WARM` at deploy time. The default is `0`,
+which lets Modal stop the container after the idle window. Set it to `1` to
+pass `min_containers=1` and keep one container warm:
 
 ```powershell
 $env:KOUMBA_KEEP_WARM="1"
 .\.venv\Scripts\python.exe -m modal deploy modal_app/asr.py
 .\.venv\Scripts\python.exe -m modal deploy modal_app/tts.py
+.\.venv\Scripts\python.exe -m modal deploy modal_app/web.py
 ```
 
 Return to the cheaper cold-start default with:
@@ -91,14 +120,15 @@ Return to the cheaper cold-start default with:
 Remove-Item Env:KOUMBA_KEEP_WARM -ErrorAction SilentlyContinue
 .\.venv\Scripts\python.exe -m modal deploy modal_app/asr.py
 .\.venv\Scripts\python.exe -m modal deploy modal_app/tts.py
+.\.venv\Scripts\python.exe -m modal deploy modal_app/web.py
 ```
 
 **Cost warning:** `KOUMBA_KEEP_WARM=1` keeps one container running for each
 service, even when nobody is using the app. Modal bills for that idle capacity.
-In CPU mode each service uses 8 cores and 16 GiB of RAM; if ASR is deployed with
-`KOUMBA_ASR_DEVICE=gpu`, that GPU stays warm too. Warm containers make the first
-reply much faster, but leave the default at `0` unless you need the demo to
-answer immediately.
+In CPU mode ASR and TTS use 8 cores and 16 GiB of RAM each, while the web app
+uses 1 core and 2 GiB; if ASR is deployed with `KOUMBA_ASR_DEVICE=gpu`, that GPU
+stays warm too. Warm containers make the first reply much faster, but leave the
+default at `0` unless you need the demo to answer immediately.
 
 ## 3. Test
 
