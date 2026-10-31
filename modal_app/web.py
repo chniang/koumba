@@ -13,7 +13,7 @@ import gradio as gr
 import modal
 from fastapi import FastAPI
 
-from koumba.app import CSS, build_app
+from koumba.app import CSS, NOTRANSLATE_HEAD, build_app
 
 APP_NAME = "koumba-web"
 CACHE_PATH = "/root/data_cache"
@@ -78,6 +78,7 @@ def create_asgi_app():
         path="/",
         css=CSS,
         footer_links=[],
+        head=NOTRANSLATE_HEAD,
     )
 
 

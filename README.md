@@ -60,7 +60,7 @@ from scratch during the hackathon.
 ## Requirements
 
 - Python 3.12 (tested with Python 3.12.5 on Windows)
-- `numpy==1.26.4`
+- `numpy==2.5.4`
 - `pandas==3.1.0`
 - `rapidfuzz==3.14.6`
 - `huggingface_hub==2.3.0`
@@ -69,7 +69,7 @@ from scratch during the hackathon.
 - `httpx==0.28.1`
 - `python-dotenv==1.2.4`
 - `gradio==6.30.0`
-- `Pillow==11.3.0`
+- `Pillow==12.3.0`
 
 The `modal` package is needed only to deploy the services in `modal_app/`; the
 Koumba app uses plain HTTP and does not import it.

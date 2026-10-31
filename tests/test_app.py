@@ -44,6 +44,43 @@ def test_app_builds_without_api_key(llm_env) -> None:
     assert demo is not None
 
 
+def test_app_disables_browser_auto_translation(llm_env) -> None:
+    import koumba.app as app
+
+    head = app.NOTRANSLATE_HEAD
+    assert '<meta name="google" content="notranslate">' in head
+    assert 'setAttribute("translate", "no")' in head
+    assert 'classList.add("notranslate")' in head
+    assert 'getElementById("app-shell")' in head
+
+    demo = app.build_app()
+    shell = _component(demo, "app-shell")
+
+    assert "notranslate" in shell["props"]["elem_classes"]
+    assert "app-shell" in shell["props"]["elem_classes"]
+
+
+def test_launch_passes_notranslate_head_to_gradio(
+    llm_env,
+    monkeypatch,
+) -> None:
+    import koumba.app as app
+
+    calls: dict = {}
+
+    class _FakeDemo:
+        def launch(self, **kwargs):
+            calls.update(kwargs)
+
+    monkeypatch.setattr(app, "build_app", lambda: _FakeDemo())
+
+    app._launch()
+
+    assert calls["head"] is app.NOTRANSLATE_HEAD
+    assert calls["css"] is app.CSS
+    assert calls["footer_links"] == []
+
+
 def test_mobile_header_replaces_the_provider_banner(llm_env) -> None:
     import koumba.app as app
 

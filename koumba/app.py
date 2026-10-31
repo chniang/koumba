@@ -63,6 +63,36 @@ FOOTER_LINE = (
     "Dakar Dem Dikk public lines · Check with the apprenti"
 )
 
+# Browsers must never translate Koumba's own Wolof/French/English text.  The
+# EN | FR switch is the only language control.  Gradio inserts this markup in
+# the page head for both the local launch and the Modal mount.
+NOTRANSLATE_HEAD = """
+<meta name="google" content="notranslate">
+<script>
+(function () {
+  function markRoot() {
+    var nodes = [
+      document.querySelector(".gradio-container"),
+      document.getElementById("app-shell")
+    ];
+    for (var i = 0; i < nodes.length; i += 1) {
+      if (nodes[i]) {
+        nodes[i].setAttribute("translate", "no");
+        nodes[i].classList.add("notranslate");
+      }
+    }
+  }
+  document.documentElement.setAttribute("translate", "no");
+  document.documentElement.classList.add("notranslate");
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", markRoot);
+  } else {
+    markRoot();
+  }
+})();
+</script>
+"""
+
 # All visible UI labels live here.  Koumba's answers stay in the language of
 # the question; only the small EN | FR switch reads from this table.
 UI_TEXT = {
@@ -1888,7 +1918,10 @@ def build_app() -> gr.Blocks:
         _provider_config()
         _start_voice_wakeup()
 
-        with gr.Column(elem_classes=["app-shell"]):
+        with gr.Column(
+            elem_id="app-shell",
+            elem_classes=["app-shell", "notranslate"],
+        ):
             with gr.Row(elem_classes=["hero-row"]):
                 header = gr.HTML(
                     value=_header_html("English"),
@@ -2247,6 +2280,16 @@ def build_app() -> gr.Blocks:
     return demo
 
 
-if __name__ == "__main__":
+def _launch() -> None:
+    """Start the local demo with browser translation disabled."""
+
     # Gradio 6 moved the CSS argument from Blocks to launch().
-    build_app().launch(css=CSS, footer_links=[])
+    build_app().launch(
+        css=CSS,
+        footer_links=[],
+        head=NOTRANSLATE_HEAD,
+    )
+
+
+if __name__ == "__main__":
+    _launch()

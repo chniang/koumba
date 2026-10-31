@@ -45,6 +45,10 @@ def test_create_asgi_app_mounts_gradio_at_root(monkeypatch) -> None:
     assert mounted["path"] == "/"
     assert mounted["kwargs"]["css"] is web_module.CSS
     assert mounted["kwargs"]["footer_links"] == []
+    assert mounted["kwargs"]["head"] is web_module.NOTRANSLATE_HEAD
+    assert '<meta name="google" content="notranslate">' in (
+        web_module.NOTRANSLATE_HEAD
+    )
 
 
 def test_web_function_uses_one_small_cpu_container() -> None:
